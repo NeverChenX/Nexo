@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { Preview } from '@/components/Preview';
+import { Card } from '@/components/ui/card';
 import { useParams } from 'next/navigation';
+import { AlertCircle } from 'lucide-react';
 
 interface ShareData {
   type: 'article' | 'folder';
@@ -24,7 +26,6 @@ export default function SharePage() {
       try {
         const res = await fetch(`/api/share/${token}`);
         const json = await res.json();
-
         if (json.ok) {
           setShareData(json.data);
         } else {
@@ -42,51 +43,52 @@ export default function SharePage() {
   }, [token]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div>加载中...</div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-gray-600">加载中...</div></div>;
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-red-500">{error}</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="p-6 max-w-md">
+          <div className="flex gap-3 text-red-600">
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        </Card>
       </div>
     );
   }
 
   if (!shareData) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div>没有内容</div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-400">没有内容</p></div>;
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <div className="preview-area prose prose-sm max-w-4xl mx-auto py-8">
+    <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
         {shareData.type === 'article' ? (
-          <Preview content={shareData.content || ''} />
+          <Card className="p-8">
+            <Preview content={shareData.content || ''} />
+          </Card>
         ) : (
-          <div>
-            <h1 className="text-3xl font-bold mb-4">{shareData.path}</h1>
-            <div className="border rounded p-4">
-              {shareData.contents && shareData.contents.length > 0 ? (
-                <ul className="list-disc list-inside">
+          <Card className="p-8">
+            <h1 className="text-3xl font-bold mb-6">{shareData.path}</h1>
+            {shareData.contents && shareData.contents.length > 0 ? (
+              <div className="space-y-2">
+                <h2 className="text-lg font-semibold mb-4">文件列表</h2>
+                <ul className="space-y-2">
                   {shareData.contents.map((item: any) => (
-                    <li key={item.path} className="mb-2">
-                      {item.isFolder ? '📁' : '📄'} {item.name}
+                    <li key={item.path} className="flex items-center gap-2">
+                      <span>{item.isFolder ? '📁' : '📄'}</span>
+                      <span className="text-gray-700">{item.name}</span>
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p>该文件夹为空</p>
-              )}
-            </div>
-          </div>
+              </div>
+            ) : (
+              <p className="text-gray-400">该文件夹为空</p>
+            )}
+          </Card>
         )}
       </div>
     </div>

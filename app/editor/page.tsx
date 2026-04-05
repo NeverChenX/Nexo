@@ -5,6 +5,10 @@ import { TreeMenu } from '@/components/TreeMenu';
 import { Editor } from '@/components/Editor';
 import { Preview } from '@/components/Preview';
 import { ShareModal } from '@/components/ShareModal';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { Edit, Eye, Trash2, Share2, Save } from 'lucide-react';
 
 interface ArticleData {
   path: string;
@@ -20,7 +24,6 @@ export default function EditorPage() {
   const [saved, setSaved] = useState(true);
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
-  // 加载文章内容
   const loadArticle = async (path: string) => {
     setLoading(true);
     try {
@@ -38,7 +41,6 @@ export default function EditorPage() {
     }
   };
 
-  // 处理菜单项选择
   const handleSelectItem = (path: string, isFolder: boolean) => {
     if (!isFolder) {
       setCurrentPath(path);
@@ -47,20 +49,14 @@ export default function EditorPage() {
     }
   };
 
-  // 保存文章
   const handleSave = async () => {
     if (!currentPath) return;
-
     try {
       const res = await fetch('/api/articles', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: currentPath,
-          content,
-        }),
+        body: JSON.stringify({ path: currentPath, content }),
       });
-
       const json = await res.json();
       if (json.ok) {
         setSaved(true);
@@ -72,16 +68,10 @@ export default function EditorPage() {
     }
   };
 
-  // 删除文章
   const handleDelete = async () => {
     if (!currentPath || !confirm('确定要删除吗？')) return;
-
     try {
-      const res = await fetch(
-        `/api/articles/${encodeURIComponent(currentPath)}`,
-        { method: 'DELETE' }
-      );
-
+      const res = await fetch(`/api/articles/${encodeURIComponent(currentPath)}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.ok) {
         setCurrentPath('');
@@ -96,22 +86,16 @@ export default function EditorPage() {
     }
   };
 
-  // 创建文章
   const handleCreateArticle = async (folderPath: string) => {
     const name = prompt('输入新文章名称:');
     if (name) {
       const articlePath = folderPath ? `${folderPath}/${name}` : name;
-
       try {
         const res = await fetch('/api/articles', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            path: articlePath,
-            content: '# ' + name,
-          }),
+          body: JSON.stringify({ path: articlePath, content: '# ' + name }),
         });
-
         const json = await res.json();
         if (json.ok) {
           setCurrentPath(articlePath);
@@ -126,19 +110,16 @@ export default function EditorPage() {
     }
   };
 
-  // 创建文件夹
   const handleCreateFolder = async (parentPath: string) => {
     const name = prompt('输入新文件夹名称:');
     if (name) {
       const folderPath = parentPath ? `${parentPath}/${name}` : name;
-
       try {
         const res = await fetch('/api/folders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: folderPath }),
         });
-
         const json = await res.json();
         if (json.ok) {
           alert('创建成功');
@@ -151,64 +132,66 @@ export default function EditorPage() {
   };
 
   return (
-    <div className="editor-container">
-      <TreeMenu
-        onSelectItem={handleSelectItem}
-        onCreateArticle={handleCreateArticle}
-        onCreateFolder={handleCreateFolder}
-        selectedPath={currentPath}
-      />
+    <SidebarProvider>
+      <div className="flex h-screen w-full bg-gray-50">
+        <TreeMenu
+          onSelectItem={handleSelectItem}
+          onCreateArticle={handleCreateArticle}
+          onCreateFolder={handleCreateFolder}
+          selectedPath={currentPath}
+        />
 
-      <div className="content-container">
-        <div className="toolbar">
-          <span className="text-sm">{currentPath || '未选择文章'}</span>
-          {!saved && <span className="text-red-500 text-sm">*未保存</span>}
-
-          <div className="ml-auto flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={!currentPath || saved}
-              className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 disabled:bg-gray-400"
-            >
-              保存
-            </button>
-            <button
-              onClick={() => setShareModalOpen(true)}
-              disabled={!currentPath}
-              className="bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400"
-            >
-              分享
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={!currentPath}
-              className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 disabled:bg-gray-400"
-            >
-              删除
-            </button>
+        <div className="flex-1 flex flex-col">
+          <div className="h-14 bg-white border-b border-gray-200 flex items-center px-6 gap-4">
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">{currentPath || '未选择文章'}</p>
+            </div>
+            {!saved && <span className="text-xs text-red-500 font-medium">未保存</span>}
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={!currentPath || saved} size="sm" className="gap-2">
+                <Save className="h-4 w-4" /> 保存
+              </Button>
+              <Button onClick={() => setShareModalOpen(true)} disabled={!currentPath} variant="outline" size="sm" className="gap-2">
+                <Share2 className="h-4 w-4" /> 分享
+              </Button>
+              <Button onClick={handleDelete} disabled={!currentPath} variant="destructive" size="sm" className="gap-2">
+                <Trash2 className="h-4 w-4" /> 删除
+              </Button>
+            </div>
           </div>
-        </div>
 
-        <div className="editor-main">
-          <Editor
-            content={content}
-            onChange={(newContent) => {
-              setContent(newContent);
-              setSaved(false);
-            }}
-          />
-          <Preview content={content} />
+          {currentPath ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <Tabs defaultValue="edit" className="flex flex-col h-full">
+                <TabsList className="w-full rounded-none border-b bg-white">
+                  <TabsTrigger value="edit" className="gap-2">
+                    <Edit className="h-4 w-4" /> 编辑
+                  </TabsTrigger>
+                  <TabsTrigger value="preview" className="gap-2">
+                    <Eye className="h-4 w-4" /> 预览
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="edit" className="flex-1 overflow-hidden">
+                  <Editor content={content} onChange={(newContent) => { setContent(newContent); setSaved(false); }} />
+                </TabsContent>
+
+                <TabsContent value="preview" className="flex-1 overflow-hidden">
+                  <Preview content={content} />
+                </TabsContent>
+              </Tabs>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-gray-400">选择或创建一篇文章开始编辑</p>
+            </div>
+          )}
         </div>
       </div>
 
       {currentPath && (
-        <ShareModal
-          path={currentPath}
-          type={currentType}
-          isOpen={shareModalOpen}
-          onClose={() => setShareModalOpen(false)}
-        />
+        <ShareModal path={currentPath} type={currentType} isOpen={shareModalOpen} onClose={() => setShareModalOpen(false)} />
       )}
-    </div>
+    </SidebarProvider>
   );
 }

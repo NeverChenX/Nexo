@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Card } from '@/components/ui/card';
 import 'easymde/dist/easymde.min.css';
 
 interface EditorProps {
@@ -21,10 +22,8 @@ export function Editor({ content, onChange, readOnly = false }: EditorProps) {
   useEffect(() => {
     if (!mounted || !textareaRef.current || easyMDERef.current) return;
 
-    // 动态导入 EasyMDE
     import('easymde').then((module) => {
       const EasyMDE = module.default;
-
       try {
         easyMDERef.current = new EasyMDE({
           element: textareaRef.current!,
@@ -44,7 +43,6 @@ export function Editor({ content, onChange, readOnly = false }: EditorProps) {
     });
 
     return () => {
-      // 清理编辑器
       if (easyMDERef.current && easyMDERef.current.codemirror) {
         easyMDERef.current.codemirror.toTextArea();
         easyMDERef.current = null;
@@ -52,7 +50,6 @@ export function Editor({ content, onChange, readOnly = false }: EditorProps) {
     };
   }, [mounted]);
 
-  // 更新内容
   useEffect(() => {
     if (easyMDERef.current && content) {
       easyMDERef.current.value(content);
@@ -60,8 +57,10 @@ export function Editor({ content, onChange, readOnly = false }: EditorProps) {
   }, [content]);
 
   return (
-    <div className="editor-area">
-      <textarea ref={textareaRef} defaultValue={content} />
-    </div>
+    <Card className="h-full flex flex-col border-0 rounded-none">
+      <div className="flex-1 overflow-auto">
+        <textarea ref={textareaRef} defaultValue={content} />
+      </div>
+    </Card>
   );
 }
