@@ -27,7 +27,7 @@ export function Editor({ content, onChange, readOnly = false }: EditorProps) {
         easyMDERef.current = new EasyMDE({
           element: textareaRef.current!,
           spellChecker: false,
-          autoDownloadFontAwesome: false,
+          autoDownloadFontAwesome: true,
           toolbar: readOnly ? false : undefined,
           status: !readOnly,
           initialValue: content,
