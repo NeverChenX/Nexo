@@ -56,12 +56,21 @@ export function TreeMenu({
     setExpanded(newExpanded);
   };
 
+  const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null);
+
+  // 点击空白处关闭右键菜单
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, []);
+
   const renderTree = (items: TreeItem[], depth: number = 0) => (
     <ul className="space-y-0.5">
       {items.map((item) => (
         <li key={item.path}>
           <div
-            className="flex items-center"
+            className="group flex items-center"
             style={{ paddingLeft: `${depth * 16}px` }}
           >
             {item.isFolder ? (
@@ -88,6 +97,17 @@ export function TreeMenu({
                   <FolderOpen className="h-4 w-4 text-amber-500 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
                 </button>
+                {/* hover 时显示 + 按钮 */}
+                <button
+                  className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = (e.target as HTMLElement).getBoundingClientRect();
+                    setContextMenu({ path: item.path, x: rect.right, y: rect.bottom });
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5 text-gray-400" />
+                </button>
               </>
             ) : (
               <>
@@ -105,28 +125,8 @@ export function TreeMenu({
             )}
           </div>
 
-          {item.isFolder && expanded.has(item.path) && (
-            <>
-              {item.children && item.children.length > 0 && renderTree(item.children, depth + 1)}
-              <div
-                className="flex gap-1 py-1"
-                style={{ paddingLeft: `${(depth + 1) * 16 + 6}px` }}
-              >
-                <button
-                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                  onClick={() => onCreateArticle(item.path)}
-                >
-                  + 文章
-                </button>
-                <span className="text-xs text-gray-300">|</span>
-                <button
-                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                  onClick={() => onCreateFolder(item.path)}
-                >
-                  + 文件夹
-                </button>
-              </div>
-            </>
+          {item.isFolder && expanded.has(item.path) && item.children && item.children.length > 0 && (
+            renderTree(item.children, depth + 1)
           )}
         </li>
       ))}
@@ -176,6 +176,36 @@ export function TreeMenu({
           renderTree(tree)
         )}
       </div>
+
+      {/* 弹出菜单 */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[140px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+            onClick={() => {
+              onCreateArticle(contextMenu.path);
+              setContextMenu(null);
+            }}
+          >
+            <FileText className="h-3.5 w-3.5 text-gray-400" />
+            新建文章
+          </button>
+          <button
+            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+            onClick={() => {
+              onCreateFolder(contextMenu.path);
+              setContextMenu(null);
+            }}
+          >
+            <FolderOpen className="h-3.5 w-3.5 text-amber-500" />
+            新建文件夹
+          </button>
+        </div>
+      )}
     </div>
   );
 }
