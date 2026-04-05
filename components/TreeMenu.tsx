@@ -2,16 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarMenuSub,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
 import { ChevronRight, ChevronDown, FolderOpen, FileText, Plus } from 'lucide-react';
 
 interface TreeItem {
@@ -66,100 +56,97 @@ export function TreeMenu({
     setExpanded(newExpanded);
   };
 
-  const renderTree = (items: TreeItem[]) => (
-    <SidebarMenu>
+  const renderTree = (items: TreeItem[], depth: number = 0) => (
+    <ul className="space-y-0.5">
       {items.map((item) => (
-        <SidebarMenuItem key={item.path}>
-          <div className="flex items-center gap-0">
+        <li key={item.path}>
+          <div
+            className="flex items-center"
+            style={{ paddingLeft: `${depth * 16}px` }}
+          >
             {item.isFolder ? (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
+                <button
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200"
                   onClick={() => toggleFolder(item.path)}
                 >
                   {expanded.has(item.path) ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-500" />
                   )}
-                </Button>
-                <SidebarMenuButton
-                  onClick={() => onSelectItem(item.path, true)}
-                  isActive={selectedPath === item.path}
-                  className="flex-1"
+                </button>
+                <button
+                  className={`flex-1 flex items-center gap-2 rounded px-2 py-1.5 text-sm text-left hover:bg-slate-100 ${
+                    selectedPath === item.path ? 'bg-slate-100 font-medium' : ''
+                  }`}
+                  onClick={() => {
+                    toggleFolder(item.path);
+                    onSelectItem(item.path, true);
+                  }}
                 >
-                  <FolderOpen className="h-4 w-4" />
-                  <span>{item.name}</span>
-                </SidebarMenuButton>
+                  <FolderOpen className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  <span className="truncate">{item.name}</span>
+                </button>
               </>
             ) : (
               <>
-                <div className="w-8" />
-                <SidebarMenuButton
+                <div className="w-6" />
+                <button
+                  className={`flex-1 flex items-center gap-2 rounded px-2 py-1.5 text-sm text-left hover:bg-slate-100 ${
+                    selectedPath === item.path ? 'bg-blue-50 text-blue-700 font-medium' : ''
+                  }`}
                   onClick={() => onSelectItem(item.path, false)}
-                  isActive={selectedPath === item.path}
-                  className="flex-1"
                 >
-                  <FileText className="h-4 w-4" />
-                  <span>{item.name}</span>
-                </SidebarMenuButton>
+                  <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <span className="truncate">{item.name}</span>
+                </button>
               </>
             )}
           </div>
 
-          {item.isFolder && expanded.has(item.path) && item.children && (
+          {item.isFolder && expanded.has(item.path) && (
             <>
-              {item.children.length > 0 && (
-                <SidebarMenuSub>
-                  {renderTree(item.children)}
-                </SidebarMenuSub>
-              )}
-              <div className="flex gap-1 px-4 py-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
+              {item.children && item.children.length > 0 && renderTree(item.children, depth + 1)}
+              <div
+                className="flex gap-1 py-1"
+                style={{ paddingLeft: `${(depth + 1) * 16 + 6}px` }}
+              >
+                <button
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
                   onClick={() => onCreateArticle(item.path)}
                 >
-                  <Plus className="h-3 w-3" />
-                  <span>文章</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
+                  + 文章
+                </button>
+                <span className="text-xs text-gray-300">|</span>
+                <button
+                  className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
                   onClick={() => onCreateFolder(item.path)}
                 >
-                  <Plus className="h-3 w-3" />
-                  <span>文件夹</span>
-                </Button>
+                  + 文件夹
+                </button>
               </div>
             </>
           )}
-        </SidebarMenuItem>
+        </li>
       ))}
-    </SidebarMenu>
+    </ul>
   );
 
   if (loading) {
     return (
-      <Sidebar>
-        <SidebarContent>
-          <div className="p-4">加载中...</div>
-        </SidebarContent>
-      </Sidebar>
+      <div className="w-64 border-r border-slate-200 bg-white flex-shrink-0 p-4">
+        <p className="text-sm text-gray-400">加载中...</p>
+      </div>
     );
   }
 
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b">
-        <div className="flex items-center justify-between px-4 py-2">
-          <h2 className="text-lg font-bold">Never Wiki</h2>
-        </div>
-        <div className="flex gap-2 px-4 pb-3">
+    <div className="w-64 border-r border-slate-200 bg-white flex-shrink-0 flex flex-col overflow-hidden">
+      {/* 标题 + 新建按钮 */}
+      <div className="p-4 border-b border-slate-200">
+        <h2 className="text-lg font-bold mb-3">Never Wiki</h2>
+        <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -179,16 +166,16 @@ export function TreeMenu({
             新文件夹
           </Button>
         </div>
-      </SidebarHeader>
-      <SidebarContent>
+      </div>
+
+      {/* 文件树 */}
+      <div className="flex-1 overflow-y-auto p-2">
         {tree.length === 0 ? (
-          <div className="p-4 text-sm text-gray-400">
-            还没有内容，点击上方按钮新建
-          </div>
+          <p className="p-2 text-sm text-gray-400">还没有内容，点击上方按钮新建</p>
         ) : (
           renderTree(tree)
         )}
-      </SidebarContent>
-    </Sidebar>
+      </div>
+    </div>
   );
 }

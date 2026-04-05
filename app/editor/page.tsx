@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TreeMenu } from '@/components/TreeMenu';
 import { Editor } from '@/components/Editor';
 import { Preview } from '@/components/Preview';
 import { ShareModal } from '@/components/ShareModal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SidebarProvider } from '@/components/ui/sidebar';
 import { Edit, Eye, Trash2, Share2, Save } from 'lucide-react';
 
 interface ArticleData {
@@ -140,69 +139,68 @@ export default function EditorPage() {
   };
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen w-full bg-gray-50">
-        <TreeMenu
-          key={refreshKey}
-          onSelectItem={handleSelectItem}
-          onCreateArticle={handleCreateArticle}
-          onCreateFolder={handleCreateFolder}
-          selectedPath={currentPath}
-        />
+    <div className="flex h-screen w-full bg-gray-50">
+      {/* 左侧菜单 */}
+      <TreeMenu
+        key={refreshKey}
+        onSelectItem={handleSelectItem}
+        onCreateArticle={handleCreateArticle}
+        onCreateFolder={handleCreateFolder}
+        selectedPath={currentPath}
+      />
 
-        <div className="flex-1 flex flex-col">
-          {/* 顶部工具栏 */}
-          <div className="h-16 bg-white border-b border-gray-200 flex items-center px-6 gap-4 flex-shrink-0">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-600 truncate">{currentPath || '未选择文章'}</p>
-            </div>
-            {!saved && <span className="text-xs text-red-500 font-medium whitespace-nowrap">●未保存</span>}
-            <div className="flex gap-2 flex-shrink-0">
-              <Button onClick={handleSave} disabled={!currentPath || saved} size="sm">
-                <Save className="h-4 w-4 mr-1" /> 保存
-              </Button>
-              <Button onClick={() => setShareModalOpen(true)} disabled={!currentPath} variant="outline" size="sm">
-                <Share2 className="h-4 w-4 mr-1" /> 分享
-              </Button>
-              <Button onClick={handleDelete} disabled={!currentPath} variant="destructive" size="sm">
-                <Trash2 className="h-4 w-4 mr-1" /> 删除
-              </Button>
-            </div>
+      {/* 右侧内容区 */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* 顶部工具栏 */}
+        <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-gray-500 truncate">{currentPath || '未选择文章'}</p>
           </div>
-
-          {/* 内容区 */}
-          {currentPath ? (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Tabs defaultValue="edit" className="flex flex-col h-full">
-                <TabsList className="w-full rounded-none border-b bg-white px-6">
-                  <TabsTrigger value="edit" className="gap-2">
-                    <Edit className="h-4 w-4" /> 编辑
-                  </TabsTrigger>
-                  <TabsTrigger value="preview" className="gap-2">
-                    <Eye className="h-4 w-4" /> 预览
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="edit" className="flex-1 overflow-hidden m-0">
-                  <Editor content={content} onChange={(newContent) => { setContent(newContent); setSaved(false); }} />
-                </TabsContent>
-
-                <TabsContent value="preview" className="flex-1 overflow-hidden m-0">
-                  {content ? <Preview content={content} /> : <div className="p-6 text-gray-400">无内容预览</div>}
-                </TabsContent>
-              </Tabs>
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-gray-400">选择或创建一篇文章开始编辑</p>
-            </div>
-          )}
+          {!saved && <span className="text-xs text-red-500 font-medium whitespace-nowrap">● 未保存</span>}
+          <div className="flex gap-2 flex-shrink-0">
+            <Button onClick={handleSave} disabled={!currentPath || saved} size="sm">
+              <Save className="h-4 w-4 mr-1" /> 保存
+            </Button>
+            <Button onClick={() => setShareModalOpen(true)} disabled={!currentPath} variant="outline" size="sm">
+              <Share2 className="h-4 w-4 mr-1" /> 分享
+            </Button>
+            <Button onClick={handleDelete} disabled={!currentPath} variant="destructive" size="sm">
+              <Trash2 className="h-4 w-4 mr-1" /> 删除
+            </Button>
+          </div>
         </div>
+
+        {/* 编辑/预览区 */}
+        {currentPath ? (
+          <Tabs defaultValue="edit" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="rounded-none border-b bg-white px-4 flex-shrink-0">
+              <TabsTrigger value="edit" className="gap-2">
+                <Edit className="h-4 w-4" /> 编辑
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="gap-2">
+                <Eye className="h-4 w-4" /> 预览
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="edit" className="flex-1 overflow-hidden m-0 p-0">
+              <Editor content={content} onChange={(newContent) => { setContent(newContent); setSaved(false); }} />
+            </TabsContent>
+
+            <TabsContent value="preview" className="flex-1 overflow-auto m-0 p-0">
+              {content ? <Preview content={content} /> : <div className="p-6 text-gray-400">无内容预览</div>}
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-gray-400">选择或创建一篇文章开始编辑</p>
+          </div>
+        )}
       </div>
 
+      {/* 分享对话框 */}
       {currentPath && (
         <ShareModal path={currentPath} type={currentType} isOpen={shareModalOpen} onClose={() => setShareModalOpen(false)} />
       )}
-    </SidebarProvider>
+    </div>
   );
 }
