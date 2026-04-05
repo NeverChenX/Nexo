@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, ChevronDown, FolderOpen, FileText, Plus, Pencil } from 'lucide-react';
+import { ChevronRight, ChevronDown, FolderOpen, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface TreeItem {
   name: string;
@@ -94,6 +94,25 @@ export function TreeMenu({
       fetchTree();
     } catch (error) {
       alert('重命名失败: ' + error);
+    }
+  };
+
+  const handleDelete = async (itemPath: string, isFolder: boolean) => {
+    const typeName = isFolder ? '文件夹' : '文章';
+    if (!confirm(`确定要删除${typeName} "${itemPath.split('/').pop()}" 吗？${isFolder ? '\n（包含的所有内容也会被删除）' : ''}`)) return;
+
+    try {
+      const encoded = encodeURIComponent(itemPath);
+      const url = isFolder ? `/api/folders/${encoded}` : `/api/articles/${encoded}`;
+      const res = await fetch(url, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.ok) {
+        alert('删除失败: ' + json.error);
+        return;
+      }
+      fetchTree();
+    } catch (error) {
+      alert('删除失败: ' + error);
     }
   };
 
@@ -251,6 +270,13 @@ export function TreeMenu({
           >
             <Pencil className="h-3.5 w-3.5 text-gray-400" />
             重命名
+          </button>
+          <button
+            className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+            onClick={() => { handleDelete(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            删除
           </button>
         </div>
       )}
