@@ -1,0 +1,8 @@
+node_modules/
+.next/
+dist/
+wiki-data/
+share-links.json
+.env.local
+.env.*.local
+.vercel
