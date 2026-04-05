@@ -1,0 +1,86 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getShareLink } from '@/lib/share';
+import { readArticle, getFolderContents, getRecursiveTree } from '@/lib/storage';
+
+// GET: 通过 token 获取分享的内容
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { token: string } }
+) {
+  try {
+    const token = params.token;
+
+    // 获取分享链接信息
+    const shareLink = await getShareLink(token);
+
+    if (!shareLink) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: '分享链接不存在或已过期',
+        },
+        { status: 404 }
+      );
+    }
+
+    if (shareLink.type === 'article') {
+      // 返回文章内容
+      const content = await readArticle(shareLink.path);
+      return NextResponse.json({
+        ok: true,
+        data: {
+          type: 'article',
+          path: shareLink.path,
+          content,
+        },
+      });
+    } else if (shareLink.type === 'folder') {
+      // 返回文件夹树结构
+      const tree = await getRecursiveTree();
+
+      // 提取指定文件夹的子树
+      function findSubtree(
+        items: any[],
+        targetPath: string
+      ): any[] | null {
+        for (const item of items) {
+          if (item.path === targetPath) {
+            return item.children || [];
+          }
+          if (item.children && item.isFolder) {
+            const result = findSubtree(item.children, targetPath);
+            if (result) return result;
+          }
+        }
+        return null;
+      }
+
+      const subtree = findSubtree(tree, shareLink.path);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          type: 'folder',
+          path: shareLink.path,
+          contents: subtree || [],
+        },
+      });
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: '未知的分享类型',
+      },
+      { status: 500 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: '获取分享内容失败',
+      },
+      { status: 500 }
+    );
+  }
+}
