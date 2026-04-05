@@ -23,6 +23,7 @@ export default function EditorPage() {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(true);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadArticle = async (path: string) => {
     setLoading(true);
@@ -64,7 +65,7 @@ export default function EditorPage() {
       }
     } catch (error) {
       console.error('Failed to save:', error);
-      alert('保存失败');
+      alert('保存失败: ' + error);
     }
   };
 
@@ -78,11 +79,11 @@ export default function EditorPage() {
         setContent('');
         setArticleData(null);
         alert('删除成功');
-        location.reload();
+        setRefreshKey(prev => prev + 1);
       }
     } catch (error) {
       console.error('Failed to delete:', error);
-      alert('删除失败');
+      alert('删除失败: ' + error);
     }
   };
 
@@ -102,10 +103,14 @@ export default function EditorPage() {
           setCurrentType('article');
           setContent('# ' + name);
           setSaved(true);
-          location.reload();
+          setRefreshKey(prev => prev + 1);
+          alert('创建成功');
+        } else {
+          alert('创建失败: ' + json.error);
         }
       } catch (error) {
         console.error('Failed to create article:', error);
+        alert('创建失败: ' + error);
       }
     }
   };
@@ -122,11 +127,14 @@ export default function EditorPage() {
         });
         const json = await res.json();
         if (json.ok) {
+          setRefreshKey(prev => prev + 1);
           alert('创建成功');
-          location.reload();
+        } else {
+          alert('创建失败: ' + json.error);
         }
       } catch (error) {
         console.error('Failed to create folder:', error);
+        alert('创建失败: ' + error);
       }
     }
   };
@@ -135,6 +143,7 @@ export default function EditorPage() {
     <SidebarProvider>
       <div className="flex h-screen w-full bg-gray-50">
         <TreeMenu
+          key={refreshKey}
           onSelectItem={handleSelectItem}
           onCreateArticle={handleCreateArticle}
           onCreateFolder={handleCreateFolder}
@@ -142,28 +151,30 @@ export default function EditorPage() {
         />
 
         <div className="flex-1 flex flex-col">
-          <div className="h-14 bg-white border-b border-gray-200 flex items-center px-6 gap-4">
-            <div className="flex-1">
-              <p className="text-sm text-gray-600">{currentPath || '未选择文章'}</p>
+          {/* 顶部工具栏 */}
+          <div className="h-16 bg-white border-b border-gray-200 flex items-center px-6 gap-4 flex-shrink-0">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-600 truncate">{currentPath || '未选择文章'}</p>
             </div>
-            {!saved && <span className="text-xs text-red-500 font-medium">未保存</span>}
-            <div className="flex gap-2">
-              <Button onClick={handleSave} disabled={!currentPath || saved} size="sm" className="gap-2">
-                <Save className="h-4 w-4" /> 保存
+            {!saved && <span className="text-xs text-red-500 font-medium whitespace-nowrap">●未保存</span>}
+            <div className="flex gap-2 flex-shrink-0">
+              <Button onClick={handleSave} disabled={!currentPath || saved} size="sm">
+                <Save className="h-4 w-4 mr-1" /> 保存
               </Button>
-              <Button onClick={() => setShareModalOpen(true)} disabled={!currentPath} variant="outline" size="sm" className="gap-2">
-                <Share2 className="h-4 w-4" /> 分享
+              <Button onClick={() => setShareModalOpen(true)} disabled={!currentPath} variant="outline" size="sm">
+                <Share2 className="h-4 w-4 mr-1" /> 分享
               </Button>
-              <Button onClick={handleDelete} disabled={!currentPath} variant="destructive" size="sm" className="gap-2">
-                <Trash2 className="h-4 w-4" /> 删除
+              <Button onClick={handleDelete} disabled={!currentPath} variant="destructive" size="sm">
+                <Trash2 className="h-4 w-4 mr-1" /> 删除
               </Button>
             </div>
           </div>
 
+          {/* 内容区 */}
           {currentPath ? (
             <div className="flex-1 flex flex-col overflow-hidden">
               <Tabs defaultValue="edit" className="flex flex-col h-full">
-                <TabsList className="w-full rounded-none border-b bg-white">
+                <TabsList className="w-full rounded-none border-b bg-white px-6">
                   <TabsTrigger value="edit" className="gap-2">
                     <Edit className="h-4 w-4" /> 编辑
                   </TabsTrigger>
@@ -172,12 +183,12 @@ export default function EditorPage() {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="edit" className="flex-1 overflow-hidden">
+                <TabsContent value="edit" className="flex-1 overflow-hidden m-0">
                   <Editor content={content} onChange={(newContent) => { setContent(newContent); setSaved(false); }} />
                 </TabsContent>
 
-                <TabsContent value="preview" className="flex-1 overflow-hidden">
-                  <Preview content={content} />
+                <TabsContent value="preview" className="flex-1 overflow-hidden m-0">
+                  {content ? <Preview content={content} /> : <div className="p-6 text-gray-400">无内容预览</div>}
                 </TabsContent>
               </Tabs>
             </div>
