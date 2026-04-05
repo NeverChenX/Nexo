@@ -180,6 +180,22 @@ export async function isArticle(itemPath: string): Promise<boolean> {
   }
 }
 
+// 重命名文件夹
+export async function renameFolder(oldPath: string, newPath: string): Promise<void> {
+  const oldDir = path.join(WIKI_DATA_DIR, oldPath);
+  const newDir = path.join(WIKI_DATA_DIR, newPath);
+  await ensureDir(path.dirname(newDir));
+  await fs.rename(oldDir, newDir);
+}
+
+// 重命名文章
+export async function renameArticle(oldPath: string, newPath: string): Promise<void> {
+  const oldFile = path.join(WIKI_DATA_DIR, `${oldPath}.md`);
+  const newFile = path.join(WIKI_DATA_DIR, `${newPath}.md`);
+  await ensureDir(path.dirname(newFile));
+  await fs.rename(oldFile, newFile);
+}
+
 // 获取文件夹内容
 export async function getFolderContents(
   folderPath: string

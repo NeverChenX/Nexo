@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, ChevronDown, FolderOpen, FileText, Plus } from 'lucide-react';
+import { ChevronRight, ChevronDown, FolderOpen, FileText, Plus, Pencil } from 'lucide-react';
 
 interface TreeItem {
   name: string;
@@ -56,7 +56,7 @@ export function TreeMenu({
     setExpanded(newExpanded);
   };
 
-  const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ path: string; isFolder: boolean; x: number; y: number } | null>(null);
 
   // 点击空白处关闭右键菜单
   useEffect(() => {
@@ -64,6 +64,38 @@ export function TreeMenu({
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, []);
+
+  const handleRename = async (oldPath: string, isFolder: boolean) => {
+    const oldName = oldPath.split('/').pop() || oldPath;
+    const newName = prompt('输入新名称:', oldName);
+    if (!newName || newName === oldName) return;
+
+    const parentPath = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+    const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+
+    try {
+      if (isFolder) {
+        const res = await fetch('/api/folders', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPath, newPath }),
+        });
+        const json = await res.json();
+        if (!json.ok) { alert('重命名失败: ' + json.error); return; }
+      } else {
+        const res = await fetch('/api/articles', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldPath, newPath }),
+        });
+        const json = await res.json();
+        if (!json.ok) { alert('重命名失败: ' + json.error); return; }
+      }
+      fetchTree();
+    } catch (error) {
+      alert('重命名失败: ' + error);
+    }
+  };
 
   const renderTree = (items: TreeItem[], depth: number = 0) => (
     <ul className="space-y-0.5">
@@ -103,7 +135,7 @@ export function TreeMenu({
                   onClick={(e) => {
                     e.stopPropagation();
                     const rect = (e.target as HTMLElement).getBoundingClientRect();
-                    setContextMenu({ path: item.path, x: rect.right, y: rect.bottom });
+                    setContextMenu({ path: item.path, isFolder: true, x: rect.right, y: rect.bottom });
                   }}
                 >
                   <Plus className="h-3.5 w-3.5 text-gray-400" />
@@ -120,6 +152,16 @@ export function TreeMenu({
                 >
                   <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
+                </button>
+                <button
+                  className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = (e.target as HTMLElement).getBoundingClientRect();
+                    setContextMenu({ path: item.path, isFolder: false, x: rect.right, y: rect.bottom });
+                  }}
+                >
+                  <Pencil className="h-3 w-3 text-gray-400" />
                 </button>
               </>
             )}
@@ -184,25 +226,31 @@ export function TreeMenu({
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
+          {contextMenu.isFolder && (
+            <>
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+                onClick={() => { onCreateArticle(contextMenu.path); setContextMenu(null); }}
+              >
+                <FileText className="h-3.5 w-3.5 text-gray-400" />
+                新建文章
+              </button>
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+                onClick={() => { onCreateFolder(contextMenu.path); setContextMenu(null); }}
+              >
+                <FolderOpen className="h-3.5 w-3.5 text-amber-500" />
+                新建文件夹
+              </button>
+              <div className="border-t border-slate-100 my-1" />
+            </>
+          )}
           <button
             className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
-            onClick={() => {
-              onCreateArticle(contextMenu.path);
-              setContextMenu(null);
-            }}
+            onClick={() => { handleRename(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
           >
-            <FileText className="h-3.5 w-3.5 text-gray-400" />
-            新建文章
-          </button>
-          <button
-            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
-            onClick={() => {
-              onCreateFolder(contextMenu.path);
-              setContextMenu(null);
-            }}
-          >
-            <FolderOpen className="h-3.5 w-3.5 text-amber-500" />
-            新建文件夹
+            <Pencil className="h-3.5 w-3.5 text-gray-400" />
+            重命名
           </button>
         </div>
       )}

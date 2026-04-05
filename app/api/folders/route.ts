@@ -5,6 +5,7 @@ import {
   getRecursiveTree,
   exists,
   isFolder,
+  renameFolder,
 } from '@/lib/storage';
 
 // GET: 获取文件夹内容或完整树
@@ -78,6 +79,47 @@ export async function POST(request: NextRequest) {
         ok: false,
         error: '创建文件夹失败',
       },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT: 重命名文件夹
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { oldPath, newPath } = body;
+
+    if (!oldPath || !newPath) {
+      return NextResponse.json(
+        { ok: false, error: '缺少 oldPath 或 newPath 参数' },
+        { status: 400 }
+      );
+    }
+
+    if (!(await exists(oldPath)) || !(await isFolder(oldPath))) {
+      return NextResponse.json(
+        { ok: false, error: '原文件夹不存在' },
+        { status: 404 }
+      );
+    }
+
+    if (await exists(newPath)) {
+      return NextResponse.json(
+        { ok: false, error: '目标名称已存在' },
+        { status: 400 }
+      );
+    }
+
+    await renameFolder(oldPath, newPath);
+
+    return NextResponse.json({
+      ok: true,
+      data: { oldPath, newPath },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: '重命名文件夹失败' },
       { status: 500 }
     );
   }
