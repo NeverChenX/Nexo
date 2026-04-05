@@ -140,14 +140,21 @@ export async function deleteFolder(folderPath: string): Promise<void> {
   await fs.rm(dirPath, { recursive: true, force: true });
 }
 
-// 检查文件/文件夹是否存在
+// 检查文件/文件夹是否存在（同时检查原始路径和 .md 后缀）
 export async function exists(itemPath: string): Promise<boolean> {
   try {
     const filePath = path.join(WIKI_DATA_DIR, itemPath);
     await fs.stat(filePath);
     return true;
   } catch {
-    return false;
+    // 文章在文件系统上存为 .md，也检查一下
+    try {
+      const mdPath = path.join(WIKI_DATA_DIR, `${itemPath}.md`);
+      await fs.stat(mdPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

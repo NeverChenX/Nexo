@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Card } from '@/components/ui/card';
 import 'easymde/dist/easymde.min.css';
 
 interface EditorProps {
@@ -57,10 +56,8 @@ export function Editor({ content, onChange, readOnly = false }: EditorProps) {
   }, [content]);
 
   return (
-    <Card className="h-full flex flex-col border-0 rounded-none">
-      <div className="flex-1 overflow-auto">
-        <textarea ref={textareaRef} defaultValue={content} />
-      </div>
-    </Card>
+    <div className="h-full overflow-auto bg-white">
+      <textarea ref={textareaRef} defaultValue={content} />
+    </div>
   );
 }

@@ -58,6 +58,25 @@ body {
   background: #9ca3af;
 }
 
+/* Markdown 预览排版 */
+.prose-preview h1 { font-size: 2em; font-weight: 700; margin: 0.67em 0; }
+.prose-preview h2 { font-size: 1.5em; font-weight: 700; margin: 0.83em 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+.prose-preview h3 { font-size: 1.25em; font-weight: 700; margin: 1em 0; }
+.prose-preview p { margin: 0.8em 0; line-height: 1.7; }
+.prose-preview ul { list-style: disc; margin: 0.8em 0; padding-left: 2em; }
+.prose-preview ol { list-style: decimal; margin: 0.8em 0; padding-left: 2em; }
+.prose-preview li { margin: 0.3em 0; }
+.prose-preview code { background: #f1f5f9; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }
+.prose-preview pre { background: #1e293b; color: #e2e8f0; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
+.prose-preview pre code { background: none; padding: 0; color: inherit; }
+.prose-preview blockquote { border-left: 4px solid #d1d5db; padding-left: 1em; margin: 1em 0; color: #6b7280; font-style: italic; }
+.prose-preview a { color: #2563eb; text-decoration: underline; }
+.prose-preview hr { border: 0; border-top: 1px solid #e5e7eb; margin: 2em 0; }
+.prose-preview img { max-width: 100%; border-radius: 6px; }
+.prose-preview table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+.prose-preview th, .prose-preview td { border: 1px solid #e5e7eb; padding: 0.5em 0.75em; text-align: left; }
+.prose-preview th { background: #f8fafc; font-weight: 600; }
+
 @media (max-width: 768px) {
   body {
     font-size: 14px;

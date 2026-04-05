@@ -156,20 +156,34 @@ export function TreeMenu({
   return (
     <Sidebar>
       <SidebarHeader className="border-b">
-        <h2 className="text-lg font-bold px-4 py-2">Never Wiki</h2>
+        <div className="flex items-center justify-between px-4 py-2">
+          <h2 className="text-lg font-bold">Never Wiki</h2>
+        </div>
+        <div className="flex gap-2 px-4 pb-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs flex-1"
+            onClick={() => onCreateArticle('')}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            新文章
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs flex-1"
+            onClick={() => onCreateFolder('')}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            新文件夹
+          </Button>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         {tree.length === 0 ? (
-          <div className="p-4 text-sm text-gray-500">
-            <p className="mb-2">空白 wiki</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onCreateArticle('')}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              新建文章
-            </Button>
+          <div className="p-4 text-sm text-gray-400">
+            还没有内容，点击上方按钮新建
           </div>
         ) : (
           renderTree(tree)
