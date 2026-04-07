@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ChevronRight, ChevronDown, FolderOpen, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface TreeItem {
@@ -16,13 +17,29 @@ interface TreeMenuProps {
   onCreateArticle: (folderPath: string) => void;
   onCreateFolder: (folderPath: string) => void;
   selectedPath?: string;
+  className?: string;
 }
+
+const collectRootFolderPaths = (items: TreeItem[]): string[] =>
+  items.filter((item) => item.isFolder).map((item) => item.path);
+
+const collectAncestorFolderPaths = (itemPath?: string): string[] => {
+  if (!itemPath) return [];
+  const parts = itemPath.split('/').filter(Boolean);
+  if (parts.length <= 1) return [];
+  const ancestors: string[] = [];
+  for (let i = 1; i < parts.length; i++) {
+    ancestors.push(parts.slice(0, i).join('/'));
+  }
+  return ancestors;
+};
 
 export function TreeMenu({
   onSelectItem,
   onCreateArticle,
   onCreateFolder,
   selectedPath,
+  className,
 }: TreeMenuProps) {
   const [tree, setTree] = useState<TreeItem[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -32,12 +49,25 @@ export function TreeMenu({
     fetchTree();
   }, []);
 
+  useEffect(() => {
+    const ancestors = collectAncestorFolderPaths(selectedPath);
+    if (ancestors.length === 0) return;
+    setExpanded((prev) => new Set([...prev, ...ancestors]));
+  }, [selectedPath]);
+
   const fetchTree = async () => {
     try {
       const res = await fetch('/api/folders?tree=true');
       const json = await res.json();
       if (json.ok) {
-        setTree(json.data);
+        const nextTree: TreeItem[] = json.data;
+        setTree(nextTree);
+        setExpanded(
+          new Set([
+            ...collectRootFolderPaths(nextTree),
+            ...collectAncestorFolderPaths(selectedPath),
+          ])
+        );
       }
     } catch (error) {
       console.error('Failed to load tree:', error);
@@ -121,31 +151,31 @@ export function TreeMenu({
       {items.map((item) => (
         <li key={item.path}>
           <div
-            className="group flex items-center"
-            style={{ paddingLeft: `${depth * 16}px` }}
+            className="group flex items-center rounded-md"
+            style={{ paddingLeft: `${depth * 12 + 4}px` }}
           >
             {item.isFolder ? (
               <>
                 <button
-                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-200"
+                  className="w-5 h-6 flex items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600"
                   onClick={() => toggleFolder(item.path)}
                 >
                   {expanded.has(item.path) ? (
-                    <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                    <ChevronDown className="h-3.5 w-3.5" />
                   ) : (
-                    <ChevronRight className="h-3.5 w-3.5 text-gray-500" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   )}
                 </button>
                 <button
-                  className={`flex-1 flex items-center gap-2 rounded px-2 py-1.5 text-sm text-left hover:bg-slate-100 ${
-                    selectedPath === item.path ? 'bg-slate-100 font-medium' : ''
+                  className={`flex-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 ${
+                    selectedPath === item.path ? 'bg-slate-200/70 font-medium text-slate-900' : ''
                   }`}
                   onClick={() => {
                     toggleFolder(item.path);
                     onSelectItem(item.path, true);
                   }}
                 >
-                  <FolderOpen className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                  <FolderOpen className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
                 </button>
                 {/* hover 时显示 + 按钮 */}
@@ -162,14 +192,14 @@ export function TreeMenu({
               </>
             ) : (
               <>
-                <div className="w-6" />
+                <div className="w-5" />
                 <button
-                  className={`flex-1 flex items-center gap-2 rounded px-2 py-1.5 text-sm text-left hover:bg-slate-100 ${
-                    selectedPath === item.path ? 'bg-blue-50 text-blue-700 font-medium' : ''
+                  className={`flex-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 ${
+                    selectedPath === item.path ? 'bg-slate-200/70 text-slate-900 font-medium' : ''
                   }`}
                   onClick={() => onSelectItem(item.path, false)}
                 >
-                  <FileText className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
                 </button>
                 <button
@@ -187,7 +217,9 @@ export function TreeMenu({
           </div>
 
           {item.isFolder && expanded.has(item.path) && item.children && item.children.length > 0 && (
-            renderTree(item.children, depth + 1)
+            <div className="ml-4 border-l border-slate-200/80">
+              {renderTree(item.children, depth + 1)}
+            </div>
           )}
         </li>
       ))}
@@ -196,22 +228,22 @@ export function TreeMenu({
 
   if (loading) {
     return (
-      <div className="w-64 border-r border-slate-200 bg-white flex-shrink-0 p-4">
+      <div className={cn('h-full border-r border-slate-200 bg-white flex-shrink-0 p-4', className)}>
         <p className="text-sm text-gray-400">加载中...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-64 border-r border-slate-200 bg-white flex-shrink-0 flex flex-col overflow-hidden">
+    <div className={cn('h-full border-r border-slate-200 bg-[#fbfbfa] flex-shrink-0 flex flex-col overflow-hidden', className)}>
       {/* 标题 + 新建按钮 */}
-      <div className="p-4 border-b border-slate-200">
-        <h2 className="text-lg font-bold mb-3">Never Wiki</h2>
+      <div className="p-3 border-b border-slate-200">
+        <h2 className="text-sm font-semibold text-slate-700 mb-2 px-1">Never Wiki</h2>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="h-8 text-xs flex-1"
+            className="h-7 text-xs flex-1 bg-white"
             onClick={() => onCreateArticle('')}
           >
             <Plus className="h-3 w-3 mr-1" />
@@ -220,7 +252,7 @@ export function TreeMenu({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 text-xs flex-1"
+            className="h-7 text-xs flex-1 bg-white"
             onClick={() => onCreateFolder('')}
           >
             <Plus className="h-3 w-3 mr-1" />
