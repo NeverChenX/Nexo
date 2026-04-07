@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { TreeMenu } from '@/components/TreeMenu';
 import { Editor } from '@/components/Editor';
-import { Preview } from '@/components/Preview';
 import { ShareModal } from '@/components/ShareModal';
 import { Button } from '@/components/ui/button';
 import { Trash2, Share2, Eye } from 'lucide-react';
@@ -430,22 +429,17 @@ export default function EditorPage() {
         </div>
 
         {currentPath ? (
-          <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-            <div className="flex-1 min-h-0 md:border-r border-gray-200 bg-white">
-              <Editor
-                content={content}
-                onChange={(newContent) => {
-                  setContent(newContent);
-                  setSaved(false);
-                  savedRef.current = false;
-                  setSaveState('dirty');
-                  setSaveError('');
-                }}
-              />
-            </div>
-            <div className="flex-1 min-h-0 overflow-auto bg-white">
-              {content ? <Preview content={content} /> : <div className="p-6 text-gray-400">无内容预览</div>}
-            </div>
+          <div className="flex-1 min-h-0">
+            <Editor
+              content={content}
+              onChange={(newContent) => {
+                setContent(newContent);
+                setSaved(false);
+                savedRef.current = false;
+                setSaveState('dirty');
+                setSaveError('');
+              }}
+            />
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">

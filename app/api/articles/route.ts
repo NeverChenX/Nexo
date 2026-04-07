@@ -2,21 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   readArticle,
   writeArticle,
-  exists,
   isArticle,
   renameArticle,
 } from '@/lib/storage';
+import { articlePathToId, findArticlePathById } from '@/lib/article-id';
 
 // GET: 读取文章内容
 export async function GET(request: NextRequest) {
   try {
-    const articlePath = request.nextUrl.searchParams.get('path');
+    const rawPath = request.nextUrl.searchParams.get('path');
+    const articleId = request.nextUrl.searchParams.get('id');
+    let articlePath = rawPath;
+
+    if (!articlePath && articleId) {
+      articlePath = await findArticlePathById(articleId);
+    }
 
     if (!articlePath) {
       return NextResponse.json(
         {
           ok: false,
-          error: '缺少 path 参数',
+          error: '缺少 path 或 id 参数',
         },
         { status: 400 }
       );
@@ -39,6 +45,7 @@ export async function GET(request: NextRequest) {
       ok: true,
       data: {
         path: articlePath,
+        id: articlePathToId(articlePath),
         content,
       },
     });
@@ -84,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      data: { path, content },
+      data: { path, id: articlePathToId(path), content },
     });
   } catch (error) {
     return NextResponse.json(
@@ -138,7 +145,7 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      data: { path, content },
+      data: { path, id: articlePathToId(path), content },
     });
   } catch (error) {
     return NextResponse.json(
@@ -182,7 +189,12 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      data: { oldPath, newPath },
+      data: {
+        oldPath,
+        oldId: articlePathToId(oldPath),
+        newPath,
+        newId: articlePathToId(newPath),
+      },
     });
   } catch (error) {
     return NextResponse.json(
