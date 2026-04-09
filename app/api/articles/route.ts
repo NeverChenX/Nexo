@@ -4,6 +4,7 @@ import {
   writeArticle,
   isArticle,
   renameArticle,
+  moveArticle,
 } from '@/lib/storage';
 import { articlePathToId, findArticlePathById } from '@/lib/article-id';
 
@@ -158,12 +159,36 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// PATCH: 重命名文章
+// PATCH: 重命名或移动文章
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { oldPath, newPath } = body;
+    const { oldPath, newPath, newParentPath } = body;
 
+    // 移动操作
+    if (oldPath && newParentPath !== undefined) {
+      if (!(await isArticle(oldPath))) {
+        return NextResponse.json(
+          { ok: false, error: '原文章不存在' },
+          { status: 404 }
+        );
+      }
+
+      const resultPath = await moveArticle(oldPath, newParentPath);
+
+      return NextResponse.json({
+        ok: true,
+        data: {
+          oldPath,
+          oldId: articlePathToId(oldPath),
+          newPath: resultPath,
+          newId: articlePathToId(resultPath),
+          newParentPath,
+        },
+      });
+    }
+
+    // 重命名操作
     if (!oldPath || !newPath) {
       return NextResponse.json(
         { ok: false, error: '缺少 oldPath 或 newPath 参数' },
@@ -196,9 +221,9 @@ export async function PATCH(request: NextRequest) {
         newId: articlePathToId(newPath),
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { ok: false, error: '重命名文章失败' },
+      { ok: false, error: error.message || '重命名/移动文章失败' },
       { status: 500 }
     );
   }

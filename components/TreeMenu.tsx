@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ChevronRight, ChevronDown, FolderOpen, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
 
 interface TreeItem {
   name: string;
@@ -14,60 +14,45 @@ interface TreeItem {
 
 interface TreeMenuProps {
   onSelectItem: (path: string, isFolder: boolean) => void;
-  onCreateArticle: (folderPath: string) => void;
-  onCreateFolder: (folderPath: string) => void;
+  onCreateArticle: (parentPath: string) => void;
+  onMoveItem?: (oldPath: string, newParentPath: string, isFolder: boolean) => Promise<boolean>;
   selectedPath?: string;
   className?: string;
 }
 
-const collectRootFolderPaths = (items: TreeItem[]): string[] =>
-  items.filter((item) => item.isFolder).map((item) => item.path);
-
-const collectAncestorFolderPaths = (itemPath?: string): string[] => {
-  if (!itemPath) return [];
-  const parts = itemPath.split('/').filter(Boolean);
-  if (parts.length <= 1) return [];
-  const ancestors: string[] = [];
-  for (let i = 1; i < parts.length; i++) {
-    ancestors.push(parts.slice(0, i).join('/'));
-  }
-  return ancestors;
-};
-
 export function TreeMenu({
   onSelectItem,
   onCreateArticle,
-  onCreateFolder,
+  onMoveItem,
   selectedPath,
   className,
 }: TreeMenuProps) {
   const [tree, setTree] = useState<TreeItem[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [draggingPath, setDraggingPath] = useState<string | null>(null);
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
+  const [isDraggingFolder, setIsDraggingFolder] = useState(false);
+
+  const toggleFolder = (path: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchTree();
   }, []);
-
-  useEffect(() => {
-    const ancestors = collectAncestorFolderPaths(selectedPath);
-    if (ancestors.length === 0) return;
-    setExpanded((prev) => new Set([...prev, ...ancestors]));
-  }, [selectedPath]);
 
   const fetchTree = async () => {
     try {
       const res = await fetch('/api/folders?tree=true');
       const json = await res.json();
       if (json.ok) {
-        const nextTree: TreeItem[] = json.data;
-        setTree(nextTree);
-        setExpanded(
-          new Set([
-            ...collectRootFolderPaths(nextTree),
-            ...collectAncestorFolderPaths(selectedPath),
-          ])
-        );
+        setTree(json.data);
       }
     } catch (error) {
       console.error('Failed to load tree:', error);
@@ -76,17 +61,124 @@ export function TreeMenu({
     }
   };
 
-  const toggleFolder = (path: string) => {
-    const newExpanded = new Set(expanded);
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path);
-    } else {
-      newExpanded.add(path);
-    }
-    setExpanded(newExpanded);
+  const [contextMenu, setContextMenu] = useState<{ path: string; isFolder: boolean; x: number; y: number } | null>(null);
+
+  // 拖拽处理
+  const handleDragStart = (e: React.DragEvent, item: TreeItem) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', JSON.stringify({ path: item.path, isFolder: item.isFolder }));
+    setDraggingPath(item.path);
+    setIsDraggingFolder(item.isFolder);
   };
 
-  const [contextMenu, setContextMenu] = useState<{ path: string; isFolder: boolean; x: number; y: number } | null>(null);
+  const handleDragEnd = () => {
+    setDraggingPath(null);
+    setDragOverPath(null);
+    setIsDraggingFolder(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent, item: TreeItem) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // 只能拖放到文件夹上
+    if (!item.isFolder) return;
+    
+    // 不能拖放到自身
+    if (item.path === draggingPath) return;
+    
+    // 不能拖放到自身子目录
+    if (item.path.startsWith(draggingPath + '/')) return;
+    
+    setDragOverPath(item.path);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverPath(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetItem: TreeItem) => {
+    e.preventDefault();
+    setDragOverPath(null);
+    
+    if (!targetItem.isFolder) return;
+    
+    const data = e.dataTransfer.getData('text/plain');
+    if (!data) return;
+    
+    try {
+      const { path: sourcePath, isFolder } = JSON.parse(data);
+      
+      if (sourcePath === targetItem.path) return;
+      if (targetItem.path.startsWith(sourcePath + '/')) return;
+      
+      // 调用移动 API
+      const url = isFolder ? '/api/folders' : '/api/articles';
+      const res = await fetch(url, {
+        method: isFolder ? 'PUT' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath: sourcePath, newParentPath: targetItem.path }),
+      });
+      
+      const json = await res.json();
+      if (json.ok) {
+        // 刷新树
+        await fetchTree();
+        // 展开目标文件夹
+        setExpanded(prev => new Set([...prev, targetItem.path]));
+        // 通知父组件
+        if (onMoveItem) {
+          await onMoveItem(sourcePath, targetItem.path, isFolder);
+        }
+      } else {
+        alert('移动失败: ' + json.error);
+      }
+    } catch (error) {
+      console.error('Failed to move item:', error);
+      alert('移动失败');
+    }
+  };
+
+  // 根目录放置处理（移动到根）
+  const handleRootDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleRootDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    
+    const data = e.dataTransfer.getData('text/plain');
+    if (!data) return;
+    
+    try {
+      const { path: sourcePath, isFolder } = JSON.parse(data);
+      
+      // 已经在根目录
+      if (!sourcePath.includes('/')) return;
+      
+      // 调用移动 API（移动到根目录，newParentPath 为空字符串）
+      const url = isFolder ? '/api/folders' : '/api/articles';
+      const res = await fetch(url, {
+        method: isFolder ? 'PUT' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath: sourcePath, newParentPath: '' }),
+      });
+      
+      const json = await res.json();
+      if (json.ok) {
+        await fetchTree();
+        if (onMoveItem) {
+          await onMoveItem(sourcePath, '', isFolder);
+        }
+      } else {
+        alert('移动失败: ' + json.error);
+      }
+    } catch (error) {
+      console.error('Failed to move item:', error);
+      alert('移动失败');
+    }
+  };
 
   // 点击空白处关闭右键菜单
   useEffect(() => {
@@ -128,8 +220,8 @@ export function TreeMenu({
   };
 
   const handleDelete = async (itemPath: string, isFolder: boolean) => {
-    const typeName = isFolder ? '文件夹' : '文章';
-    if (!confirm(`确定要删除${typeName} "${itemPath.split('/').pop()}" 吗？${isFolder ? '\n（包含的所有内容也会被删除）' : ''}`)) return;
+    const name = itemPath.split('/').pop();
+    if (!confirm(`确定要删除文档 "${name}" 吗？${isFolder ? '\n（包含的所有子文档也会被删除）' : ''}`)) return;
 
     try {
       const encoded = encodeURIComponent(itemPath);
@@ -147,82 +239,62 @@ export function TreeMenu({
   };
 
   const renderTree = (items: TreeItem[], depth: number = 0) => (
-    <ul className="space-y-0.5">
-      {items.map((item) => (
-        <li key={item.path}>
-          <div
-            className="group flex items-center rounded-md"
-            style={{ paddingLeft: `${depth * 12 + 4}px` }}
-          >
-            {item.isFolder ? (
-              <>
-                <button
-                  className="w-5 h-6 flex items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-                  onClick={() => toggleFolder(item.path)}
-                >
-                  {expanded.has(item.path) ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  )}
-                </button>
-                <button
-                  className={`flex-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 ${
-                    selectedPath === item.path ? 'bg-slate-200/70 font-medium text-slate-900' : ''
-                  }`}
-                  onClick={() => {
-                    toggleFolder(item.path);
-                    onSelectItem(item.path, true);
-                  }}
-                >
-                  <FolderOpen className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                </button>
-                {/* hover 时显示 + 按钮 */}
-                <button
-                  className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const rect = (e.target as HTMLElement).getBoundingClientRect();
-                    setContextMenu({ path: item.path, isFolder: true, x: rect.right, y: rect.bottom });
-                  }}
-                >
-                  <Plus className="h-3.5 w-3.5 text-gray-400" />
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="w-5" />
-                <button
-                  className={`flex-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 ${
-                    selectedPath === item.path ? 'bg-slate-200/70 text-slate-900 font-medium' : ''
-                  }`}
-                  onClick={() => onSelectItem(item.path, false)}
-                >
-                  <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                  <span className="truncate">{item.name}</span>
-                </button>
-                <button
-                  className="w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const rect = (e.target as HTMLElement).getBoundingClientRect();
-                    setContextMenu({ path: item.path, isFolder: false, x: rect.right, y: rect.bottom });
-                  }}
-                >
-                  <Pencil className="h-3 w-3 text-gray-400" />
-                </button>
-              </>
-            )}
-          </div>
+    <ul className="space-y-0.5 list-none p-0 m-0">
+      {items.map((item) => {
+        const hasChildren = item.isFolder && item.children && item.children.length > 0;
+        const isExpanded = expanded.has(item.path);
+        const isDragOver = dragOverPath === item.path && item.isFolder;
+        const isDragging = draggingPath === item.path;
 
-          {item.isFolder && expanded.has(item.path) && item.children && item.children.length > 0 && (
-            <div className="ml-4 border-l border-slate-200/80">
-              {renderTree(item.children, depth + 1)}
+        return (
+          <li key={item.path}>
+            <div
+              className={`group flex items-center rounded-md min-w-0 transition-colors ${
+                isDragOver ? 'bg-blue-100 ring-1 ring-blue-300' : ''
+              } ${isDragging ? 'opacity-50' : ''}`}
+              style={{ paddingLeft: `${depth * 12 + 4}px` }}
+              draggable
+              onDragStart={(e) => handleDragStart(e, item)}
+              onDragEnd={handleDragEnd}
+              onDragOver={(e) => handleDragOver(e, item)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, item)}
+            >
+              {item.isFolder ? (
+                <span
+                  className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-slate-400 cursor-pointer hover:text-slate-600"
+                  onClick={(e) => { e.stopPropagation(); toggleFolder(item.path); }}
+                >
+                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                </span>
+              ) : (
+                <span className="w-4 flex-shrink-0" />
+              )}
+              <button
+                className={`flex-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 min-w-0 cursor-grab active:cursor-grabbing ${
+                  selectedPath === item.path ? 'bg-slate-200/70 font-medium text-slate-900' : ''
+                }`}
+                onClick={() => onSelectItem(item.path, item.isFolder)}
+              >
+                <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                <span className="truncate">{item.name}</span>
+              </button>
+              <button
+                className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = (e.target as HTMLElement).getBoundingClientRect();
+                  setContextMenu({ path: item.path, isFolder: item.isFolder, x: rect.right, y: rect.bottom });
+                }}
+              >
+                <Plus className="h-3.5 w-3.5 text-gray-400" />
+              </button>
             </div>
-          )}
-        </li>
-      ))}
+
+            {hasChildren && isExpanded && renderTree(item.children!, depth + 1)}
+          </li>
+        );
+      })}
     </ul>
   );
 
@@ -238,35 +310,34 @@ export function TreeMenu({
     <div className={cn('h-full border-r border-slate-200 bg-[#fbfbfa] flex-shrink-0 flex flex-col overflow-hidden', className)}>
       {/* 标题 + 新建按钮 */}
       <div className="p-3 border-b border-slate-200">
-        <h2 className="text-sm font-semibold text-slate-700 mb-2 px-1">Never Wiki</h2>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs flex-1 bg-white"
-            onClick={() => onCreateArticle('')}
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            新文章
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs flex-1 bg-white"
-            onClick={() => onCreateFolder('')}
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            新文件夹
-          </Button>
-        </div>
+        <h2 className="text-sm font-semibold text-slate-700 mb-2 px-1">Nexo</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs w-full bg-white"
+          onClick={() => onCreateArticle('')}
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          新文档
+        </Button>
       </div>
 
       {/* 文件树 */}
-      <div className="flex-1 overflow-y-auto p-2">
+      <div 
+        className="flex-1 overflow-y-auto p-2 thin-scrollbar"
+        onDragOver={handleRootDragOver}
+        onDrop={handleRootDrop}
+      >
         {tree.length === 0 ? (
           <p className="p-2 text-sm text-gray-400">还没有内容，点击上方按钮新建</p>
         ) : (
           renderTree(tree)
+        )}
+        {/* 根目录放置区域提示 */}
+        {draggingPath && (
+          <div className="mt-4 p-3 border-2 border-dashed border-slate-300 rounded-md text-center text-sm text-slate-500">
+            拖放到此处移动到根目录
+          </div>
         )}
       </div>
 
@@ -277,25 +348,14 @@ export function TreeMenu({
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          {contextMenu.isFolder && (
-            <>
-              <button
-                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
-                onClick={() => { onCreateArticle(contextMenu.path); setContextMenu(null); }}
-              >
-                <FileText className="h-3.5 w-3.5 text-gray-400" />
-                新建文章
-              </button>
-              <button
-                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
-                onClick={() => { onCreateFolder(contextMenu.path); setContextMenu(null); }}
-              >
-                <FolderOpen className="h-3.5 w-3.5 text-amber-500" />
-                新建文件夹
-              </button>
-              <div className="border-t border-slate-100 my-1" />
-            </>
-          )}
+          <button
+            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+            onClick={() => { onCreateArticle(contextMenu.isFolder ? contextMenu.path : ''); setContextMenu(null); }}
+          >
+            <FileText className="h-3.5 w-3.5 text-gray-400" />
+            新建子文档
+          </button>
+          <div className="border-t border-slate-100 my-1" />
           <button
             className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
             onClick={() => { handleRename(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}

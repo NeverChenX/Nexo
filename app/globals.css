@@ -20,6 +20,8 @@ body {
     'Helvetica Neue', sans-serif;
 }
 
+/* thin-scrollbar 类不再需要单独样式，全局已统一为 2px */
+
 /* ====== EasyMDE 编辑器美化 ====== */
 
 /* 隐藏侧边预览 */
@@ -130,8 +132,8 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 2px;
+  height: 2px;
 }
 
 ::-webkit-scrollbar-track {
@@ -139,12 +141,19 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Firefox 不支持 ::-webkit-scrollbar，用 scrollbar-width: none 隐藏默认粗滚动条 */
+@-moz-document url-prefix() {
+  * {
+    scrollbar-width: none;
+  }
 }
 
 /* Markdown 预览排版 */

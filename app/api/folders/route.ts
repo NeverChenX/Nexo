@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   createFolder,
-  getFolderContents,
+  getFolderContentsDetailed,
   getRecursiveTree,
   exists,
   isFolder,
   renameFolder,
+  moveFolder,
 } from '@/lib/storage';
 
 // GET: 获取文件夹内容或完整树
@@ -22,8 +23,8 @@ export async function GET(request: NextRequest) {
         data: tree,
       });
     } else {
-      // 返回指定文件夹的内容
-      const contents = await getFolderContents(folderPath);
+      // 返回指定文件夹的内容（含标题和时间）
+      const contents = await getFolderContentsDetailed(folderPath);
       return NextResponse.json({
         ok: true,
         data: contents,
@@ -84,12 +85,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT: 重命名文件夹
+// PUT: 重命名或移动文件夹
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { oldPath, newPath } = body;
+    const { oldPath, newPath, newParentPath } = body;
 
+    // 移动操作
+    if (oldPath && newParentPath !== undefined) {
+      if (!(await exists(oldPath)) || !(await isFolder(oldPath))) {
+        return NextResponse.json(
+          { ok: false, error: '原文件夹不存在' },
+          { status: 404 }
+        );
+      }
+
+      const resultPath = await moveFolder(oldPath, newParentPath);
+      return NextResponse.json({
+        ok: true,
+        data: { oldPath, newPath: resultPath, newParentPath },
+      });
+    }
+
+    // 重命名操作
     if (!oldPath || !newPath) {
       return NextResponse.json(
         { ok: false, error: '缺少 oldPath 或 newPath 参数' },
@@ -117,9 +135,9 @@ export async function PUT(request: NextRequest) {
       ok: true,
       data: { oldPath, newPath },
     });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { ok: false, error: '重命名文件夹失败' },
+      { ok: false, error: error.message || '重命名/移动文件夹失败' },
       { status: 500 }
     );
   }
