@@ -6,12 +6,22 @@ import { TreeMenu } from '@/components/TreeMenu';
 import { Editor } from '@/components/Editor';
 import { ShareModal } from '@/components/ShareModal';
 import { Button } from '@/components/ui/button';
-import { Trash2, Share2, Eye } from 'lucide-react';
+import { Preview } from '@/components/Preview';
+import { Trash2, Share2, Eye, PanelRightClose, PanelRightOpen, FileText } from 'lucide-react';
 
 interface ArticleData {
   path: string;
   id: string;
   content: string;
+}
+
+interface FolderItem {
+  name: string;
+  path: string;
+  isFolder: boolean;
+  title?: string;
+  updatedAt?: string;
+  childCount?: number;
 }
 
 export default function EditorPage() {
@@ -31,6 +41,11 @@ export default function EditorPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [sidebarWidth, setSidebarWidth] = useState<number>(320);
   const [draggingSidebar, setDraggingSidebar] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+  const [editorWidthPercent, setEditorWidthPercent] = useState<number>(50);
+  const [draggingEditor, setDraggingEditor] = useState(false);
+  const [folderPath, setFolderPath] = useState<string | null>(null);
+  const [folderContents, setFolderContents] = useState<FolderItem[]>([]);
 
   const contentRef = useRef(content);
   const pathRef = useRef(currentPath);
@@ -39,6 +54,8 @@ export default function EditorPage() {
   const queuedAutoSaveRef = useRef(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draggingSidebarRef = useRef(false);
+  const draggingEditorRef = useRef(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const latestLoadSeqRef = useRef(0);
   const currentArticleIdRef = useRef<string | null>(null);
 
@@ -49,6 +66,16 @@ export default function EditorPage() {
     const parsed = Number(cached);
     if (!Number.isNaN(parsed)) {
       setSidebarWidth(Math.min(560, Math.max(240, parsed)));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const cached = window.localStorage.getItem('editor_width_percent');
+    if (!cached) return;
+    const parsed = Number(cached);
+    if (!Number.isNaN(parsed)) {
+      setEditorWidthPercent(Math.min(80, Math.max(20, parsed)));
     }
   }, []);
 
@@ -107,9 +134,12 @@ export default function EditorPage() {
   useEffect(() => {
     const idFromUrl = searchParams.get('id');
     const pathFromUrl = searchParams.get('path');
+    if (!idFromUrl && !pathFromUrl) return;
     if (idFromUrl && currentArticleIdRef.current === idFromUrl) return;
-    if (pathFromUrl && pathFromUrl === currentPath) return;
+    if (pathFromUrl && pathFromUrl === pathRef.current) return;
     setCurrentType('article');
+    setFolderPath(null);
+    setFolderContents([]);
     if (idFromUrl) {
       void loadArticle({ id: idFromUrl });
       return;
@@ -117,7 +147,8 @@ export default function EditorPage() {
     if (pathFromUrl) {
       void loadArticle({ path: pathFromUrl });
     }
-  }, [searchParams, currentPath, loadArticle]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, loadArticle]);
 
   useEffect(() => {
     return () => {
@@ -139,18 +170,39 @@ export default function EditorPage() {
   }, [sidebarWidth]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('editor_width_percent', String(editorWidthPercent));
+    }
+  }, [editorWidthPercent]);
+
+  useEffect(() => {
     const onMouseMove = (event: MouseEvent) => {
-      if (!draggingSidebarRef.current) return;
-      const next = Math.min(560, Math.max(240, event.clientX));
-      setSidebarWidth(next);
+      if (draggingSidebarRef.current) {
+        const next = Math.min(560, Math.max(240, event.clientX));
+        setSidebarWidth(next);
+      }
+      if (draggingEditorRef.current && editorContainerRef.current) {
+        const rect = editorContainerRef.current.getBoundingClientRect();
+        const relativeX = event.clientX - rect.left;
+        const percent = Math.min(80, Math.max(20, (relativeX / rect.width) * 100));
+        setEditorWidthPercent(percent);
+      }
     };
 
     const onMouseUp = () => {
-      if (!draggingSidebarRef.current) return;
-      draggingSidebarRef.current = false;
-      setDraggingSidebar(false);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
+      const wasDragging = draggingSidebarRef.current || draggingEditorRef.current;
+      if (draggingSidebarRef.current) {
+        draggingSidebarRef.current = false;
+        setDraggingSidebar(false);
+      }
+      if (draggingEditorRef.current) {
+        draggingEditorRef.current = false;
+        setDraggingEditor(false);
+      }
+      if (wasDragging) {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
     };
 
     window.addEventListener('mousemove', onMouseMove);
@@ -164,6 +216,13 @@ export default function EditorPage() {
   const startSidebarDrag = () => {
     draggingSidebarRef.current = true;
     setDraggingSidebar(true);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+  };
+
+  const startEditorDrag = () => {
+    draggingEditorRef.current = true;
+    setDraggingEditor(true);
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'col-resize';
   };
@@ -251,12 +310,57 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [saveArticle]);
 
-  const handleSelectItem = (path: string, isFolder: boolean) => {
-    if (!isFolder) {
-      if (path === currentPath) return;
-      setCurrentPath(path);
+  const loadFolderContents = useCallback(async (folderPath: string) => {
+    try {
+      const res = await fetch(`/api/folders?path=${encodeURIComponent(folderPath)}`);
+      const json = await res.json();
+      if (json.ok) {
+        setFolderContents(json.data);
+      }
+    } catch (error) {
+      console.error('Failed to load folder contents:', error);
+    }
+  }, []);
+
+  const handleMoveItem = async (oldPath: string, newParentPath: string, isFolder: boolean) => {
+    // 如果当前正在编辑被移动的文档，更新路径
+    if (currentPath === oldPath) {
+      const newPath = newParentPath ? `${newParentPath}/${oldPath.split('/').pop()}` : oldPath.split('/').pop() || '';
+      setCurrentPath(newPath);
+      if (articleData) {
+        setArticleData({ ...articleData, path: newPath });
+      }
+      // 更新 URL
+      if (articleData?.id) {
+        router.replace(`/editor?id=${encodeURIComponent(articleData.id)}`);
+      } else {
+        router.replace(`/editor?path=${encodeURIComponent(newPath)}`);
+      }
+    }
+    return true;
+  };
+
+  const handleSelectItem = (itemPath: string, isFolder: boolean) => {
+    if (isFolder) {
+      if (itemPath === folderPath) return;
+      currentArticleIdRef.current = null;
+      pathRef.current = '';
+      setCurrentPath('');
+      setArticleData(null);
+      setContent('');
+      setSaved(true);
+      setSaveState('saved');
+      setCurrentType('folder');
+      setFolderPath(itemPath);
+      window.history.replaceState(null, '', '/editor');
+      void loadFolderContents(itemPath);
+    } else {
+      if (itemPath === currentPath) return;
+      setFolderPath(null);
+      setFolderContents([]);
+      setCurrentPath(itemPath);
       setCurrentType('article');
-      void loadArticle({ path });
+      void loadArticle({ path: itemPath });
     }
   };
 
@@ -286,7 +390,7 @@ export default function EditorPage() {
   };
 
   const handleCreateArticle = async (folderPath: string) => {
-    const name = prompt('输入新文章名称:');
+    const name = prompt('输入新文档名称:');
     if (name) {
       const articlePath = folderPath ? `${folderPath}/${name}` : name;
       try {
@@ -321,7 +425,7 @@ export default function EditorPage() {
   };
 
   const handleCreateFolder = async (parentPath: string) => {
-    const name = prompt('输入新文件夹名称:');
+    const name = prompt('输入新父文档名称:');
     if (name) {
       const folderPath = parentPath ? `${parentPath}/${name}` : name;
       try {
@@ -377,8 +481,8 @@ export default function EditorPage() {
           key={refreshKey}
           onSelectItem={handleSelectItem}
           onCreateArticle={handleCreateArticle}
-          onCreateFolder={handleCreateFolder}
-          selectedPath={currentPath}
+          onMoveItem={handleMoveItem}
+          selectedPath={currentPath || folderPath || ''}
           className="h-full w-full border-r-0"
         />
       </div>
@@ -395,7 +499,7 @@ export default function EditorPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 flex-shrink-0">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-500 truncate">{currentPath || '未选择文章'}</p>
+            <p className="text-sm text-gray-500 truncate">{currentPath || folderPath || '未选择文档'}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span
@@ -407,12 +511,22 @@ export default function EditorPage() {
               {saveStatusText}
             </span>
             <Button
+              onClick={() => setShowPreview((prev) => !prev)}
+              disabled={!currentPath}
+              variant="outline"
+              size="sm"
+              title={showPreview ? '隐藏预览' : '显示预览'}
+            >
+              {showPreview ? <PanelRightClose className="h-4 w-4 mr-1" /> : <PanelRightOpen className="h-4 w-4 mr-1" />}
+              预览
+            </Button>
+            <Button
               onClick={() => router.push(articleData?.id ? `/view?id=${encodeURIComponent(articleData.id)}` : '/view')}
               disabled={!articleData}
               variant="outline"
               size="sm"
             >
-              <Eye className="h-4 w-4 mr-1" /> 预览
+              <Eye className="h-4 w-4 mr-1" /> 查看
             </Button>
             <Button
               onClick={() => setShareModalOpen(true)}
@@ -429,21 +543,101 @@ export default function EditorPage() {
         </div>
 
         {currentPath ? (
-          <div className="flex-1 min-h-0">
-            <Editor
-              content={content}
-              onChange={(newContent) => {
-                setContent(newContent);
-                setSaved(false);
-                savedRef.current = false;
-                setSaveState('dirty');
-                setSaveError('');
-              }}
-            />
+          <div ref={editorContainerRef} className="flex-1 min-h-0 flex">
+            <div
+              style={{ width: showPreview ? `${editorWidthPercent}%` : '100%' }}
+              className="min-w-0 border-r border-gray-200"
+            >
+              <Editor
+                content={content}
+                onChange={(newContent) => {
+                  setContent(newContent);
+                  setSaved(false);
+                  savedRef.current = false;
+                  setSaveState('dirty');
+                  setSaveError('');
+                }}
+              />
+            </div>
+            {showPreview && (
+              <>
+                <div
+                  className={`h-full w-1.5 cursor-col-resize bg-slate-200 transition-colors flex-shrink-0 ${
+                    draggingEditor ? 'bg-blue-400' : 'hover:bg-slate-300'
+                  }`}
+                  onMouseDown={startEditorDrag}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="调整编辑区和预览区宽度"
+                />
+                <div style={{ width: `${100 - editorWidthPercent}%` }} className="min-w-0 h-full overflow-auto">
+                  <Preview content={content} />
+                </div>
+              </>
+            )}
+          </div>
+        ) : folderPath !== null ? (
+          <div className="flex-1 overflow-auto bg-white">
+            {/* Notion 风格标题区 */}
+            <div className="max-w-[900px] mx-auto px-24 pt-20 pb-8">
+              <div className="text-5xl mb-4">
+                {folderContents.length > 0 ? '\uD83D\uDCC2' : '\uD83D\uDCC4'}
+              </div>
+              <h1 className="text-[40px] font-bold text-[#37352f] leading-tight tracking-tight">
+                {folderPath.split('/').pop()}
+              </h1>
+              {folderPath.includes('/') && (
+                <p className="text-sm text-[#9b9a97] mt-2">
+                  {folderPath.split('/').slice(0, -1).join(' / ')}
+                </p>
+              )}
+            </div>
+
+            {/* 子文档列表 */}
+            <div className="max-w-[900px] mx-auto px-24 pb-20">
+              {folderContents.length === 0 ? (
+                <p className="text-[#9b9a97] text-sm py-3">暂无子文档</p>
+              ) : (
+                <div>
+                  <div className="flex items-center px-2 py-1.5 text-xs text-[#9b9a97] uppercase tracking-wider border-b border-[#e9e9e7]">
+                    <span className="flex-1">名称</span>
+                    <span className="w-28 text-right">更新时间</span>
+                  </div>
+                  {folderContents.map((item) => (
+                    <button
+                      key={item.path}
+                      onClick={() => handleSelectItem(item.path, item.isFolder)}
+                      className="w-full text-left px-2 py-1.5 flex items-center rounded-[3px] hover:bg-[#f1f1ef] transition-colors group"
+                    >
+                      <span className="text-base mr-2 flex-shrink-0 opacity-80">
+                        {item.isFolder ? '\uD83D\uDCC2' : '\uD83D\uDCC4'}
+                      </span>
+                      <span className="text-sm text-[#37352f] truncate flex-1 min-w-0 group-hover:underline">
+                        {item.title || item.name}
+                      </span>
+                      {item.isFolder && item.childCount !== undefined && (
+                        <span className="text-xs text-[#9b9a97] flex-shrink-0 mr-4">
+                          {item.childCount} 篇
+                        </span>
+                      )}
+                      {item.updatedAt && (
+                        <span className="w-28 text-right text-xs text-[#9b9a97] flex-shrink-0">
+                          {new Date(item.updatedAt).toLocaleDateString('zh-CN', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                          })}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-gray-400">选择或创建一篇文章开始编辑</p>
+            <p className="text-gray-400">选择或创建一篇文档开始编辑</p>
           </div>
         )}
       </div>

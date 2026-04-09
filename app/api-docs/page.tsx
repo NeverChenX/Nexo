@@ -78,7 +78,7 @@ export default function ApiDocsPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">Never Wiki API 文档</h1>
+            <h1 className="text-2xl font-bold">Nexo API 文档</h1>
             <p className="text-sm text-slate-500">通过 API 接口让 AI 平台（OpenClaw、Claude、GPT 等）自动写入 wiki 内容</p>
           </div>
         </div>
@@ -273,7 +273,7 @@ Body: {"path": "文件夹路径"}
 
         {/* 底部 */}
         <div className="mt-12 text-center text-sm text-slate-400">
-          Never Wiki API Documentation
+          Nexo API Documentation
         </div>
       </div>
     </div>

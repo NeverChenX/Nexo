@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 
 interface PreviewProps {
   content: string;
+  maxWidth?: string;
 }
 
 class MarkdownErrorBoundary extends React.Component<
@@ -46,12 +47,15 @@ function safeUrlTransform(url: string): string {
   return next;
 }
 
-export function Preview({ content }: PreviewProps) {
+export function Preview({ content, maxWidth }: PreviewProps) {
   if (!content) return null;
 
   return (
     <div className="h-full overflow-auto bg-white p-8">
-      <div className="max-w-none prose-preview">
+      <div 
+        className="prose-preview mx-auto"
+        style={{ maxWidth: maxWidth || 'none' }}
+      >
         <MarkdownErrorBoundary>
           <ReactMarkdown urlTransform={safeUrlTransform}>{content}</ReactMarkdown>
         </MarkdownErrorBoundary>

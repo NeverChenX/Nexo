@@ -196,6 +196,53 @@ export async function renameArticle(oldPath: string, newPath: string): Promise<v
   await fs.rename(oldFile, newFile);
 }
 
+// 移动文件夹到新的父目录
+export async function moveFolder(folderPath: string, newParentPath: string): Promise<string> {
+  const folderName = path.basename(folderPath);
+  const newPath = newParentPath ? `${newParentPath}/${folderName}` : folderName;
+  
+  const oldDir = path.join(WIKI_DATA_DIR, folderPath);
+  const newDir = path.join(WIKI_DATA_DIR, newPath);
+  
+  // 检查目标是否已存在
+  try {
+    await fs.stat(newDir);
+    throw new Error('目标位置已存在同名文件夹');
+  } catch (e: any) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+  
+  // 检查是否移动到自身子目录
+  if (newParentPath.startsWith(folderPath + '/')) {
+    throw new Error('不能将文件夹移动到自身子目录');
+  }
+  
+  await ensureDir(path.dirname(newDir));
+  await fs.rename(oldDir, newDir);
+  return newPath;
+}
+
+// 移动文章到新的父目录
+export async function moveArticle(articlePath: string, newParentPath: string): Promise<string> {
+  const articleName = path.basename(articlePath);
+  const newPath = newParentPath ? `${newParentPath}/${articleName}` : articleName;
+  
+  const oldFile = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
+  const newFile = path.join(WIKI_DATA_DIR, `${newPath}.md`);
+  
+  // 检查目标是否已存在
+  try {
+    await fs.stat(newFile);
+    throw new Error('目标位置已存在同名文章');
+  } catch (e: any) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+  
+  await ensureDir(path.dirname(newFile));
+  await fs.rename(oldFile, newFile);
+  return newPath;
+}
+
 // 获取文件夹内容
 export async function getFolderContents(
   folderPath: string
@@ -204,4 +251,73 @@ export async function getFolderContents(
     ? path.join(WIKI_DATA_DIR, folderPath)
     : WIKI_DATA_DIR;
   return getFileTree(dirPath, folderPath);
+}
+
+// 获取文件夹内容（含标题和修改时间）
+export async function getFolderContentsDetailed(
+  folderPath: string
+): Promise<
+  Array<{
+    name: string;
+    path: string;
+    isFolder: boolean;
+    title?: string;
+    updatedAt?: string;
+    childCount?: number;
+  }>
+> {
+  const dirPath = folderPath
+    ? path.join(WIKI_DATA_DIR, folderPath)
+    : WIKI_DATA_DIR;
+  await ensureDir(dirPath);
+
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  const items: Array<{
+    name: string;
+    path: string;
+    isFolder: boolean;
+    title?: string;
+    updatedAt?: string;
+    childCount?: number;
+  }> = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+
+    const fullPath = path.join(dirPath, entry.name);
+    const relativeSafePath = folderPath
+      ? `${folderPath}/${entry.name}`
+      : entry.name;
+
+    if (entry.isDirectory()) {
+      const stat = await fs.stat(fullPath);
+      const children = await fs.readdir(fullPath);
+      const childCount = children.filter((c) => !c.startsWith('.')).length;
+      items.push({
+        name: entry.name,
+        path: relativeSafePath,
+        isFolder: true,
+        updatedAt: stat.mtime.toISOString(),
+        childCount,
+      });
+    } else if (entry.name.endsWith('.md')) {
+      const stat = await fs.stat(fullPath);
+      const raw = await fs.readFile(fullPath, 'utf-8');
+      const firstLine = raw.split('\n').find((l) => l.trim().length > 0) || '';
+      const title = firstLine.replace(/^#+\s*/, '').trim() || entry.name.replace('.md', '');
+      items.push({
+        name: entry.name.replace('.md', ''),
+        path: relativeSafePath.replace('.md', ''),
+        isFolder: false,
+        title,
+        updatedAt: stat.mtime.toISOString(),
+      });
+    }
+  }
+
+  return items.sort((a, b) => {
+    if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+    // 按修改时间倒序
+    return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+  });
 }

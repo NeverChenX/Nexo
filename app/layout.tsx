@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Never Wiki',
+  title: 'Nexo',
   description: 'Personal Knowledge Base Wiki System',
 };
 

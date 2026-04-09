@@ -6,7 +6,7 @@ import { TreeMenu } from '@/components/TreeMenu';
 import { Preview } from '@/components/Preview';
 import { ShareModal } from '@/components/ShareModal';
 import { Button } from '@/components/ui/button';
-import { Pencil, Share2, Trash2, FileText, Folder, Sparkles, Wand2, BookOpen, MessageSquare } from 'lucide-react';
+import { Pencil, Share2, Trash2, FileText, Folder, Sparkles, Wand2, BookOpen } from 'lucide-react';
 
 interface FolderItem {
   name: string;
@@ -30,8 +30,10 @@ export default function ViewPage() {
   // AI panel state
   const [selectedText, setSelectedText] = useState<string>('');
   const [explainLoading, setExplainLoading] = useState(false);
+  const [addingToArticle, setAddingToArticle] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [aiPanelPosition, setAiPanelPosition] = useState({ y: 0 });
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
   const contentContainerRef = useRef<HTMLDivElement>(null);
   const latestLoadSeqRef = useRef(0);
   const currentArticleIdRef = useRef<string | null>(null);
@@ -182,6 +184,7 @@ export default function ViewPage() {
   const handleExplain = async () => {
     if (!selectedText || !currentPath || !articleId) return;
     setExplainLoading(true);
+    setAiExplanation(null);
     try {
       const res = await fetch('/api/explain', {
         method: 'POST',
@@ -193,9 +196,20 @@ export default function ViewPage() {
         alert('解释失败: ' + json.error);
         return;
       }
+      setAiExplanation(json.data.explanation);
+    } catch (error) {
+      alert('解释说明出错: ' + error);
+    } finally {
+      setExplainLoading(false);
+    }
+  };
 
+  const handleAddExplanationToArticle = async () => {
+    if (!aiExplanation || !currentPath || !articleId) return;
+    setAddingToArticle(true);
+    try {
       const snippet = selectedText.length > 100 ? selectedText.slice(0, 100) + '…' : selectedText;
-      const appendBlock = `\n\n---\n\n> **📝 AI 解释**\n>\n> **选中内容：** ${snippet}\n>\n> ${json.data.explanation.replace(/\n/g, '\n> ')}`;
+      const appendBlock = `\n\n---\n\n> **📝 AI 解释**\n>\n> **选中内容：** ${snippet}\n>\n> ${aiExplanation.replace(/\n/g, '\n> ')}`;
       const newContent = content + appendBlock;
 
       const saveRes = await fetch('/api/articles', {
@@ -212,10 +226,11 @@ export default function ViewPage() {
       setContent(newContent);
       setShowAIPanel(false);
       setSelectedText('');
+      setAiExplanation(null);
     } catch (error) {
-      alert('解释说明出错: ' + error);
+      alert('添加到文章失败: ' + error);
     } finally {
-      setExplainLoading(false);
+      setAddingToArticle(false);
     }
   };
 
@@ -243,9 +258,11 @@ export default function ViewPage() {
       }
       setSelectedText(text);
       setShowAIPanel(true);
+      setAiExplanation(null);
     } else {
       setShowAIPanel(false);
       setSelectedText('');
+      setAiExplanation(null);
     }
   }, []);
 
@@ -263,6 +280,7 @@ export default function ViewPage() {
       if (!target.closest('.ai-panel') && !target.closest('.prose-preview')) {
         setShowAIPanel(false);
         setSelectedText('');
+        setAiExplanation(null);
       }
     };
 
@@ -381,12 +399,12 @@ export default function ViewPage() {
           <div className="w-1/3 h-full bg-gray-50 border-l border-gray-200 relative">
             {/* AI floating panel - sticky within right area */}
             {showAIPanel && selectedText && (
-              <div 
-                className="ai-panel absolute z-50 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-4 animate-in fade-in slide-in-from-right-2 duration-200"
-                style={{ 
+              <div
+                className="ai-panel absolute z-50 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 animate-in fade-in slide-in-from-right-2 duration-200 overflow-y-auto"
+                style={{
                   left: '16px',
-                  top: `${Math.min(Math.max(16, aiPanelPosition.y), contentContainerRef.current?.clientHeight ? contentContainerRef.current.clientHeight - 420 : 16)}px`,
-                  maxHeight: '400px'
+                  top: `${Math.min(Math.max(16, aiPanelPosition.y), contentContainerRef.current?.clientHeight ? contentContainerRef.current.clientHeight - 480 : 16)}px`,
+                  maxHeight: '460px'
                 }}
               >
                 {/* Selected text preview */}
@@ -394,35 +412,55 @@ export default function ViewPage() {
                   <p className="text-xs text-slate-400 mb-1">选中的内容</p>
                   <p className="text-sm text-slate-600 line-clamp-3">{selectedText}</p>
                 </div>
-                
-                {/* Quick action buttons */}
-                <div className="space-y-2">
-                  <p className="text-xs text-slate-400 mb-2">快捷操作</p>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-left">
-                    <Wand2 className="h-4 w-4 text-purple-500" />
-                    改进写作
-                  </button>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-left">
-                    <Sparkles className="h-4 w-4 text-amber-500" />
-                    润色校对
-                  </button>
-                  <button
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={handleExplain}
-                    disabled={explainLoading || !articleId}
-                  >
-                    <BookOpen className="h-4 w-4 text-blue-500" />
-                    {explainLoading ? '解释中...' : '解释说明'}
-                  </button>
-                </div>
-                
-                {/* AI chat input */}
-                <div className="mt-4 pt-3 border-t border-slate-100">
-                  <button className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 rounded-lg transition-colors">
-                    <MessageSquare className="h-4 w-4" />
-                    用 AI 编辑
-                  </button>
-                </div>
+
+                {aiExplanation ? (
+                  /* Explanation result view */
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <BookOpen className="h-3.5 w-3.5 text-blue-500" />
+                      <p className="text-xs font-medium text-slate-600">AI 解释</p>
+                    </div>
+                    <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap mb-4 max-h-48 overflow-y-auto bg-slate-50 rounded-lg p-3">
+                      {aiExplanation}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handleAddExplanationToArticle}
+                        disabled={addingToArticle}
+                      >
+                        {addingToArticle ? '添加中...' : '📎 添加到文章'}
+                      </button>
+                      <button
+                        className="px-3 py-2 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                        onClick={() => setAiExplanation(null)}
+                      >
+                        返回
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Action buttons view */
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-400 mb-2">快捷操作</p>
+                    <button
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleExplain}
+                      disabled={explainLoading || !articleId}
+                    >
+                      <BookOpen className="h-4 w-4 text-blue-500" />
+                      {explainLoading ? '解释中...' : '解释说明'}
+                    </button>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-left opacity-40 cursor-not-allowed">
+                      <Wand2 className="h-4 w-4 text-purple-500" />
+                      改进写作
+                    </button>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-left opacity-40 cursor-not-allowed">
+                      <Sparkles className="h-4 w-4 text-amber-500" />
+                      润色校对
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
