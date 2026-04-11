@@ -499,8 +499,8 @@ function EditorPageInner() {
         </div>
 
         {currentPath ? (
-          <div ref={editorContainerRef} className="flex-1 min-h-0 flex flex-col">
-            <div className="flex flex-1 min-h-0">
+          <div ref={editorContainerRef} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex flex-1 min-h-0 overflow-hidden">
               <div
                 style={{ width: showPreview ? `${editorWidthPercent}%` : '100%' }}
                 className="min-w-0 border-r border-gray-200 h-full"
@@ -535,31 +535,37 @@ function EditorPageInner() {
             </div>
 
             {isCurrentFolder && (
-              <div className="border-t border-gray-100 bg-[#fbfbfa] px-6 py-4 flex-shrink-0">
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">子页面</p>
-                {subPages.length === 0 ? (
-                  <p className="text-sm text-slate-400">暂无子页面</p>
-                ) : (
-                  <div className="space-y-0.5">
-                    {subPages.map((sub) => (
-                      <button
-                        key={sub.path}
-                        onClick={() => handleSelectItem(sub.path, sub.isFolder)}
-                        className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md hover:bg-slate-100 text-sm text-slate-700 transition-colors"
-                      >
-                        <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                        <span>{sub.name || sub.path.split('/').pop()}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button
-                  onClick={() => handleCreateArticle(currentPath)}
-                  className="mt-2 flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors px-2 py-1"
-                >
-                  <span className="text-base leading-none">+</span>
-                  <span>新建子页面</span>
-                </button>
+              <div className="border-t border-gray-100 bg-[#fbfbfa] flex-shrink-0 flex flex-col" style={{ maxHeight: '40%' }}>
+                <div className="px-6 pt-3 pb-1 flex items-center justify-between flex-shrink-0">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                    子页面 {subPages.length > 0 && <span className="text-slate-300 font-normal">({subPages.length})</span>}
+                  </p>
+                  <button
+                    onClick={() => handleCreateArticle(currentPath)}
+                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 rounded hover:bg-slate-100"
+                  >
+                    <span className="text-sm leading-none">+</span>
+                    <span>新建子页面</span>
+                  </button>
+                </div>
+                <div className="overflow-y-auto px-6 pb-3">
+                  {subPages.length === 0 ? (
+                    <p className="text-sm text-slate-400 py-1">暂无子页面</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {subPages.map((sub) => (
+                        <button
+                          key={sub.path}
+                          onClick={() => handleSelectItem(sub.path, sub.isFolder)}
+                          className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md hover:bg-slate-100 text-sm text-slate-700 transition-colors"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                          <span>{sub.name || sub.path.split('/').pop()}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
