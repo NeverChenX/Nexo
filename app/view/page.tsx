@@ -425,6 +425,14 @@ function ViewPageInner() {
           </div>
           {loading && <span className="text-xs text-gray-400 flex-shrink-0">加载中...</span>}
           <Button
+            onClick={() => router.push(currentPath ? `/read?path=${encodeURIComponent(currentPath)}` : '/read')}
+            variant="outline"
+            size="sm"
+            className="flex-shrink-0"
+          >
+            <BookOpen className="h-4 w-4 mr-1" /> 阅读模式
+          </Button>
+          <Button
             onClick={() => router.push(articleId ? `/editor?id=${encodeURIComponent(articleId)}` : '/editor')}
             disabled={!articleId}
             variant="outline"
