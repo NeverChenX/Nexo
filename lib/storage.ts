@@ -104,21 +104,35 @@ export async function getRecursiveTree(
   });
 }
 
-// 读取文章内容
+// 读取文章内容（支持叶子页面和父页面双模式）
 export async function readArticle(articlePath: string): Promise<string> {
   const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
-  const content = await fs.readFile(filePath, 'utf-8');
-  return content;
+  try {
+    return await fs.readFile(filePath, 'utf-8');
+  } catch {
+    // 回退：父页面将内容存储在目录/_index.md 中
+    const indexPath = path.join(WIKI_DATA_DIR, articlePath, '_index.md');
+    return await fs.readFile(indexPath, 'utf-8');
+  }
 }
 
-// 写入文章内容
+// 写入文章内容（支持叶子页面和父页面双模式）
 export async function writeArticle(
   articlePath: string,
   content: string
 ): Promise<void> {
+  const dirPath = path.join(WIKI_DATA_DIR, articlePath);
+  try {
+    const stat = await fs.stat(dirPath);
+    if (stat.isDirectory()) {
+      // 父页面：写入目录内的 _index.md
+      await fs.writeFile(path.join(dirPath, '_index.md'), content, 'utf-8');
+      return;
+    }
+  } catch { /* 目录不存在 — 继续叶子写入 */ }
+
   const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
-  const dirPath = path.dirname(filePath);
-  await ensureDir(dirPath);
+  await ensureDir(path.dirname(filePath));
   await fs.writeFile(filePath, content, 'utf-8');
 }
 
@@ -169,14 +183,18 @@ export async function isFolder(itemPath: string): Promise<boolean> {
   }
 }
 
-// 检查是否是文章
+// 检查是否是文章（支持叶子页面和父页面双模式）
 export async function isArticle(itemPath: string): Promise<boolean> {
   try {
-    const filePath = path.join(WIKI_DATA_DIR, `${itemPath}.md`);
-    const stat = await fs.stat(filePath);
-    return stat.isFile();
+    await fs.stat(path.join(WIKI_DATA_DIR, `${itemPath}.md`));
+    return true;
   } catch {
-    return false;
+    try {
+      await fs.stat(path.join(WIKI_DATA_DIR, itemPath, '_index.md'));
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
