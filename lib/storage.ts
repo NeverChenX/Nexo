@@ -140,6 +140,53 @@ export async function writeArticle(
   await fs.writeFile(filePath, content, 'utf-8');
 }
 
+/**
+ * 将叶子页面（page.md）转换为父页面（page/_index.md）。
+ * 当第一个子页面被添加到叶子页面时自动调用。
+ */
+export async function promoteToParent(articlePath: string): Promise<void> {
+  const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
+  const dirPath = path.join(WIKI_DATA_DIR, articlePath);
+  const indexPath = path.join(dirPath, '_index.md');
+
+  const content = await fs.readFile(filePath, 'utf-8');
+  await ensureDir(dirPath);
+  await fs.writeFile(indexPath, content, 'utf-8');
+  await fs.unlink(filePath);
+}
+
+/**
+ * 幂等迁移：确保每个目录都有 _index.md。
+ * 现有没有内容的目录会获得 "# dirname" 作为默认内容。
+ */
+export async function migrateToPageModel(
+  dirPath: string = WIKI_DATA_DIR,
+  relativePath: string = ''
+): Promise<void> {
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name.startsWith('.') || entry.name === '_index.md') continue;
+    if (!entry.isDirectory()) continue;
+
+    const fullPath = path.join(dirPath, entry.name);
+    const indexPath = path.join(fullPath, '_index.md');
+
+    try {
+      await fs.stat(indexPath);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      // 为现有文件夹创建默认内容
+      await fs.writeFile(indexPath, `# ${entry.name}\n`, 'utf-8');
+    }
+
+    // 递归进入子目录
+    await migrateToPageModel(
+      fullPath,
+      relativePath ? `${relativePath}/${entry.name}` : entry.name
+    );
+  }
+}
+
 // 删除文章
 export async function deleteArticle(articlePath: string): Promise<void> {
   const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
