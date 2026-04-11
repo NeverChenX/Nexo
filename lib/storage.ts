@@ -52,8 +52,8 @@ export async function getFileTree(
   });
 }
 
-// Run migration once per process lifetime
-let _migrationDone = false;
+// Use Promise cache to handle concurrent requests and graceful failure
+let _migrationPromise: Promise<void> | null = null;
 
 // 获取递归的文件树（包含子目录）
 export async function getRecursiveTree(
@@ -62,10 +62,16 @@ export async function getRecursiveTree(
 ): Promise<
   Array<{ name: string; path: string; isFolder: boolean; children?: Array<any> }>
 > {
-  // Auto-migrate on first call from the root
-  if (!_migrationDone && dirPath === WIKI_DATA_DIR) {
-    await migrateToPageModel();
-    _migrationDone = true;
+  // Auto-migrate once on first root call; cache the Promise to handle concurrent requests
+  if (dirPath === WIKI_DATA_DIR) {
+    if (!_migrationPromise) {
+      _migrationPromise = migrateToPageModel().catch((err) => {
+        // Migration failed — reset so it can retry next time, but don't block tree loading
+        _migrationPromise = null;
+        console.error('Page model migration failed:', err);
+      });
+    }
+    await _migrationPromise;
   }
 
   await ensureDir(dirPath);
