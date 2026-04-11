@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import nodePath from 'path';
 import {
   readArticle,
   writeArticle,
   isArticle,
   isFolder,
-  promoteToParent,
+  promoteParentIfNeeded,
   renameArticle,
   moveArticle,
 } from '@/lib/storage';
@@ -81,15 +79,7 @@ export async function POST(request: NextRequest) {
     const lastSlash = articlePath.lastIndexOf('/');
     if (lastSlash > 0) {
       const parentPath = articlePath.substring(0, lastSlash);
-      const parentLeafFile = nodePath.join(process.cwd(), 'wiki-data', `${parentPath}.md`);
-      try {
-        await fs.stat(parentLeafFile);
-        // Parent is a leaf page — promote it to a parent page
-        await promoteToParent(parentPath);
-      } catch (err: unknown) {
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-        // Parent is already a directory or doesn't exist — fine
-      }
+      await promoteParentIfNeeded(parentPath);
     }
 
     if (await isArticle(articlePath)) {

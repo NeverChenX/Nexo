@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteArticle, deleteFolder, isArticle, isFolder } from '@/lib/storage';
+import { deleteArticle, deleteFolder, isArticle, isFolder, isFolderPage } from '@/lib/storage';
 
 export async function DELETE(
   request: NextRequest,
@@ -9,7 +9,7 @@ export async function DELETE(
     const articlePath = decodeURIComponent(params.id);
 
     // Folder page: delete entire directory (children included)
-    if (await isFolder(articlePath)) {
+    if (await isFolderPage(articlePath)) {
       await deleteFolder(articlePath);
       return NextResponse.json({ ok: true, data: { path: articlePath } });
     }
