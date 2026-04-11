@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs/promises';
+import nodePath from 'path';
 import {
   readArticle,
   writeArticle,
   isArticle,
+  isFolder,
+  promoteToParent,
   renameArticle,
   moveArticle,
 } from '@/lib/storage';
@@ -41,6 +45,7 @@ export async function GET(request: NextRequest) {
     }
 
     const content = await readArticle(articlePath);
+    const folderPage = await isFolder(articlePath);
 
     return NextResponse.json({
       ok: true,
@@ -48,6 +53,7 @@ export async function GET(request: NextRequest) {
         path: articlePath,
         id: articlePathToId(articlePath),
         content,
+        isFolder: folderPage,
       },
     });
   } catch (error) {
@@ -65,43 +71,38 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { path, content = '' } = body;
+    const { path: articlePath, content = '' } = body;
 
-    if (!path || typeof path !== 'string') {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: '缺少 path 参数',
-        },
-        { status: 400 }
-      );
+    if (!articlePath || typeof articlePath !== 'string') {
+      return NextResponse.json({ ok: false, error: '缺少 path 参数' }, { status: 400 });
     }
 
-    // 检查是否已存在
-    if (await isArticle(path)) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: '文章已存在',
-        },
-        { status: 400 }
-      );
+    // Auto-promote parent leaf page when adding first sub-page
+    const lastSlash = articlePath.lastIndexOf('/');
+    if (lastSlash > 0) {
+      const parentPath = articlePath.substring(0, lastSlash);
+      const parentLeafFile = nodePath.join(process.cwd(), 'wiki-data', `${parentPath}.md`);
+      try {
+        await fs.stat(parentLeafFile);
+        // Parent is a leaf page — promote it to a parent page
+        await promoteToParent(parentPath);
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        // Parent is already a directory or doesn't exist — fine
+      }
     }
 
-    await writeArticle(path, content);
+    if (await isArticle(articlePath)) {
+      return NextResponse.json({ ok: false, error: '文章已存在' }, { status: 400 });
+    }
 
+    await writeArticle(articlePath, content);
     return NextResponse.json({
       ok: true,
-      data: { path, id: articlePathToId(path), content },
+      data: { path: articlePath, id: articlePathToId(articlePath), content },
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: '创建文章失败',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: '创建文章失败' }, { status: 500 });
   }
 }
 
