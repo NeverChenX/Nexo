@@ -156,6 +156,37 @@ export async function promoteToParent(articlePath: string): Promise<void> {
 }
 
 /**
+ * If parentPath is a leaf page (page.md), promote it to a parent page (page/_index.md).
+ * Safe to call even if parentPath is already a directory or doesn't exist.
+ */
+export async function promoteParentIfNeeded(parentPath: string): Promise<void> {
+  const filePath = path.join(WIKI_DATA_DIR, `${parentPath}.md`);
+  try {
+    await fs.stat(filePath);
+    // File exists — promote it
+    await promoteToParent(parentPath);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    // Already a directory or doesn't exist — nothing to do
+  }
+}
+
+/**
+ * Returns true if path is a valid parent page directory (directory + _index.md exists).
+ * Use this instead of isFolder() when you need to verify it's a legitimate page.
+ */
+export async function isFolderPage(itemPath: string): Promise<boolean> {
+  try {
+    const dirStat = await fs.stat(path.join(WIKI_DATA_DIR, itemPath));
+    if (!dirStat.isDirectory()) return false;
+    await fs.stat(path.join(WIKI_DATA_DIR, itemPath, '_index.md'));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 幂等迁移：确保每个目录都有 _index.md。
  * 现有没有内容的目录会获得 "# dirname" 作为默认内容。
  */
