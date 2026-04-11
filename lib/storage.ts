@@ -24,6 +24,7 @@ export async function getFileTree(
 
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
+    if (entry.name === '_index.md') continue;
 
     const fullPath = path.join(dirPath, entry.name);
     const relativeSafePath = relativePath
@@ -51,44 +52,37 @@ export async function getFileTree(
   });
 }
 
+// Run migration once per process lifetime
+let _migrationDone = false;
+
 // 获取递归的文件树（包含子目录）
 export async function getRecursiveTree(
   dirPath: string = WIKI_DATA_DIR,
   relativePath: string = ''
 ): Promise<
-  Array<{
-    name: string;
-    path: string;
-    isFolder: boolean;
-    children?: Array<any>;
-  }>
+  Array<{ name: string; path: string; isFolder: boolean; children?: Array<any> }>
 > {
+  // Auto-migrate on first call from the root
+  if (!_migrationDone && dirPath === WIKI_DATA_DIR) {
+    await migrateToPageModel();
+    _migrationDone = true;
+  }
+
   await ensureDir(dirPath);
 
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
-  const items: Array<{
-    name: string;
-    path: string;
-    isFolder: boolean;
-    children?: Array<any>;
-  }> = [];
+  const items: Array<{ name: string; path: string; isFolder: boolean; children?: Array<any> }> = [];
 
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
+    if (entry.name === '_index.md') continue; // hidden: it's the page's own content
 
     const fullPath = path.join(dirPath, entry.name);
-    const relativeSafePath = relativePath
-      ? `${relativePath}/${entry.name}`
-      : entry.name;
+    const relativeSafePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
 
     if (entry.isDirectory()) {
       const children = await getRecursiveTree(fullPath, relativeSafePath);
-      items.push({
-        name: entry.name,
-        path: relativeSafePath,
-        isFolder: true,
-        children,
-      });
+      items.push({ name: entry.name, path: relativeSafePath, isFolder: true, children });
     } else if (entry.name.endsWith('.md')) {
       items.push({
         name: entry.name.replace('.md', ''),
