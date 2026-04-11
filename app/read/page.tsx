@@ -1,17 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
 import { TreeMenu } from '@/components/TreeMenu';
 import { ReadTOC } from '@/components/ReadTOC';
-import { Menu, X, PenLine, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 function ReadPageInner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [currentPath, setCurrentPath] = useState<string>('');
   const [content, setContent] = useState('');
   const [title, setTitle] = useState('请选择一篇文章');
@@ -153,44 +152,21 @@ function ReadPageInner() {
           <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">
             {title}
           </span>
-          <button
-            onClick={() =>
-              router.push(
-                currentPath
-                  ? `/editor?path=${encodeURIComponent(currentPath)}`
-                  : '/editor'
-              )
-            }
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
-            title="编辑此文章"
-          >
-            <PenLine className="h-4 w-4" />
-          </button>
+          <div className="w-9" />
         </header>
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* 文章内容 */}
           <article ref={articleRef} className="flex-1 min-w-0 overflow-y-auto px-6 py-10 lg:py-12">
             <div className="mx-auto" style={{ maxWidth: '700px' }}>
-              {/* 桌面端操作栏 */}
-              <div className="hidden lg:flex items-center justify-between mb-8">
-                <span className="text-xs text-gray-400 truncate max-w-sm">
-                  {currentPath}
-                </span>
-                {currentPath && (
-                  <button
-                    onClick={() =>
-                      router.push(
-                        `/editor?path=${encodeURIComponent(currentPath)}`
-                      )
-                    }
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0 ml-4"
-                  >
-                    <PenLine className="h-3.5 w-3.5" />
-                    编辑
-                  </button>
-                )}
-              </div>
+              {/* 桌面端路径显示 */}
+              {currentPath && (
+                <div className="hidden lg:block mb-8">
+                  <span className="text-xs text-gray-400 truncate">
+                    {currentPath}
+                  </span>
+                </div>
+              )}
 
               {loading && (
                 <div className="text-gray-400 text-sm">加载中...</div>
