@@ -136,8 +136,22 @@ export async function writeArticle(
   }
 
   const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
-  await ensureDir(path.dirname(filePath));
+  const parentDir = path.dirname(filePath);
+  await ensureDir(parentDir);
   await fs.writeFile(filePath, content, 'utf-8');
+
+  // If file was created inside a subdirectory of WIKI_DATA_DIR, ensure that
+  // directory has an _index.md (makes it a valid parent page)
+  if (parentDir !== WIKI_DATA_DIR) {
+    const parentIndexPath = path.join(parentDir, '_index.md');
+    try {
+      await fs.stat(parentIndexPath);
+    } catch (e: unknown) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+      const dirname = path.basename(parentDir);
+      await fs.writeFile(parentIndexPath, `# ${dirname}\n`, 'utf-8');
+    }
+  }
 }
 
 /**
@@ -156,18 +170,41 @@ export async function promoteToParent(articlePath: string): Promise<void> {
 }
 
 /**
- * If parentPath is a leaf page (page.md), promote it to a parent page (page/_index.md).
- * Safe to call even if parentPath is already a directory or doesn't exist.
+ * Ensure parentPath is a valid parent page (directory + _index.md).
+ * - If parentPath.md exists: promote it (move content to _index.md)
+ * - If parentPath/ exists without _index.md: create default _index.md
+ * - Otherwise: do nothing (parent will be created when child is written)
  */
 export async function promoteParentIfNeeded(parentPath: string): Promise<void> {
   const filePath = path.join(WIKI_DATA_DIR, `${parentPath}.md`);
   try {
     await fs.stat(filePath);
-    // File exists — promote it
+    // Leaf page exists — promote it to parent page
     await promoteToParent(parentPath);
+    return;
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-    // Already a directory or doesn't exist — nothing to do
+  }
+
+  // Check if directory exists without _index.md
+  const dirPath = path.join(WIKI_DATA_DIR, parentPath);
+  try {
+    const stat = await fs.stat(dirPath);
+    if (stat.isDirectory()) {
+      const indexPath = path.join(dirPath, '_index.md');
+      try {
+        await fs.stat(indexPath);
+        // _index.md already exists — nothing to do
+      } catch (e: unknown) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+        // Create default _index.md
+        const dirname = path.basename(parentPath);
+        await fs.writeFile(indexPath, `# ${dirname}\n`, 'utf-8');
+      }
+    }
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    // Directory doesn't exist yet — will be created by writeArticle's ensureDir
   }
 }
 
