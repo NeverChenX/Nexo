@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -19,6 +19,7 @@ function ReadPageInner() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [refreshKey] = useState(0);
+  const articleRef = useRef<HTMLElement>(null);
 
   const loadArticle = useCallback(async (path: string) => {
     if (!path) return;
@@ -57,6 +58,8 @@ function ReadPageInner() {
     url.searchParams.set('path', itemPath);
     window.history.replaceState(null, '', url.toString());
     setMobileSidebarOpen(false);
+    // 滚动到顶部
+    if (articleRef.current) articleRef.current.scrollTop = 0;
   };
 
   const safeUrlTransform = (url: string): string => {
@@ -167,7 +170,7 @@ function ReadPageInner() {
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* 文章内容 */}
-          <article className="flex-1 min-w-0 overflow-y-auto px-6 py-10 lg:py-12">
+          <article ref={articleRef} className="flex-1 min-w-0 overflow-y-auto px-6 py-10 lg:py-12">
             <div className="mx-auto" style={{ maxWidth: '700px' }}>
               {/* 桌面端操作栏 */}
               <div className="hidden lg:flex items-center justify-between mb-8">
@@ -218,7 +221,7 @@ function ReadPageInner() {
           {content && (
             <aside className="hidden xl:block w-52 flex-shrink-0 overflow-y-auto px-4 py-12 border-l border-gray-100">
               <div className="sticky top-12">
-                <ReadTOC content={content} />
+                <ReadTOC contentKey={currentPath} containerSelector=".read-content" />
               </div>
             </aside>
           )}

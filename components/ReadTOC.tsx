@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface TocItem {
   level: number;
@@ -9,45 +9,41 @@ interface TocItem {
 }
 
 interface ReadTOCProps {
-  content: string;
+  /** 用于触发重新扫描 DOM 的 key（文章内容变化时更新） */
+  contentKey: string;
+  /** 包含渲染后标题的容器选择器 */
+  containerSelector: string;
 }
 
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\u4e00-\u9fa5\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-}
-
-function parseHeadings(markdown: string): TocItem[] {
-  const lines = markdown.split('\n');
-  const items: TocItem[] = [];
-  const seenIds = new Map<string, number>();
-
-  for (const line of lines) {
-    const match = line.match(/^(#{1,3})\s+(.+)$/);
-    if (!match) continue;
-    const level = match[1].length;
-    const text = match[2].trim();
-    let id = slugify(text);
-    if (!id) id = 'heading';
-
-    const count = seenIds.get(id) ?? 0;
-    seenIds.set(id, count + 1);
-    const finalId = count === 0 ? id : `${id}-${count}`;
-
-    items.push({ level, text, id: finalId });
-  }
-
-  return items;
-}
-
-export function ReadTOC({ content }: ReadTOCProps) {
+export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
+  const [items, setItems] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState<string>('');
-  const items = parseHeadings(content);
 
+  // 从 DOM 中扫描标题（rehype-slug 已为标题加好 id）
+  const scanHeadings = useCallback(() => {
+    const container = document.querySelector(containerSelector);
+    if (!container) return;
+    const headings = container.querySelectorAll('h1[id], h2[id], h3[id]');
+    const result: TocItem[] = [];
+    headings.forEach((el) => {
+      const tagName = el.tagName.toLowerCase();
+      const level = tagName === 'h1' ? 1 : tagName === 'h2' ? 2 : 3;
+      result.push({
+        level,
+        text: el.textContent ?? '',
+        id: el.id,
+      });
+    });
+    setItems(result);
+  }, [containerSelector]);
+
+  // 内容变化后延迟扫描 DOM（等 ReactMarkdown 渲染完成）
+  useEffect(() => {
+    const timer = setTimeout(scanHeadings, 100);
+    return () => clearTimeout(timer);
+  }, [contentKey, scanHeadings]);
+
+  // IntersectionObserver 追踪当前可见标题
   useEffect(() => {
     if (items.length === 0) return;
 
@@ -68,8 +64,7 @@ export function ReadTOC({ content }: ReadTOCProps) {
     }
 
     return () => observer.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content]);
+  }, [items]);
 
   if (items.length === 0) return null;
 
@@ -86,7 +81,7 @@ export function ReadTOC({ content }: ReadTOCProps) {
       <ul className="space-y-1">
         {items.map((item) => (
           <li
-            key={`${item.id}-${item.level}`}
+            key={item.id}
             style={{ paddingLeft: `${(item.level - 1) * 12}px` }}
           >
             <button
