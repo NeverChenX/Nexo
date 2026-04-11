@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { TreeMenu } from '@/components/TreeMenu';
-import { Preview } from '@/components/Preview';
 import { ShareModal } from '@/components/ShareModal';
+import { BlockEditor } from '@/components/BlockEditor';
+import { CreateArticleModal } from '@/components/CreateArticleModal';
 import { Button } from '@/components/ui/button';
 import { Pencil, Share2, Trash2, FileText, Folder, Sparkles, Wand2, BookOpen } from 'lucide-react';
 
@@ -14,7 +15,7 @@ interface FolderItem {
   isFolder: boolean;
 }
 
-export default function ViewPage() {
+function ViewPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [currentPath, setCurrentPath] = useState<string>('');
@@ -23,6 +24,10 @@ export default function ViewPage() {
   const [folderItems, setFolderItems] = useState<FolderItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [treeRefreshKey, setTreeRefreshKey] = useState(0);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createModalParent, setCreateModalParent] = useState('');
+  const [itemContextMenu, setItemContextMenu] = useState<{ path: string; isFolder: boolean; x: number; y: number } | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState<number>(260);
   const [draggingSidebar, setDraggingSidebar] = useState(false);
   const draggingSidebarRef = useRef(false);
@@ -119,8 +124,8 @@ export default function ViewPage() {
     [router]
   );
 
-  const loadFolder = useCallback(async (folderPath: string) => {
-    if (folderPath === currentPathRef.current) return;
+  const loadFolder = useCallback(async (folderPath: string, force = false) => {
+    if (!force && folderPath === currentPathRef.current) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/folders?path=${encodeURIComponent(folderPath)}`);
@@ -172,6 +177,7 @@ export default function ViewPage() {
         setArticleId(null);
         setContent('');
         setFolderItems(null);
+        setTreeRefreshKey((k) => k + 1);
         router.replace('/view');
       } else {
         alert('删除失败: ' + json.error);
@@ -231,6 +237,77 @@ export default function ViewPage() {
       alert('添加到文章失败: ' + error);
     } finally {
       setAddingToArticle(false);
+    }
+  };
+
+  const handleCreateArticle = (parentPath: string) => {
+    setCreateModalParent(parentPath);
+    setCreateModalOpen(true);
+  };
+
+  const handleCreateConfirm = async (name: string) => {
+    setCreateModalOpen(false);
+    const articlePath = createModalParent ? `${createModalParent}/${name}` : name;
+    try {
+      const res = await fetch('/api/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: articlePath, content: '# ' + name }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setTreeRefreshKey((k) => k + 1);
+        if (json.data?.id) {
+          router.push(`/editor?id=${encodeURIComponent(json.data.id)}`);
+        } else {
+          router.push(`/editor?path=${encodeURIComponent(articlePath)}`);
+        }
+      } else {
+        alert('创建失败: ' + json.error);
+      }
+    } catch (error) {
+      alert('创建失败: ' + error);
+    }
+  };
+
+  const handleItemRename = async (itemPath: string, isFolder: boolean) => {
+    setItemContextMenu(null);
+    const oldName = itemPath.split('/').pop() || itemPath;
+    const newName = prompt('输入新名称:', oldName);
+    if (!newName || newName === oldName) return;
+    const parentPath = itemPath.includes('/') ? itemPath.substring(0, itemPath.lastIndexOf('/')) : '';
+    const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+    try {
+      const url = isFolder ? '/api/folders' : '/api/articles';
+      const body = isFolder ? { oldPath: itemPath, newPath } : { oldPath: itemPath, newPath };
+      const res = await fetch(url, {
+        method: isFolder ? 'PUT' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!json.ok) { alert('重命名失败: ' + json.error); return; }
+      setTreeRefreshKey((k) => k + 1);
+      await loadFolder(currentPath, true);
+    } catch (error) {
+      alert('重命名失败: ' + error);
+    }
+  };
+
+  const handleItemDelete = async (itemPath: string, isFolder: boolean) => {
+    setItemContextMenu(null);
+    const name = itemPath.split('/').pop();
+    if (!confirm(`确定要删除"${name}"吗？${isFolder ? '\n（包含的所有子文档也会被删除）' : ''}`)) return;
+    try {
+      const encoded = encodeURIComponent(itemPath);
+      const url = isFolder ? `/api/folders/${encoded}` : `/api/articles/${encoded}`;
+      const res = await fetch(url, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.ok) { alert('删除失败: ' + json.error); return; }
+      setTreeRefreshKey((k) => k + 1);
+      await loadFolder(currentPath, true);
+    } catch (error) {
+      alert('删除失败: ' + error);
     }
   };
 
@@ -300,9 +377,10 @@ export default function ViewPage() {
       <div style={{ width: `${sidebarWidth}px` }} className="h-full flex-shrink-0 min-w-0">
         <TreeMenu
           onSelectItem={handleSelectItem}
-          onCreateArticle={() => {}}
+          onCreateArticle={handleCreateArticle}
           selectedPath={currentPath}
           className="h-full w-full border-r-0"
+          refreshKey={treeRefreshKey}
         />
       </div>
       <div
@@ -317,8 +395,33 @@ export default function ViewPage() {
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-500 truncate">{currentPath || '未选择文章'}</p>
+          <div className="flex-1 min-w-0 overflow-hidden">
+            {currentPath ? (
+              <nav className="flex items-center gap-0.5 text-sm min-w-0">
+                {currentPath.split('/').map((part, index, parts) => {
+                  const isLast = index === parts.length - 1;
+                  const segmentPath = parts.slice(0, index + 1).join('/');
+                  return (
+                    <span key={segmentPath} className="flex items-center gap-0.5 min-w-0 flex-shrink-0">
+                      {index > 0 && <span className="text-gray-300 px-0.5">/</span>}
+                      {isLast ? (
+                        <span className="text-gray-700 font-medium truncate max-w-[200px]" title={part}>{part}</span>
+                      ) : (
+                        <button
+                          className="text-blue-500 hover:text-blue-700 hover:underline truncate max-w-[120px] flex-shrink-0"
+                          title={part}
+                          onClick={() => loadFolder(segmentPath)}
+                        >
+                          {part}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </nav>
+            ) : (
+              <span className="text-sm text-gray-400">未选择文章</span>
+            )}
           </div>
           {loading && <span className="text-xs text-gray-400 flex-shrink-0">加载中...</span>}
           <Button
@@ -372,6 +475,10 @@ export default function ViewPage() {
                           <button
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-slate-100 transition-colors group"
                             onClick={() => handleSelectItem(item.path, item.isFolder)}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setItemContextMenu({ path: item.path, isFolder: item.isFolder, x: e.clientX, y: e.clientY });
+                            }}
                           >
                             {item.isFolder ? (
                               <Folder className="h-4 w-4 text-slate-400 flex-shrink-0" />
@@ -385,8 +492,14 @@ export default function ViewPage() {
                     </ul>
                   )}
                 </div>
-              ) : content ? (
-                <Preview content={content} maxWidth="900px" />
+              ) : content !== undefined ? (
+                <BlockEditor
+                  content={content}
+                  articlePath={currentPath}
+                  articleId={articleId}
+                  onCreatePage={handleCreateArticle}
+                  readOnly
+                />
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-gray-400">选择一篇文章查看</p>
@@ -474,6 +587,54 @@ export default function ViewPage() {
           onClose={() => setShareModalOpen(false)}
         />
       )}
+      <CreateArticleModal
+        isOpen={createModalOpen}
+        parentPath={createModalParent}
+        onConfirm={handleCreateConfirm}
+        onClose={() => setCreateModalOpen(false)}
+      />
+
+      {itemContextMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setItemContextMenu(null)} />
+          <div
+            className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[150px]"
+            style={{ left: itemContextMenu.x, top: itemContextMenu.y }}
+          >
+            {itemContextMenu.isFolder && (
+              <button
+                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+                onClick={() => { handleCreateArticle(itemContextMenu.path); setItemContextMenu(null); }}
+              >
+                <FileText className="h-3.5 w-3.5 text-slate-400" />
+                新建子文档
+              </button>
+            )}
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+              onClick={() => handleItemRename(itemContextMenu.path, itemContextMenu.isFolder)}
+            >
+              <Pencil className="h-3.5 w-3.5 text-slate-400" />
+              重命名
+            </button>
+            <button
+              className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+              onClick={() => handleItemDelete(itemContextMenu.path, itemContextMenu.isFolder)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              删除
+            </button>
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+export default function ViewPage() {
+  return (
+    <Suspense fallback={<div className="h-screen flex items-center justify-center text-slate-400">加载中...</div>}>
+      <ViewPageInner />
+    </Suspense>
   );
 }
