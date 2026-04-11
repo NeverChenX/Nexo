@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  distDir: process.env.NODE_ENV === 'production' ? '.next-prod' : '.next',
 };
 
 module.exports = nextConfig;
