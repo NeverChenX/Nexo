@@ -8,7 +8,7 @@ import { ShareModal } from '@/components/ShareModal';
 import { CreateArticleModal } from '@/components/CreateArticleModal';
 import { Button } from '@/components/ui/button';
 import { Preview } from '@/components/Preview';
-import { Trash2, Share2, Eye, PanelRightClose, PanelRightOpen, FileText } from 'lucide-react';
+import { Trash2, Share2, Eye, PanelRightClose, PanelRightOpen, FileText, BookOpen, PenLine } from 'lucide-react';
 
 interface ArticleData {
   path: string;
@@ -475,6 +475,24 @@ function EditorPageInner() {
             >
               {showPreview ? <PanelRightClose className="h-4 w-4 mr-1" /> : <PanelRightOpen className="h-4 w-4 mr-1" />}
               预览
+            </Button>
+            <Button
+              onClick={() => router.push(currentPath ? `/write?path=${encodeURIComponent(currentPath)}` : '/write')}
+              disabled={!currentPath}
+              variant="outline"
+              size="sm"
+              title="无干扰写作模式"
+            >
+              <PenLine className="h-4 w-4 mr-1" /> 专注
+            </Button>
+            <Button
+              onClick={() => router.push(currentPath ? `/read?path=${encodeURIComponent(currentPath)}` : '/read')}
+              disabled={!currentPath}
+              variant="outline"
+              size="sm"
+              title="阅读模式"
+            >
+              <BookOpen className="h-4 w-4 mr-1" /> 阅读
             </Button>
             <Button
               onClick={() => router.push(articleData?.id ? `/view?id=${encodeURIComponent(articleData.id)}` : '/view')}
