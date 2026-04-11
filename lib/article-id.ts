@@ -15,13 +15,11 @@ export function articlePathToId(articlePath: string): string {
 function collectArticlePaths(items: TreeItem[]): string[] {
   const paths: string[] = [];
   for (const item of items) {
-    if (item.isFolder) {
-      if (item.children?.length) {
-        paths.push(...collectArticlePaths(item.children));
-      }
-      continue;
-    }
+    // Include every item (both leaf articles and folder pages with _index.md)
     paths.push(item.path);
+    if (item.children?.length) {
+      paths.push(...collectArticlePaths(item.children));
+    }
   }
   return paths;
 }
