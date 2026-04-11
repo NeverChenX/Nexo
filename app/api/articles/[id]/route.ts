@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteArticle, isArticle } from '@/lib/storage';
+import { deleteArticle, deleteFolder, isArticle, isFolder } from '@/lib/storage';
 
-// DELETE: 删除文章
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -9,30 +8,20 @@ export async function DELETE(
   try {
     const articlePath = decodeURIComponent(params.id);
 
-    // 检查文章是否存在
+    // Folder page: delete entire directory (children included)
+    if (await isFolder(articlePath)) {
+      await deleteFolder(articlePath);
+      return NextResponse.json({ ok: true, data: { path: articlePath } });
+    }
+
+    // Leaf page: delete the .md file
     if (!(await isArticle(articlePath))) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: '文章不存在',
-        },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: '文章不存在' }, { status: 404 });
     }
 
     await deleteArticle(articlePath);
-
-    return NextResponse.json({
-      ok: true,
-      data: { path: articlePath },
-    });
+    return NextResponse.json({ ok: true, data: { path: articlePath } });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: '删除文章失败',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: '删除失败' }, { status: 500 });
   }
 }
