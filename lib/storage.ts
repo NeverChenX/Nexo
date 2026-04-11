@@ -383,6 +383,7 @@ export async function getFolderContentsDetailed(
 
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
+    if (entry.name === '_index.md') continue;
 
     const fullPath = path.join(dirPath, entry.name);
     const relativeSafePath = folderPath
@@ -392,7 +393,7 @@ export async function getFolderContentsDetailed(
     if (entry.isDirectory()) {
       const stat = await fs.stat(fullPath);
       const children = await fs.readdir(fullPath);
-      const childCount = children.filter((c) => !c.startsWith('.')).length;
+      const childCount = children.filter((c) => !c.startsWith('.') && c !== '_index.md').length;
       items.push({
         name: entry.name,
         path: relativeSafePath,

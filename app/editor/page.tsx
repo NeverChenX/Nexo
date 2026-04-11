@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { TreeMenu } from '@/components/TreeMenu';
 import { Editor } from '@/components/Editor';
 import { ShareModal } from '@/components/ShareModal';
+import { CreateArticleModal } from '@/components/CreateArticleModal';
 import { Button } from '@/components/ui/button';
 import { Preview } from '@/components/Preview';
 import { Trash2, Share2, Eye, PanelRightClose, PanelRightOpen, FileText } from 'lucide-react';
@@ -13,22 +14,19 @@ interface ArticleData {
   path: string;
   id: string;
   content: string;
+  isFolder?: boolean;
 }
 
-interface FolderItem {
+interface SubPage {
   name: string;
   path: string;
   isFolder: boolean;
-  title?: string;
-  updatedAt?: string;
-  childCount?: number;
 }
 
-export default function EditorPage() {
+function EditorPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [currentPath, setCurrentPath] = useState<string>('');
-  const [currentType, setCurrentType] = useState<'article' | 'folder'>('article');
   const [articleData, setArticleData] = useState<ArticleData | null>(null);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,8 +42,10 @@ export default function EditorPage() {
   const [showPreview, setShowPreview] = useState(true);
   const [editorWidthPercent, setEditorWidthPercent] = useState<number>(50);
   const [draggingEditor, setDraggingEditor] = useState(false);
-  const [folderPath, setFolderPath] = useState<string | null>(null);
-  const [folderContents, setFolderContents] = useState<FolderItem[]>([]);
+  const [isCurrentFolder, setIsCurrentFolder] = useState(false);
+  const [subPages, setSubPages] = useState<SubPage[]>([]);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createModalParent, setCreateModalParent] = useState('');
 
   const contentRef = useRef(content);
   const pathRef = useRef(currentPath);
@@ -118,6 +118,17 @@ export default function EditorPage() {
           if (json.data.id) {
             router.replace(`/editor?id=${encodeURIComponent(json.data.id)}`);
           }
+          const isFolderPage = !!json.data.isFolder;
+          setIsCurrentFolder(isFolderPage);
+          if (isFolderPage) {
+            try {
+              const subRes = await fetch(`/api/folders?path=${encodeURIComponent(json.data.path)}`);
+              const subJson = await subRes.json();
+              if (subJson.ok) setSubPages(subJson.data);
+            } catch { setSubPages([]); }
+          } else {
+            setSubPages([]);
+          }
         }
       } catch (error) {
         if (requestSeq !== latestLoadSeqRef.current) return;
@@ -137,9 +148,6 @@ export default function EditorPage() {
     if (!idFromUrl && !pathFromUrl) return;
     if (idFromUrl && currentArticleIdRef.current === idFromUrl) return;
     if (pathFromUrl && pathFromUrl === pathRef.current) return;
-    setCurrentType('article');
-    setFolderPath(null);
-    setFolderContents([]);
     if (idFromUrl) {
       void loadArticle({ id: idFromUrl });
       return;
@@ -310,18 +318,6 @@ export default function EditorPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [saveArticle]);
 
-  const loadFolderContents = useCallback(async (folderPath: string) => {
-    try {
-      const res = await fetch(`/api/folders?path=${encodeURIComponent(folderPath)}`);
-      const json = await res.json();
-      if (json.ok) {
-        setFolderContents(json.data);
-      }
-    } catch (error) {
-      console.error('Failed to load folder contents:', error);
-    }
-  }, []);
-
   const handleMoveItem = async (oldPath: string, newParentPath: string, isFolder: boolean) => {
     // 如果当前正在编辑被移动的文档，更新路径
     if (currentPath === oldPath) {
@@ -340,32 +336,16 @@ export default function EditorPage() {
     return true;
   };
 
-  const handleSelectItem = (itemPath: string, isFolder: boolean) => {
-    if (isFolder) {
-      if (itemPath === folderPath) return;
-      currentArticleIdRef.current = null;
-      pathRef.current = '';
-      setCurrentPath('');
-      setArticleData(null);
-      setContent('');
-      setSaved(true);
-      setSaveState('saved');
-      setCurrentType('folder');
-      setFolderPath(itemPath);
-      window.history.replaceState(null, '', '/editor');
-      void loadFolderContents(itemPath);
-    } else {
-      if (itemPath === currentPath) return;
-      setFolderPath(null);
-      setFolderContents([]);
-      setCurrentPath(itemPath);
-      setCurrentType('article');
-      void loadArticle({ path: itemPath });
-    }
+  const handleSelectItem = (itemPath: string, _isFolder: boolean) => {
+    if (itemPath === currentPath) return;
+    setCurrentPath(itemPath);
+    void loadArticle({ path: itemPath });
   };
 
   const handleDelete = async () => {
-    if (!currentPath || !confirm('确定要删除吗？')) return;
+    if (!currentPath) return;
+    const msg = isCurrentFolder ? '确定要删除吗？（子页面也会一并删除）' : '确定要删除吗？';
+    if (!confirm(msg)) return;
     try {
       const res = await fetch(`/api/articles/${encodeURIComponent(currentPath)}`, {
         method: 'DELETE',
@@ -375,76 +355,52 @@ export default function EditorPage() {
         setCurrentPath('');
         setContent('');
         setArticleData(null);
+        setIsCurrentFolder(false);
+        setSubPages([]);
         setSaved(true);
         setSaveState('saved');
         setSaveError('');
         setLastSavedAt(null);
         router.replace('/editor');
-        alert('删除成功');
         setRefreshKey((prev) => prev + 1);
       }
     } catch (error) {
       console.error('Failed to delete:', error);
-      alert('删除失败: ' + error);
     }
   };
 
-  const handleCreateArticle = async (folderPath: string) => {
-    const name = prompt('输入新文档名称:');
-    if (name) {
-      const articlePath = folderPath ? `${folderPath}/${name}` : name;
-      try {
-        const res = await fetch('/api/articles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: articlePath, content: '# ' + name }),
-        });
-        const json = await res.json();
-        if (json.ok) {
-          setCurrentPath(articlePath);
-          setCurrentType('article');
-          setContent('# ' + name);
-          setArticleData(json.data);
-          setSaved(true);
-          setSaveState('saved');
-          setSaveError('');
-          setLastSavedAt(Date.now());
-          if (json.data?.id) {
-            router.replace(`/editor?id=${encodeURIComponent(json.data.id)}`);
-          }
-          setRefreshKey((prev) => prev + 1);
-          alert('创建成功');
-        } else {
-          alert('创建失败: ' + json.error);
-        }
-      } catch (error) {
-        console.error('Failed to create article:', error);
-        alert('创建失败: ' + error);
-      }
-    }
+  const handleCreateArticle = (parentPath: string) => {
+    setCreateModalParent(parentPath);
+    setCreateModalOpen(true);
   };
 
-  const handleCreateFolder = async (parentPath: string) => {
-    const name = prompt('输入新父文档名称:');
-    if (name) {
-      const folderPath = parentPath ? `${parentPath}/${name}` : name;
-      try {
-        const res = await fetch('/api/folders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: folderPath }),
-        });
-        const json = await res.json();
-        if (json.ok) {
-          setRefreshKey((prev) => prev + 1);
-          alert('创建成功');
-        } else {
-          alert('创建失败: ' + json.error);
+  const handleCreateConfirm = async (name: string) => {
+    setCreateModalOpen(false);
+    const articlePath = createModalParent ? `${createModalParent}/${name}` : name;
+    try {
+      const res = await fetch('/api/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: articlePath, content: '# ' + name }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setCurrentPath(articlePath);
+        setIsCurrentFolder(false);
+        setSubPages([]);
+        setContent('# ' + name);
+        setArticleData(json.data);
+        setSaved(true);
+        setSaveState('saved');
+        setSaveError('');
+        setLastSavedAt(Date.now());
+        if (json.data?.id) {
+          router.replace(`/editor?id=${encodeURIComponent(json.data.id)}`);
         }
-      } catch (error) {
-        console.error('Failed to create folder:', error);
-        alert('创建失败: ' + error);
+        setRefreshKey((prev) => prev + 1);
       }
+    } catch (error) {
+      console.error('Failed to create article:', error);
     }
   };
 
@@ -482,7 +438,7 @@ export default function EditorPage() {
           onSelectItem={handleSelectItem}
           onCreateArticle={handleCreateArticle}
           onMoveItem={handleMoveItem}
-          selectedPath={currentPath || folderPath || ''}
+          selectedPath={currentPath}
           className="h-full w-full border-r-0"
         />
       </div>
@@ -499,7 +455,7 @@ export default function EditorPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-3 flex-shrink-0">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-gray-500 truncate">{currentPath || folderPath || '未选择文档'}</p>
+            <p className="text-sm text-gray-500 truncate">{currentPath || '未选择文档'}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <span
@@ -543,97 +499,69 @@ export default function EditorPage() {
         </div>
 
         {currentPath ? (
-          <div ref={editorContainerRef} className="flex-1 min-h-0 flex">
-            <div
-              style={{ width: showPreview ? `${editorWidthPercent}%` : '100%' }}
-              className="min-w-0 border-r border-gray-200"
-            >
-              <Editor
-                content={content}
-                onChange={(newContent) => {
-                  setContent(newContent);
-                  setSaved(false);
-                  savedRef.current = false;
-                  setSaveState('dirty');
-                  setSaveError('');
-                }}
-              />
-            </div>
-            {showPreview && (
-              <>
-                <div
-                  className={`h-full w-1.5 cursor-col-resize bg-slate-200 transition-colors flex-shrink-0 ${
-                    draggingEditor ? 'bg-blue-400' : 'hover:bg-slate-300'
-                  }`}
-                  onMouseDown={startEditorDrag}
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-label="调整编辑区和预览区宽度"
+          <div ref={editorContainerRef} className="flex-1 min-h-0 flex flex-col">
+            <div className="flex flex-1 min-h-0">
+              <div
+                style={{ width: showPreview ? `${editorWidthPercent}%` : '100%' }}
+                className="min-w-0 border-r border-gray-200 h-full"
+              >
+                <Editor
+                  content={content}
+                  onChange={(newContent) => {
+                    setContent(newContent);
+                    setSaved(false);
+                    savedRef.current = false;
+                    setSaveState('dirty');
+                    setSaveError('');
+                  }}
                 />
-                <div style={{ width: `${100 - editorWidthPercent}%` }} className="min-w-0 h-full overflow-auto">
-                  <Preview content={content} />
-                </div>
-              </>
-            )}
-          </div>
-        ) : folderPath !== null ? (
-          <div className="flex-1 overflow-auto bg-white">
-            {/* Notion 风格标题区 */}
-            <div className="max-w-[900px] mx-auto px-24 pt-20 pb-8">
-              <div className="text-5xl mb-4">
-                {folderContents.length > 0 ? '\uD83D\uDCC2' : '\uD83D\uDCC4'}
               </div>
-              <h1 className="text-[40px] font-bold text-[#37352f] leading-tight tracking-tight">
-                {folderPath.split('/').pop()}
-              </h1>
-              {folderPath.includes('/') && (
-                <p className="text-sm text-[#9b9a97] mt-2">
-                  {folderPath.split('/').slice(0, -1).join(' / ')}
-                </p>
+              {showPreview && (
+                <>
+                  <div
+                    className={`h-full w-1.5 cursor-col-resize bg-slate-200 transition-colors flex-shrink-0 ${
+                      draggingEditor ? 'bg-blue-400' : 'hover:bg-slate-300'
+                    }`}
+                    onMouseDown={startEditorDrag}
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="调整编辑区和预览区宽度"
+                  />
+                  <div style={{ width: `${100 - editorWidthPercent}%` }} className="min-w-0 h-full overflow-auto">
+                    <Preview content={content} />
+                  </div>
+                </>
               )}
             </div>
 
-            {/* 子文档列表 */}
-            <div className="max-w-[900px] mx-auto px-24 pb-20">
-              {folderContents.length === 0 ? (
-                <p className="text-[#9b9a97] text-sm py-3">暂无子文档</p>
-              ) : (
-                <div>
-                  <div className="flex items-center px-2 py-1.5 text-xs text-[#9b9a97] uppercase tracking-wider border-b border-[#e9e9e7]">
-                    <span className="flex-1">名称</span>
-                    <span className="w-28 text-right">更新时间</span>
+            {isCurrentFolder && (
+              <div className="border-t border-gray-100 bg-[#fbfbfa] px-6 py-4 flex-shrink-0">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">子页面</p>
+                {subPages.length === 0 ? (
+                  <p className="text-sm text-slate-400">暂无子页面</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    {subPages.map((sub) => (
+                      <button
+                        key={sub.path}
+                        onClick={() => handleSelectItem(sub.path, sub.isFolder)}
+                        className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md hover:bg-slate-100 text-sm text-slate-700 transition-colors"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                        <span>{sub.name || sub.path.split('/').pop()}</span>
+                      </button>
+                    ))}
                   </div>
-                  {folderContents.map((item) => (
-                    <button
-                      key={item.path}
-                      onClick={() => handleSelectItem(item.path, item.isFolder)}
-                      className="w-full text-left px-2 py-1.5 flex items-center rounded-[3px] hover:bg-[#f1f1ef] transition-colors group"
-                    >
-                      <span className="text-base mr-2 flex-shrink-0 opacity-80">
-                        {item.isFolder ? '\uD83D\uDCC2' : '\uD83D\uDCC4'}
-                      </span>
-                      <span className="text-sm text-[#37352f] truncate flex-1 min-w-0 group-hover:underline">
-                        {item.title || item.name}
-                      </span>
-                      {item.isFolder && item.childCount !== undefined && (
-                        <span className="text-xs text-[#9b9a97] flex-shrink-0 mr-4">
-                          {item.childCount} 篇
-                        </span>
-                      )}
-                      {item.updatedAt && (
-                        <span className="w-28 text-right text-xs text-[#9b9a97] flex-shrink-0">
-                          {new Date(item.updatedAt).toLocaleDateString('zh-CN', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                          })}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                )}
+                <button
+                  onClick={() => handleCreateArticle(currentPath)}
+                  className="mt-2 flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors px-2 py-1"
+                >
+                  <span className="text-base leading-none">+</span>
+                  <span>新建子页面</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -645,11 +573,25 @@ export default function EditorPage() {
       {currentPath && (
         <ShareModal
           path={currentPath}
-          type={currentType}
+          type="article"
           isOpen={shareModalOpen}
           onClose={() => setShareModalOpen(false)}
         />
       )}
+      <CreateArticleModal
+        isOpen={createModalOpen}
+        parentPath={createModalParent}
+        onConfirm={handleCreateConfirm}
+        onClose={() => setCreateModalOpen(false)}
+      />
     </div>
+  );
+}
+
+export default function EditorPage() {
+  return (
+    <Suspense fallback={<div className="h-screen flex items-center justify-center text-slate-400">加载中...</div>}>
+      <EditorPageInner />
+    </Suspense>
   );
 }
