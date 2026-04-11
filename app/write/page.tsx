@@ -92,6 +92,13 @@ function WritePageInner() {
     [saveArticle]
   );
 
+  // 组件卸载时清理自动保存定时器
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
