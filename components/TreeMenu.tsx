@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { ChevronRight, ChevronDown, FileText, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, Pencil, Trash2, X, AlertCircle } from 'lucide-react';
 
 interface TreeItem {
   name: string;
@@ -18,7 +17,104 @@ interface TreeMenuProps {
   onMoveItem?: (oldPath: string, newParentPath: string, isFolder: boolean) => Promise<boolean>;
   selectedPath?: string;
   className?: string;
+  refreshKey?: number;
 }
+
+// ─── Modal ───────────────────────────────────────────────────────────────────
+
+type ModalConfig =
+  | { type: 'alert'; message: string; onClose: () => void }
+  | { type: 'confirm'; message: string; onConfirm: () => void; onCancel: () => void }
+  | { type: 'prompt'; message: string; defaultValue: string; onConfirm: (v: string) => void; onCancel: () => void };
+
+function Modal({ config }: { config: ModalConfig }) {
+  const [inputValue, setInputValue] = useState(
+    config.type === 'prompt' ? config.defaultValue : ''
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (config.type === 'prompt') {
+      setTimeout(() => {
+        inputRef.current?.select();
+      }, 50);
+    }
+  }, [config.type]);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-xl shadow-2xl w-[340px] overflow-hidden border border-slate-200">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <AlertCircle className="h-4 w-4 text-slate-400" />
+            {config.type === 'alert' ? '提示' : config.type === 'confirm' ? '确认' : '输入'}
+          </div>
+          <button
+            onClick={() => {
+              if (config.type === 'alert') config.onClose();
+              else config.onCancel();
+            }}
+            className="text-slate-400 hover:text-slate-600 rounded p-0.5 hover:bg-slate-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-4 py-4">
+          <p className="text-sm text-slate-600 mb-3">{config.message}</p>
+          {config.type === 'prompt' && (
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') config.onConfirm(inputValue);
+                if (e.key === 'Escape') config.onCancel();
+              }}
+              className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400"
+            />
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 px-4 pb-4">
+          {config.type !== 'alert' && (
+            <button
+              onClick={config.onCancel}
+              className="px-3 py-1.5 text-sm text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+            >
+              取消
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (config.type === 'alert') config.onClose();
+              else if (config.type === 'confirm') config.onConfirm();
+              else config.onConfirm(inputValue);
+            }}
+            className={cn(
+              'px-3 py-1.5 text-sm rounded-md transition-colors',
+              config.type === 'confirm'
+                ? 'bg-red-500 text-white hover:bg-red-600'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
+            )}
+          >
+            {config.type === 'alert' ? '确定' : config.type === 'confirm' ? '删除' : '确定'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Drop indicator ───────────────────────────────────────────────────────────
+
+interface DropPosition {
+  parentPath: string;
+  index: number;
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function TreeMenu({
   onSelectItem,
@@ -26,13 +122,112 @@ export function TreeMenu({
   onMoveItem,
   selectedPath,
   className,
+  refreshKey,
 }: TreeMenuProps) {
   const [tree, setTree] = useState<TreeItem[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [draggingPath, setDraggingPath] = useState<string | null>(null);
-  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
-  const [isDraggingFolder, setIsDraggingFolder] = useState(false);
+  const [sortOrders, setSortOrders] = useState<Record<string, string[]>>({});
+
+  // Drag state
+  const [draggingItem, setDraggingItem] = useState<{ path: string; isFolder: boolean } | null>(null);
+  const [folderDropTarget, setFolderDropTarget] = useState<string | null>(null); // drop INTO folder
+  const [dropPosition, setDropPosition] = useState<DropPosition | null>(null); // reorder position
+
+  // RAF throttle refs for drag over
+  const rafRef = useRef<number | null>(null);
+  const pendingDragState = useRef<{ folder: string | null; pos: DropPosition | null }>({ folder: null, pos: null });
+
+  // UI state
+  const [contextMenu, setContextMenu] = useState<{ path: string; isFolder: boolean; x: number; y: number } | null>(null);
+  const [modal, setModal] = useState<ModalConfig | null>(null);
+
+  // ─── Modal helpers ──────────────────────────────────────────────────────────
+
+  const showAlert = (message: string): Promise<void> =>
+    new Promise((resolve) => {
+      setModal({ type: 'alert', message, onClose: () => { setModal(null); resolve(); } });
+    });
+
+  const showConfirm = (message: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      setModal({
+        type: 'confirm',
+        message,
+        onConfirm: () => { setModal(null); resolve(true); },
+        onCancel: () => { setModal(null); resolve(false); },
+      });
+    });
+
+  const showPrompt = (message: string, defaultValue: string): Promise<string | null> =>
+    new Promise((resolve) => {
+      setModal({
+        type: 'prompt',
+        message,
+        defaultValue,
+        onConfirm: (v) => { setModal(null); resolve(v); },
+        onCancel: () => { setModal(null); resolve(null); },
+      });
+    });
+
+  // ─── Data loading ───────────────────────────────────────────────────────────
+
+  useEffect(() => { fetchTree(); fetchSortOrders(); }, []);
+
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey > 0) fetchTree();
+  }, [refreshKey]);
+
+  const fetchTree = async () => {
+    try {
+      const res = await fetch('/api/folders?tree=true');
+      const json = await res.json();
+      if (json.ok) setTree(json.data);
+    } catch (error) {
+      console.error('Failed to load tree:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSortOrders = async () => {
+    try {
+      const res = await fetch('/api/sort-order');
+      const json = await res.json();
+      if (json.ok) setSortOrders(json.data);
+    } catch {
+      // ignore
+    }
+  };
+
+  const saveSortOrder = async (parentPath: string, order: string[]) => {
+    try {
+      await fetch('/api/sort-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ parentPath, order }),
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  // ─── Sort order ─────────────────────────────────────────────────────────────
+
+  const applySortOrder = (items: TreeItem[], parentPath: string): TreeItem[] => {
+    const order = sortOrders[parentPath];
+    if (!order || order.length === 0) return items;
+    return [...items].sort((a, b) => {
+      const ai = order.indexOf(a.name);
+      const bi = order.indexOf(b.name);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  };
+
+  // ─── Toggle folder ──────────────────────────────────────────────────────────
 
   const toggleFolder = (path: string) => {
     setExpanded((prev) => {
@@ -43,260 +238,341 @@ export function TreeMenu({
     });
   };
 
-  useEffect(() => {
-    fetchTree();
-  }, []);
+  // ─── Drag & drop ────────────────────────────────────────────────────────────
 
-  const fetchTree = async () => {
-    try {
-      const res = await fetch('/api/folders?tree=true');
-      const json = await res.json();
-      if (json.ok) {
-        setTree(json.data);
-      }
-    } catch (error) {
-      console.error('Failed to load tree:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const [contextMenu, setContextMenu] = useState<{ path: string; isFolder: boolean; x: number; y: number } | null>(null);
-
-  // 拖拽处理
   const handleDragStart = (e: React.DragEvent, item: TreeItem) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', JSON.stringify({ path: item.path, isFolder: item.isFolder }));
-    setDraggingPath(item.path);
-    setIsDraggingFolder(item.isFolder);
+    setDraggingItem({ path: item.path, isFolder: item.isFolder });
   };
 
   const handleDragEnd = () => {
-    setDraggingPath(null);
-    setDragOverPath(null);
-    setIsDraggingFolder(false);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    setDraggingItem(null);
+    setFolderDropTarget(null);
+    setDropPosition(null);
+    pendingDragState.current = { folder: null, pos: null };
   };
 
-  const handleDragOver = (e: React.DragEvent, item: TreeItem) => {
+  const handleItemDragOver = (
+    e: React.DragEvent,
+    item: TreeItem,
+    parentPath: string,
+    index: number
+  ) => {
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    
-    // 只能拖放到文件夹上
-    if (!item.isFolder) return;
-    
-    // 不能拖放到自身
-    if (item.path === draggingPath) return;
-    
-    // 不能拖放到自身子目录
-    if (item.path.startsWith(draggingPath + '/')) return;
-    
-    setDragOverPath(item.path);
+
+    if (!draggingItem) return;
+    if (item.path === draggingItem.path) return;
+    if (item.path.startsWith(draggingItem.path + '/')) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+
+    let newFolder: string | null = null;
+    let newPos: DropPosition | null = null;
+
+    if (item.isFolder && ratio > 0.25 && ratio < 0.75) {
+      newFolder = item.path;
+    } else if (ratio <= 0.5) {
+      newPos = { parentPath, index };
+    } else {
+      newPos = { parentPath, index: index + 1 };
+    }
+
+    // Skip if nothing changed
+    const prev = pendingDragState.current;
+    const folderSame = prev.folder === newFolder;
+    const posSame = prev.pos?.parentPath === newPos?.parentPath && prev.pos?.index === newPos?.index;
+    if (folderSame && posSame) return;
+
+    pendingDragState.current = { folder: newFolder, pos: newPos };
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      setFolderDropTarget(newFolder);
+      setDropPosition(newPos);
+    });
   };
 
-  const handleDragLeave = () => {
-    setDragOverPath(null);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetItem: TreeItem) => {
+  const handleItemDrop = async (e: React.DragEvent, item: TreeItem, parentPath: string, index: number) => {
     e.preventDefault();
-    setDragOverPath(null);
-    
-    if (!targetItem.isFolder) return;
-    
+    e.stopPropagation();
+
     const data = e.dataTransfer.getData('text/plain');
     if (!data) return;
-    
-    try {
-      const { path: sourcePath, isFolder } = JSON.parse(data);
-      
-      if (sourcePath === targetItem.path) return;
-      if (targetItem.path.startsWith(sourcePath + '/')) return;
-      
-      // 调用移动 API
-      const url = isFolder ? '/api/folders' : '/api/articles';
-      const res = await fetch(url, {
-        method: isFolder ? 'PUT' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oldPath: sourcePath, newParentPath: targetItem.path }),
-      });
-      
-      const json = await res.json();
-      if (json.ok) {
-        // 刷新树
-        await fetchTree();
-        // 展开目标文件夹
-        setExpanded(prev => new Set([...prev, targetItem.path]));
-        // 通知父组件
-        if (onMoveItem) {
-          await onMoveItem(sourcePath, targetItem.path, isFolder);
-        }
+
+    let parsed: { path: string; isFolder: boolean };
+    try { parsed = JSON.parse(data); } catch { return; }
+
+    const { path: sourcePath, isFolder: sourceIsFolder } = parsed;
+
+    if (folderDropTarget) {
+      // Move into folder
+      await doMoveIntoFolder(sourcePath, folderDropTarget, sourceIsFolder);
+    } else if (dropPosition) {
+      // Reorder within same level
+      const sourceParent = sourcePath.includes('/')
+        ? sourcePath.substring(0, sourcePath.lastIndexOf('/'))
+        : '';
+
+      if (sourceParent === dropPosition.parentPath) {
+        // Same parent → just reorder
+        await doReorder(sourcePath, dropPosition.parentPath, dropPosition.index, item);
       } else {
-        alert('移动失败: ' + json.error);
+        // Different parent → move and then reorder
+        await doMoveIntoFolder(sourcePath, dropPosition.parentPath || '', sourceIsFolder, dropPosition.index);
       }
-    } catch (error) {
-      console.error('Failed to move item:', error);
-      alert('移动失败');
+    }
+
+    setFolderDropTarget(null);
+    setDropPosition(null);
+    setDraggingItem(null);
+  };
+
+  const doMoveIntoFolder = async (
+    sourcePath: string,
+    targetFolderPath: string,
+    isFolder: boolean,
+    insertIndex?: number
+  ) => {
+    const url = isFolder ? '/api/folders' : '/api/articles';
+    const res = await fetch(url, {
+      method: isFolder ? 'PUT' : 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldPath: sourcePath, newParentPath: targetFolderPath }),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      await fetchTree();
+      if (targetFolderPath) {
+        setExpanded((prev) => new Set([...prev, targetFolderPath]));
+      }
+      if (onMoveItem) await onMoveItem(sourcePath, targetFolderPath, isFolder);
+
+      // If insertIndex provided, also update sort order
+      if (insertIndex !== undefined) {
+        const movedName = sourcePath.split('/').pop()!;
+        const newOrders = { ...sortOrders };
+        const siblings = newOrders[targetFolderPath] || [];
+        const filtered = siblings.filter((n) => n !== movedName);
+        filtered.splice(insertIndex, 0, movedName);
+        newOrders[targetFolderPath] = filtered;
+        setSortOrders(newOrders);
+        await saveSortOrder(targetFolderPath, filtered);
+      }
+    } else {
+      await showAlert('移动失败: ' + json.error);
     }
   };
 
-  // 根目录放置处理（移动到根）
-  const handleRootDragOver = (e: React.DragEvent) => {
+  const doReorder = async (
+    sourcePath: string,
+    parentPath: string,
+    targetIndex: number,
+    _refItem: TreeItem
+  ) => {
+    // Get current sorted items for this parent
+    const parentItems = getItemsForParent(tree, parentPath);
+    const sorted = applySortOrder(parentItems, parentPath);
+    const names = sorted.map((i) => i.name);
+
+    const sourceName = sourcePath.split('/').pop()!;
+    const fromIndex = names.indexOf(sourceName);
+    if (fromIndex === -1) return;
+
+    const newNames = [...names];
+    newNames.splice(fromIndex, 1);
+
+    // Adjust targetIndex if removing before target
+    const adjustedIndex = fromIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    newNames.splice(adjustedIndex, 0, sourceName);
+
+    const newOrders = { ...sortOrders, [parentPath]: newNames };
+    setSortOrders(newOrders);
+    await saveSortOrder(parentPath, newNames);
+  };
+
+  // Helper: get items at a given parent path from the tree
+  const getItemsForParent = (items: TreeItem[], parentPath: string): TreeItem[] => {
+    if (!parentPath) return items;
+    for (const item of items) {
+      if (item.path === parentPath && item.isFolder) return item.children || [];
+      if (item.isFolder && item.children) {
+        const found = getItemsForParent(item.children, parentPath);
+        if (found.length > 0 || item.path === parentPath) return found;
+      }
+    }
+    return [];
+  };
+
+  // Root drag over / drop (for moving to root level via the bottom zone)
+  const handleRootZoneDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleRootDrop = async (e: React.DragEvent) => {
+  const handleRootZoneDrop = async (e: React.DragEvent) => {
     e.preventDefault();
-    
     const data = e.dataTransfer.getData('text/plain');
     if (!data) return;
-    
     try {
       const { path: sourcePath, isFolder } = JSON.parse(data);
-      
-      // 已经在根目录
-      if (!sourcePath.includes('/')) return;
-      
-      // 调用移动 API（移动到根目录，newParentPath 为空字符串）
-      const url = isFolder ? '/api/folders' : '/api/articles';
-      const res = await fetch(url, {
-        method: isFolder ? 'PUT' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ oldPath: sourcePath, newParentPath: '' }),
-      });
-      
-      const json = await res.json();
-      if (json.ok) {
-        await fetchTree();
-        if (onMoveItem) {
-          await onMoveItem(sourcePath, '', isFolder);
-        }
-      } else {
-        alert('移动失败: ' + json.error);
-      }
-    } catch (error) {
-      console.error('Failed to move item:', error);
-      alert('移动失败');
-    }
+      if (!sourcePath.includes('/')) return; // already at root
+      await doMoveIntoFolder(sourcePath, '', isFolder);
+    } catch { /* ignore */ }
   };
 
-  // 点击空白处关闭右键菜单
-  useEffect(() => {
-    const close = () => setContextMenu(null);
-    window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
-  }, []);
+  // ─── CRUD operations ────────────────────────────────────────────────────────
 
   const handleRename = async (oldPath: string, isFolder: boolean) => {
     const oldName = oldPath.split('/').pop() || oldPath;
-    const newName = prompt('输入新名称:', oldName);
+    const newName = await showPrompt('输入新名称:', oldName);
     if (!newName || newName === oldName) return;
 
     const parentPath = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
     const newPath = parentPath ? `${parentPath}/${newName}` : newName;
 
     try {
-      if (isFolder) {
-        const res = await fetch('/api/folders', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ oldPath, newPath }),
-        });
-        const json = await res.json();
-        if (!json.ok) { alert('重命名失败: ' + json.error); return; }
-      } else {
-        const res = await fetch('/api/articles', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ oldPath, newPath }),
-        });
-        const json = await res.json();
-        if (!json.ok) { alert('重命名失败: ' + json.error); return; }
+      const url = isFolder ? '/api/folders' : '/api/articles';
+      const method = isFolder ? 'PUT' : 'PATCH';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath, newPath }),
+      });
+      const json = await res.json();
+      if (!json.ok) { await showAlert('重命名失败: ' + json.error); return; }
+
+      // Update sort order: replace old name with new name
+      const order = sortOrders[parentPath];
+      if (order) {
+        const newOrder = order.map((n) => (n === oldName ? newName : n));
+        const newOrders = { ...sortOrders, [parentPath]: newOrder };
+        setSortOrders(newOrders);
+        await saveSortOrder(parentPath, newOrder);
       }
+
       fetchTree();
     } catch (error) {
-      alert('重命名失败: ' + error);
+      await showAlert('重命名失败: ' + error);
     }
   };
 
   const handleDelete = async (itemPath: string, isFolder: boolean) => {
     const name = itemPath.split('/').pop();
-    if (!confirm(`确定要删除文档 "${name}" 吗？${isFolder ? '\n（包含的所有子文档也会被删除）' : ''}`)) return;
+    const confirmed = await showConfirm(
+      `确定要删除 "${name}" 吗？${isFolder ? '\n（包含的所有子文档也会被删除）' : ''}`
+    );
+    if (!confirmed) return;
 
     try {
       const encoded = encodeURIComponent(itemPath);
       const url = isFolder ? `/api/folders/${encoded}` : `/api/articles/${encoded}`;
       const res = await fetch(url, { method: 'DELETE' });
       const json = await res.json();
-      if (!json.ok) {
-        alert('删除失败: ' + json.error);
-        return;
+      if (!json.ok) { await showAlert('删除失败: ' + json.error); return; }
+
+      // Remove from sort order
+      const parentPath = itemPath.includes('/') ? itemPath.substring(0, itemPath.lastIndexOf('/')) : '';
+      const itemName = itemPath.split('/').pop()!;
+      const order = sortOrders[parentPath];
+      if (order) {
+        const newOrder = order.filter((n) => n !== itemName);
+        const newOrders = { ...sortOrders, [parentPath]: newOrder };
+        setSortOrders(newOrders);
+        await saveSortOrder(parentPath, newOrder);
       }
+
       fetchTree();
     } catch (error) {
-      alert('删除失败: ' + error);
+      await showAlert('删除失败: ' + error);
     }
   };
 
-  const renderTree = (items: TreeItem[], depth: number = 0) => (
-    <ul className="space-y-0.5 list-none p-0 m-0">
-      {items.map((item) => {
-        const hasChildren = item.isFolder && item.children && item.children.length > 0;
-        const isExpanded = expanded.has(item.path);
-        const isDragOver = dragOverPath === item.path && item.isFolder;
-        const isDragging = draggingPath === item.path;
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
-        return (
-          <li key={item.path}>
-            <div
-              className={`group flex items-center rounded-md min-w-0 transition-colors ${
-                isDragOver ? 'bg-blue-100 ring-1 ring-blue-300' : ''
-              } ${isDragging ? 'opacity-50' : ''}`}
-              style={{ paddingLeft: `${depth * 12 + 4}px` }}
-              draggable
-              onDragStart={(e) => handleDragStart(e, item)}
-              onDragEnd={handleDragEnd}
-              onDragOver={(e) => handleDragOver(e, item)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, item)}
-            >
-              {item.isFolder ? (
-                <span
-                  className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-slate-400 cursor-pointer hover:text-slate-600"
-                  onClick={(e) => { e.stopPropagation(); toggleFolder(item.path); }}
-                >
-                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                </span>
-              ) : (
-                <span className="w-4 flex-shrink-0" />
-              )}
-              <button
-                className={`flex-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 min-w-0 cursor-grab active:cursor-grabbing ${
-                  selectedPath === item.path ? 'bg-slate-200/70 font-medium text-slate-900' : ''
-                }`}
-                onClick={() => onSelectItem(item.path, item.isFolder)}
-              >
-                <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                <span className="truncate">{item.name}</span>
-              </button>
-              <button
-                className="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-slate-200 transition-opacity"
-                onClick={(e) => {
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, []);
+
+  const renderDropLine = (parentPath: string, index: number) => {
+    if (!dropPosition) return null;
+    if (dropPosition.parentPath !== parentPath || dropPosition.index !== index) return null;
+    return (
+      <li aria-hidden className="pointer-events-none px-2 py-0.5">
+        <div className="h-[2px] rounded-full bg-blue-500 mx-1 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
+      </li>
+    );
+  };
+
+  const renderTree = (items: TreeItem[], depth: number = 0, parentPath: string = '') => {
+    const sorted = applySortOrder(items, parentPath);
+
+    return (
+      <ul className="space-y-0 list-none p-0 m-0">
+        {renderDropLine(parentPath, 0)}
+        {sorted.map((item, index) => {
+          const hasChildren = item.isFolder && item.children && item.children.length > 0;
+          const isExpanded = expanded.has(item.path);
+          const isFolderTarget = folderDropTarget === item.path;
+          const isDragging = draggingItem?.path === item.path;
+
+          return (
+            <li key={item.path}>
+              <div
+                className={cn(
+                  'flex items-center rounded-md min-w-0 transition-colors',
+                  isFolderTarget ? 'bg-blue-100 ring-1 ring-blue-300' : '',
+                  isDragging ? 'opacity-40' : ''
+                )}
+                style={{ paddingLeft: `${depth * 12 + 4}px` }}
+                draggable
+                onDragStart={(e) => handleDragStart(e, item)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleItemDragOver(e, item, parentPath, index)}
+                onDrop={(e) => handleItemDrop(e, item, parentPath, index)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
-                  const rect = (e.target as HTMLElement).getBoundingClientRect();
-                  setContextMenu({ path: item.path, isFolder: item.isFolder, x: rect.right, y: rect.bottom });
+                  setContextMenu({ path: item.path, isFolder: item.isFolder, x: e.clientX, y: e.clientY });
                 }}
               >
-                <Plus className="h-3.5 w-3.5 text-gray-400" />
-              </button>
-            </div>
+                {item.isFolder ? (
+                  <span
+                    className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-slate-400 cursor-pointer hover:text-slate-600"
+                    onClick={(e) => { e.stopPropagation(); toggleFolder(item.path); }}
+                  >
+                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  </span>
+                ) : (
+                  <span className="w-4 flex-shrink-0" />
+                )}
+                <button
+                  className={cn(
+                    'flex-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 min-w-0 cursor-grab active:cursor-grabbing',
+                    selectedPath === item.path ? 'bg-slate-200/70 font-medium text-slate-900' : ''
+                  )}
+                  onClick={() => onSelectItem(item.path, item.isFolder)}
+                >
+                  <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{item.name}</span>
+                </button>
+              </div>
 
-            {hasChildren && isExpanded && renderTree(item.children!, depth + 1)}
-          </li>
-        );
-      })}
-    </ul>
-  );
+              {hasChildren && isExpanded && renderTree(item.children!, depth + 1, item.path)}
+
+              {renderDropLine(parentPath, index + 1)}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   if (loading) {
     return (
@@ -308,40 +584,30 @@ export function TreeMenu({
 
   return (
     <div className={cn('h-full border-r border-slate-200 bg-[#fbfbfa] flex-shrink-0 flex flex-col overflow-hidden', className)}>
-      {/* 标题 + 新建按钮 */}
+      {/* 标题 */}
       <div className="p-3 border-b border-slate-200">
-        <h2 className="text-sm font-semibold text-slate-700 mb-2 px-1">Nexo</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs w-full bg-white"
-          onClick={() => onCreateArticle('')}
-        >
-          <Plus className="h-3 w-3 mr-1" />
-          新文档
-        </Button>
+        <h2 className="text-sm font-semibold text-slate-700 px-1">Nexo</h2>
       </div>
 
       {/* 文件树 */}
-      <div 
+      <div
         className="flex-1 overflow-y-auto p-2 thin-scrollbar"
-        onDragOver={handleRootDragOver}
-        onDrop={handleRootDrop}
+        onDragOver={handleRootZoneDragOver}
+        onDrop={handleRootZoneDrop}
       >
         {tree.length === 0 ? (
-          <p className="p-2 text-sm text-gray-400">还没有内容，点击上方按钮新建</p>
+          <p className="p-2 text-sm text-gray-400">还没有内容，右键新建</p>
         ) : (
           renderTree(tree)
         )}
-        {/* 根目录放置区域提示 */}
-        {draggingPath && (
+        {draggingItem && draggingItem.path.includes('/') && (
           <div className="mt-4 p-3 border-2 border-dashed border-slate-300 rounded-md text-center text-sm text-slate-500">
             拖放到此处移动到根目录
           </div>
         )}
       </div>
 
-      {/* 弹出菜单 */}
+      {/* 右键菜单 */}
       {contextMenu && (
         <div
           className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[140px]"
@@ -350,10 +616,10 @@ export function TreeMenu({
         >
           <button
             className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
-            onClick={() => { onCreateArticle(contextMenu.isFolder ? contextMenu.path : ''); setContextMenu(null); }}
+            onClick={() => { onCreateArticle(contextMenu.path); setContextMenu(null); }}
           >
             <FileText className="h-3.5 w-3.5 text-gray-400" />
-            新建子文档
+            新建子页面
           </button>
           <div className="border-t border-slate-100 my-1" />
           <button
@@ -372,6 +638,9 @@ export function TreeMenu({
           </button>
         </div>
       )}
+
+      {/* 自定义弹窗 */}
+      {modal && <Modal config={modal} />}
     </div>
   );
 }
