@@ -109,7 +109,8 @@ export async function readArticle(articlePath: string): Promise<string> {
   const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
   try {
     return await fs.readFile(filePath, 'utf-8');
-  } catch {
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     // 回退：父页面将内容存储在目录/_index.md 中
     const indexPath = path.join(WIKI_DATA_DIR, articlePath, '_index.md');
     return await fs.readFile(indexPath, 'utf-8');
@@ -129,7 +130,10 @@ export async function writeArticle(
       await fs.writeFile(path.join(dirPath, '_index.md'), content, 'utf-8');
       return;
     }
-  } catch { /* 目录不存在 — 继续叶子写入 */ }
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    /* 目录不存在 — 继续叶子写入 */
+  }
 
   const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
   await ensureDir(path.dirname(filePath));
