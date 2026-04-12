@@ -71,7 +71,7 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
   };
 
   return (
-    <nav>
+    <nav aria-label="目录">
       <p
         className="mb-3"
         style={{
@@ -101,8 +101,8 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 fontWeight: activeId === item.id ? 500 : 400,
-                color: activeId === item.id ? 'var(--notion-blue)' : 'var(--c-texTer)',
-                borderLeft: activeId === item.id ? '2px solid var(--notion-blue)' : '2px solid transparent',
+                color: activeId === item.id ? 'var(--nx-blue)' : 'var(--c-texTer)',
+                borderLeft: activeId === item.id ? '2px solid var(--nx-blue)' : '2px solid transparent',
                 paddingLeft: `${(item.level - 1) * 12 + 8}px`,
               }}
               onMouseEnter={(e) => {

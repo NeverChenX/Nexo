@@ -27,6 +27,7 @@ export async function DELETE(
       data: { path: folderPath },
     });
   } catch (error) {
+    console.error('删除文件夹失败:', error);
     return NextResponse.json(
       {
         ok: false,

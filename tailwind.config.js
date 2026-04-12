@@ -7,7 +7,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        notion: {
+        nx: {
           text: {
             primary: 'var(--c-texPri)',
             secondary: 'var(--c-texSec)',
@@ -29,14 +29,15 @@ module.exports = {
             secondary: 'var(--c-icoSec)',
             disabled: 'var(--c-icoDis)',
           },
-          blue: 'var(--notion-blue)',
-          red: 'var(--notion-red)',
+          blue: 'var(--nx-blue)',
+          red: 'var(--nx-red)',
         },
       },
       fontFamily: {
         sans: [
-          '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Helvetica',
-          '"Apple Color Emoji"', 'Arial', 'sans-serif',
+          'ui-sans-serif', '-apple-system', 'BlinkMacSystemFont',
+          '"Segoe UI Variable Display"', '"Segoe UI"', 'Helvetica',
+          '"Apple Color Emoji"', 'Arial', 'sans-serif', '"Segoe UI Emoji"', '"Segoe UI Symbol"',
           '"PingFang SC"', '"Microsoft YaHei"', '"Source Han Sans SC"', '"Noto Sans CJK SC"',
         ],
         mono: [
@@ -45,15 +46,15 @@ module.exports = {
         ],
       },
       maxWidth: {
-        'notion-content': '720px',
+        'nx-content': '720px',
       },
       boxShadow: {
-        'notion-md': 'var(--c-shaOutMd)',
-        'notion-lg': 'var(--c-shaOutLg)',
+        'nx-md': 'var(--c-shaOutMd)',
+        'nx-lg': 'var(--c-shaOutLg)',
       },
       animation: {
-        'notion-fadein': 'fadein 330ms ease-in',
-        'notion-fadein-fast': 'fadein 230ms ease-in',
+        'nx-fadein': 'fadein 330ms ease-in',
+        'nx-fadein-fast': 'fadein 230ms ease-in',
       },
       keyframes: {
         fadein: {

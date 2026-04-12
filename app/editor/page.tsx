@@ -122,8 +122,8 @@ function EditorPageInner() {
             setSubPages([]);
           }
         }
-      } catch {
-        // 加载失败
+      } catch (err) {
+        console.error('加载文章失败:', err);
       } finally {
         if (requestSeq === latestLoadSeqRef.current) setLoading(false);
       }
@@ -150,6 +150,7 @@ function EditorPageInner() {
       if (articleData) setArticleData({ ...articleData, path: newPath });
       if (articleData?.id) router.replace(`/editor?id=${encodeURIComponent(articleData.id)}`);
     }
+    setRefreshKey((k) => k + 1);
     return true;
   };
 
@@ -180,8 +181,8 @@ function EditorPageInner() {
         router.replace('/editor');
         setRefreshKey((prev) => prev + 1);
       }
-    } catch {
-      // 删除失败
+    } catch (err) {
+      console.error('删除失败:', err);
     }
   };
 
@@ -210,8 +211,8 @@ function EditorPageInner() {
         if (json.data?.id) router.replace(`/editor?id=${encodeURIComponent(json.data.id)}`);
         setRefreshKey((prev) => prev + 1);
       }
-    } catch {
-      // 创建失败
+    } catch (err) {
+      console.error('创建文章失败:', err);
     }
   };
 
@@ -222,7 +223,7 @@ function EditorPageInner() {
       {/* 侧边栏 */}
       <div
         style={{ width: `${sidebarWidth}px` }}
-        className="h-full flex-shrink-0 min-w-0"
+        className="h-full flex-shrink-0 min-w-0 overflow-hidden"
       >
         <TreeMenu
           mode="editor"
@@ -237,13 +238,13 @@ function EditorPageInner() {
 
       {/* 拖拽手柄 */}
       <div
-        className={`notion-resize-handle h-full${draggingSidebar ? ' active' : ''}`}
+        className={`nx-resize-handle h-full${draggingSidebar ? ' active' : ''}`}
         onMouseDown={startSidebarDrag}
         role="separator"
         aria-orientation="vertical"
         aria-label="调整左侧菜单宽度"
       >
-        <div className="notion-resize-handle-line" />
+        <div className="nx-resize-handle-line" />
       </div>
 
       {/* 主内容区 */}
@@ -269,7 +270,7 @@ function EditorPageInner() {
                       ) : (
                         <button
                           onClick={() => handleSelectItem(segPath, true)}
-                          className="notion-hoverable rounded px-1"
+                          className="nx-hoverable rounded px-1"
                           style={{ fontSize: '14px', color: 'var(--c-texTer)' }}
                         >
                           {seg.replace(/\.md$/, '')}
@@ -286,7 +287,7 @@ function EditorPageInner() {
           <div className="flex items-center gap-1 flex-shrink-0">
             <span
               className="text-xs whitespace-nowrap"
-              style={{ color: saveState === 'unsaved' ? 'var(--notion-red)' : 'var(--c-texTer)' }}
+              style={{ color: saveState === 'unsaved' ? 'var(--nx-red)' : 'var(--c-texTer)' }}
             >
               {saveState === 'saving' ? '保存中...' : saveState === 'unsaved' ? '未保存' : currentPath ? '已保存' : ''}
             </span>
@@ -294,7 +295,7 @@ function EditorPageInner() {
               onClick={() => setShareModalOpen(true)}
               disabled={!currentPath}
               title="分享"
-              className="notion-hoverable flex items-center gap-1 text-sm px-2 py-1 rounded disabled:opacity-40"
+              className="nx-hoverable flex items-center gap-1 text-sm px-2 py-1 rounded disabled:opacity-40"
               style={{ color: 'var(--c-texSec)' }}
             >
               <Share2 className="h-3.5 w-3.5" />
@@ -303,7 +304,7 @@ function EditorPageInner() {
               onClick={handleDeleteClick}
               disabled={!currentPath}
               title="删除"
-              className="notion-hoverable flex items-center gap-1 text-sm px-2 py-1 rounded disabled:opacity-40"
+              className="nx-hoverable flex items-center gap-1 text-sm px-2 py-1 rounded disabled:opacity-40"
               style={{ color: 'var(--c-texSec)' }}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -315,8 +316,8 @@ function EditorPageInner() {
         {currentPath ? (
           loading ? (
             <div className="flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--c-bacPri)' }}>
-              <div className="notion-layout" style={{ paddingTop: '48px' }}>
-                <div className="notion-layout-content">
+              <div className="nx-layout" style={{ paddingTop: '48px' }}>
+                <div className="nx-layout-content">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ height: '32px', width: '60%', background: 'var(--c-bacTer)', borderRadius: '4px', animation: 'shimmer 1.5s infinite linear' }} />
                     <div style={{ height: '16px', width: '90%', background: 'var(--c-borSec)', borderRadius: '4px' }} />
@@ -367,7 +368,7 @@ function EditorPageInner() {
               </div>
               <button
                 onClick={() => setDeleteConfirm(false)}
-                className="notion-hoverable rounded p-0.5"
+                className="nx-hoverable rounded p-0.5"
                 style={{ color: 'var(--c-icoSec)' }}
               >
                 <X className="h-4 w-4" />
@@ -383,7 +384,7 @@ function EditorPageInner() {
             <div className="flex justify-end gap-2 px-4 pb-4">
               <button
                 onClick={() => setDeleteConfirm(false)}
-                className="notion-hoverable px-3 py-1.5 text-sm rounded-md"
+                className="nx-hoverable px-3 py-1.5 text-sm rounded-md"
                 style={{ color: 'var(--c-texSec)', background: 'var(--c-bacTer)' }}
               >
                 取消
@@ -391,7 +392,7 @@ function EditorPageInner() {
               <button
                 onClick={handleDeleteConfirm}
                 className="px-3 py-1.5 text-sm rounded-md text-white"
-                style={{ background: 'var(--notion-red)' }}
+                style={{ background: 'var(--nx-red)' }}
               >
                 删除
               </button>

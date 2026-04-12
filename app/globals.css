@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ====== Notion 设计系统 — CSS 变量 ====== */
+/* ====== Nexo 设计系统 — CSS 变量 ====== */
 
 :root {
   /* 文字颜色 */
@@ -27,9 +27,9 @@
   --c-bacEle: #ffffff;
 
   /* 强调色 */
-  --notion-blue: #2383e2;
-  --notion-red: #eb5757;
-  --notion-selection: #2383e247;
+  --nx-blue: #2383e2;
+  --nx-red: #eb5757;
+  --nx-selection: #2383e247;
 
   /* 交互状态 */
   --ca-butHovBac: rgba(55, 53, 47, 0.06);
@@ -60,6 +60,8 @@
 
 html {
   scroll-behavior: smooth;
+  height: 100%;
+  width: 100%;
 }
 
 body {
@@ -69,12 +71,15 @@ body {
   -webkit-font-smoothing: auto;
   font-size: 16px;
   line-height: 1.5;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 /* ====== 选区颜色 ====== */
 
 ::selection {
-  background: var(--notion-selection);
+  background: var(--nx-selection);
   color: inherit;
 }
 
@@ -103,9 +108,9 @@ body {
   scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
 
-/* ====== Notion 布局网格 ====== */
+/* ====== Nexo 布局网格 ====== */
 
-.notion-layout {
+.nx-layout {
   display: grid;
   grid-template-columns:
     [full-start] minmax(96px, 1fr)
@@ -115,13 +120,23 @@ body {
   width: 100%;
 }
 
-.notion-layout-content {
+.nx-layout-content {
   grid-column: content;
   min-width: 0;
 }
 
+@media (max-width: 1024px) {
+  .nx-layout {
+    grid-template-columns:
+      [full-start] 48px
+      [content-start] 1fr
+      [content-end] 48px
+      [full-end];
+  }
+}
+
 @media (max-width: 768px) {
-  .notion-layout {
+  .nx-layout {
     grid-template-columns:
       [full-start] 24px
       [content-start] 1fr
@@ -130,13 +145,13 @@ body {
   }
 }
 
-/* ====== Notion 动画 ====== */
+/* ====== Nexo 动画 ====== */
 
-.notion-fadein {
+.nx-fadein {
   animation: 330ms ease-in fadein;
 }
 
-.notion-fadein-fast {
+.nx-fadein-fast {
   animation: 230ms ease-in fadein;
 }
 
@@ -155,29 +170,29 @@ body {
   100% { transform: translateY(2px); }
 }
 
-/* ====== Notion 交互工具类 ====== */
+/* ====== Nexo 交互工具类 ====== */
 
-.notion-focus:focus-visible {
+.nx-focus:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--notion-blue);
+  box-shadow: 0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--nx-blue);
 }
 
-.notion-hoverable {
+.nx-hoverable {
   transition: background 200ms ease-out;
 }
 
-.notion-hoverable:hover {
+.nx-hoverable:hover {
   background: var(--ca-butHovBac);
 }
 
-.notion-hoverable-danger:hover {
+.nx-hoverable-danger:hover {
   background: var(--ca-butHovBac);
-  color: var(--notion-red);
+  color: var(--nx-red);
 }
 
 /* ====== 拖拽手柄 ====== */
 
-.notion-resize-handle {
+.nx-resize-handle {
   width: 12px;
   display: flex;
   align-items: stretch;
@@ -186,16 +201,16 @@ body {
   flex-shrink: 0;
 }
 
-.notion-resize-handle-line {
+.nx-resize-handle-line {
   width: 1px;
   background: var(--c-borPri);
   transition: width 150ms ease, background 150ms ease;
 }
 
-.notion-resize-handle:hover .notion-resize-handle-line,
-.notion-resize-handle.active .notion-resize-handle-line {
+.nx-resize-handle:hover .nx-resize-handle-line,
+.nx-resize-handle.active .nx-resize-handle-line {
   width: 3px;
-  background: var(--notion-blue);
+  background: var(--nx-blue);
   border-radius: 2px;
 }
 
@@ -207,9 +222,9 @@ body {
   user-select: text;
 }
 
-/* ====== Notion 内容排版 ====== */
+/* ====== Nexo 内容排版 ====== */
 
-.notion-content {
+.nx-content {
   font-size: 16px;
   line-height: 1.5;
   color: var(--c-texPri);
@@ -217,8 +232,8 @@ body {
   word-break: break-word;
 }
 
-.notion-content h1 {
-  font-size: 1.75em;
+.nx-content h1 {
+  font-size: 1.5em;
   font-weight: 700;
   line-height: 1.2;
   color: var(--c-texPri);
@@ -227,7 +242,7 @@ body {
   padding-bottom: 4px;
 }
 
-.notion-content h2 {
+.nx-content h2 {
   font-size: 1.25em;
   font-weight: 600;
   line-height: 1.3;
@@ -237,7 +252,7 @@ body {
   padding-bottom: 2px;
 }
 
-.notion-content h3 {
+.nx-content h3 {
   font-size: 1.1em;
   font-weight: 600;
   line-height: 1.3;
@@ -247,7 +262,7 @@ body {
   padding-bottom: 2px;
 }
 
-.notion-content h4 {
+.nx-content h4 {
   font-size: 0.95em;
   font-weight: 600;
   color: var(--c-texSec);
@@ -256,38 +271,38 @@ body {
   padding-bottom: 2px;
 }
 
-.notion-content p {
+.nx-content p {
   margin: 0;
   padding: 2px 0;
   line-height: 1.5;
   min-height: 1.5em;
 }
 
-.notion-content ul {
+.nx-content ul {
   list-style: disc;
   margin: 0;
   padding-left: 1.5em;
 }
 
-.notion-content ol {
+.nx-content ol {
   list-style: decimal;
   margin: 0;
   padding-left: 1.5em;
 }
 
-.notion-content li {
+.nx-content li {
   margin: 0;
   padding: 2px 0;
   line-height: 1.5;
   min-height: 1.5em;
 }
 
-.notion-content li > ul,
-.notion-content li > ol {
+.nx-content li > ul,
+.nx-content li > ol {
   margin: 0;
 }
 
-.notion-content blockquote {
+.nx-content blockquote {
   border-left: 2px solid var(--c-texTer);
   padding: 3px 0 3px 14px;
   margin: 2px 0;
@@ -296,22 +311,22 @@ body {
   background: transparent;
 }
 
-.notion-content blockquote p {
+.nx-content blockquote p {
   color: inherit;
   margin-bottom: 0;
 }
 
-.notion-content code {
+.nx-content code {
   background: var(--cd-codBloBac);
   padding: 0.2em 0.4em;
   border-radius: 3px;
   font-family: 'SFMono-Regular', Menlo, Consolas, 'PT Mono', 'Liberation Mono', Courier, monospace;
   font-size: 0.875em;
-  color: var(--notion-red);
+  color: var(--nx-red);
   line-height: normal;
 }
 
-.notion-content pre {
+.nx-content pre {
   background: var(--cd-codBloBac);
   padding: 1.2em 1em 1.2em 1.2em;
   border-radius: 4px;
@@ -321,7 +336,7 @@ body {
   font-family: 'SFMono-Regular', Menlo, Consolas, 'PT Mono', 'Liberation Mono', Courier, monospace;
 }
 
-.notion-content pre code {
+.nx-content pre code {
   background: none;
   color: var(--c-texPri);
   font-size: 0.9em;
@@ -330,7 +345,7 @@ body {
   line-height: 1.5;
 }
 
-.notion-content a {
+.nx-content a {
   color: var(--c-texPri);
   text-decoration: underline;
   text-decoration-color: rgba(55, 53, 47, 0.4);
@@ -338,35 +353,63 @@ body {
   transition: color 0.1s ease-in, text-decoration-color 0.1s ease-in;
 }
 
-.notion-content a:hover {
-  color: var(--notion-red);
-  text-decoration-color: var(--notion-red);
+.nx-content a:hover {
+  color: var(--nx-red);
+  text-decoration-color: var(--nx-red);
 }
 
-.notion-content hr {
+.nx-content hr {
   border: none;
   border-top: 1px solid var(--c-borPri);
   margin: 8px 0;
 }
 
-.notion-content img {
+.nx-content img {
   max-width: 100%;
   border-radius: 2px;
   margin: 4px 0;
   display: block;
+  cursor: zoom-in;
 }
 
-.notion-content strong {
+.bn-editor img {
+  cursor: zoom-in;
+}
+
+/* ====== 图片 Lightbox ====== */
+
+.image-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  animation: fadein 200ms ease;
+}
+
+.image-lightbox-overlay img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  cursor: zoom-out;
+}
+
+.nx-content strong {
   font-weight: 600;
   color: var(--c-texPri);
 }
 
-.notion-content em {
+.nx-content em {
   font-style: italic;
 }
 
-/* 表格 — Notion 风格 */
-.notion-content table {
+/* 表格 — Nexo 风格 */
+.nx-content table {
   border-collapse: collapse;
   width: 100%;
   margin: 4px 0;
@@ -374,8 +417,8 @@ body {
   border: 1px solid var(--c-borPri);
 }
 
-.notion-content th,
-.notion-content td {
+.nx-content th,
+.nx-content td {
   border: 1px solid var(--c-borPri);
   padding: 8px 10px;
   text-align: left;
@@ -383,12 +426,12 @@ body {
   min-height: 32px;
 }
 
-.notion-content td {
+.nx-content td {
   word-break: break-word;
   color: var(--c-texPri);
 }
 
-.notion-content th {
+.nx-content th {
   background: var(--cd-tabHeaRowColBac);
   font-weight: 500;
   color: var(--c-texPri);
@@ -396,56 +439,56 @@ body {
 
 /* ====== 代码块语法高亮 — Prism.js 风格 ====== */
 
-.notion-content .token.comment,
-.notion-content .token.prolog,
-.notion-content .token.doctype,
-.notion-content .token.cdata {
+.nx-content .token.comment,
+.nx-content .token.prolog,
+.nx-content .token.doctype,
+.nx-content .token.cdata {
   color: #708090;
 }
 
-.notion-content .token.punctuation {
+.nx-content .token.punctuation {
   color: #999;
 }
 
-.notion-content .token.property,
-.notion-content .token.tag,
-.notion-content .token.boolean,
-.notion-content .token.number,
-.notion-content .token.constant,
-.notion-content .token.symbol,
-.notion-content .token.deleted {
+.nx-content .token.property,
+.nx-content .token.tag,
+.nx-content .token.boolean,
+.nx-content .token.number,
+.nx-content .token.constant,
+.nx-content .token.symbol,
+.nx-content .token.deleted {
   color: #905;
 }
 
-.notion-content .token.selector,
-.notion-content .token.attr-name,
-.notion-content .token.string,
-.notion-content .token.char,
-.notion-content .token.builtin,
-.notion-content .token.inserted {
+.nx-content .token.selector,
+.nx-content .token.attr-name,
+.nx-content .token.string,
+.nx-content .token.char,
+.nx-content .token.builtin,
+.nx-content .token.inserted {
   color: #690;
 }
 
-.notion-content .token.operator,
-.notion-content .token.entity,
-.notion-content .token.url {
+.nx-content .token.operator,
+.nx-content .token.entity,
+.nx-content .token.url {
   color: #9a6e3a;
 }
 
-.notion-content .token.atrule,
-.notion-content .token.attr-value,
-.notion-content .token.keyword {
+.nx-content .token.atrule,
+.nx-content .token.attr-value,
+.nx-content .token.keyword {
   color: #07a;
 }
 
-.notion-content .token.function,
-.notion-content .token.class-name {
+.nx-content .token.function,
+.nx-content .token.class-name {
   color: #dd4a68;
 }
 
-.notion-content .token.regex,
-.notion-content .token.important,
-.notion-content .token.variable {
+.nx-content .token.regex,
+.nx-content .token.important,
+.nx-content .token.variable {
   color: #e90;
 }
 
@@ -456,14 +499,14 @@ body {
     font-size: 15px;
   }
 
-  .notion-content h1 { font-size: 1.5em; }
-  .notion-content h2 { font-size: 1.15em; }
-  .notion-content h3 { font-size: 1.05em; }
+  .nx-content h1 { font-size: 1.5em; }
+  .nx-content h2 { font-size: 1.15em; }
+  .nx-content h3 { font-size: 1.05em; }
 }
 
 /* ====== BlockNote 覆盖：选中状态 & 颜色变量 ====== */
 
-/* 替换 BlockNote 颜色变量为 Notion 设计 token */
+/* 替换 BlockNote 颜色变量为 Nexo 设计 token */
 .bn-container {
   --bn-colors-editor-text: var(--c-texPri);
   --bn-colors-editor-background: var(--c-bacPri);
@@ -493,7 +536,7 @@ body {
 
 /* 文字选区颜色（覆盖 BlockNote 内部可能的 ::selection） */
 .bn-editor ::selection {
-  background: var(--notion-selection);
+  background: var(--nx-selection);
   color: inherit;
 }
 
@@ -502,7 +545,7 @@ body {
   background: rgba(35, 131, 226, 0.1) !important;
 }
 
-/* ====== BlockNote 编辑器对齐 Notion 风格 ====== */
+/* ====== BlockNote 编辑器对齐 Nexo 风格 ====== */
 
 .bn-editor [data-content-type="paragraph"] {
   font-size: 16px;
@@ -510,29 +553,45 @@ body {
   min-height: 1.5em;
 }
 
-.bn-editor [data-content-type="heading"][data-level="1"],
-.bn-editor h1 {
-  font-size: 1.75em !important;
-  font-weight: 700 !important;
-  line-height: 1.2 !important;
-  padding-top: 30px !important;
+/* 覆盖 BlockNote 标题的 --level CSS 变量
+   默认: H1=3em H2=2em H3=1.3em H4=1em H5=.9em H6=.8em
+   注意: 不能用 [data-content-type="heading"] 通用选择器 + !important，
+   否则会击败 BlockNote 所有 data-level 特定选择器，导致 H4/5/6 也变成 H1 的值 */
+[data-content-type="heading"]:not([data-level]) {
+  --level: 1.5em !important;
 }
 
-.bn-editor [data-content-type="heading"][data-level="2"],
-.bn-editor h2 {
-  font-size: 1.25em !important;
-  font-weight: 600 !important;
-  line-height: 1.3 !important;
-  padding-top: 24px !important;
+[data-content-type="heading"][data-level="1"] {
+  --level: 1.5em !important;
 }
 
-.bn-editor [data-content-type="heading"][data-level="3"],
-.bn-editor h3 {
-  font-size: 1.1em !important;
-  font-weight: 600 !important;
-  line-height: 1.3 !important;
-  padding-top: 22px !important;
+[data-content-type="heading"][data-level="2"] {
+  --level: 1em !important;
 }
+
+[data-content-type="heading"][data-level="3"] {
+  --level: 0.65em !important;
+}
+
+[data-content-type="heading"][data-level="4"] {
+  --level: 0.55em !important;
+}
+
+[data-content-type="heading"][data-level="5"] {
+  --level: 0.45em !important;
+}
+
+[data-content-type="heading"][data-level="6"] {
+  --level: 0.4em !important;
+}
+
+/* 同步覆盖 --prev-level（用于标题后紧接内容的过渡动画） */
+[data-prev-level="1"] { --prev-level: 1.5em !important; }
+[data-prev-level="2"] { --prev-level: 1em !important; }
+[data-prev-level="3"] { --prev-level: 0.65em !important; }
+[data-prev-level="4"] { --prev-level: 0.55em !important; }
+[data-prev-level="5"] { --prev-level: 0.45em !important; }
+[data-prev-level="6"] { --prev-level: 0.4em !important; }
 
 /* ====== BlockNote 图标大小收紧 ====== */
 
@@ -550,7 +609,7 @@ body {
   height: 14px !important;
 }
 
-/* ====== 斜杠菜单 — 对齐 Notion 风格 ====== */
+/* ====== 斜杠菜单 — 对齐 Nexo 风格 ====== */
 
 .bn-suggestion-menu {
   width: 300px !important;
@@ -582,7 +641,7 @@ body {
   background: var(--ca-butHovBac) !important;
 }
 
-/* 图标容器：Notion 风格 — 无背景、无边框，20px 裸图标 */
+/* 图标容器：Nexo 风格 — 无背景、无边框，20px 裸图标 */
 .bn-suggestion-menu [data-position="left"] {
   padding: 0 !important;
   width: 28px !important;
@@ -598,7 +657,7 @@ body {
   flex-shrink: 0 !important;
 }
 
-/* 图标 SVG：16px（Notion 20px，我们稍小一点更精致） */
+/* 图标 SVG：16px（Nexo 20px，我们稍小一点更精致） */
 .bn-suggestion-menu [data-position="left"] svg {
   width: 16px !important;
   height: 16px !important;

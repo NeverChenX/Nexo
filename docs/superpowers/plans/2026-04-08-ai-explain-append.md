@@ -20,7 +20,7 @@
 
 ```
 OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
-OPENCLAW_GATEWAY_TOKEN=a4f09f62aaa9aea6a136342c90fe321847e167ee00248db0
+OPENCLAW_GATEWAY_TOKEN=<your-token-here>
 ```
 
 - [ ] **Step 2: 确认 `.gitignore` 中含 `.env.local`**

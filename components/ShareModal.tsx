@@ -100,7 +100,7 @@ export function ShareModal({
 
         <div className="space-y-4 py-4">
           {error && (
-            <div className="px-3 py-2 rounded text-sm" style={{ background: 'rgba(235,87,87,0.06)', border: '1px solid rgba(235,87,87,0.2)', color: 'var(--notion-red)' }}>
+            <div className="px-3 py-2 rounded text-sm" style={{ background: 'rgba(235,87,87,0.06)', border: '1px solid rgba(235,87,87,0.2)', color: 'var(--nx-red)' }}>
               {error}
             </div>
           )}

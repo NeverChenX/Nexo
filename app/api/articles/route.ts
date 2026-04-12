@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error('读取文章失败:', error);
     return NextResponse.json(
       {
         ok: false,
@@ -92,6 +93,7 @@ export async function POST(request: NextRequest) {
       data: { path: articlePath, id: articlePathToId(articlePath), content },
     });
   } catch (error) {
+    console.error('创建文章失败:', error);
     return NextResponse.json({ ok: false, error: '创建文章失败' }, { status: 500 });
   }
 }
@@ -140,6 +142,7 @@ export async function PUT(request: NextRequest) {
       data: { path, id: articlePathToId(path), content },
     });
   } catch (error) {
+    console.error('更新文章失败:', error);
     return NextResponse.json(
       {
         ok: false,
@@ -217,7 +220,8 @@ export async function PATCH(request: NextRequest) {
         newId: articlePathToId(newPath),
       },
     });
-  } catch {
+  } catch (error) {
+    console.error('重命名/移动文章失败:', error);
     return NextResponse.json(
       { ok: false, error: '重命名/移动文章失败' },
       { status: 500 }

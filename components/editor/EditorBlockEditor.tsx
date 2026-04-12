@@ -32,7 +32,7 @@ const PageLink = createReactBlockSpec(
       const name = block.props.pageName || block.props.pagePath?.split('/').pop() || '未命名页面';
       return (
         <div
-          className="notion-hoverable group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer -mx-2"
+          className="nx-hoverable group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer -mx-2"
           style={{ borderRadius: '4px' }}
           onClick={(e) => {
             e.preventDefault();
@@ -101,7 +101,7 @@ function AiExplainPanel({
 
   return (
     <div
-      className="notion-fadein-fast"
+      className="nx-fadein-fast"
       style={{
         position: 'fixed',
         bottom: '24px',
@@ -156,14 +156,14 @@ function AiExplainPanel({
             <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> 解释中...
           </div>
         )}
-        {error && <p style={{ color: 'var(--notion-red)', fontSize: '13px' }}>{error}</p>}
+        {error && <p style={{ color: 'var(--nx-red)', fontSize: '13px' }}>{error}</p>}
         {result && <p style={{ fontSize: '13.5px', lineHeight: 1.7, color: 'var(--c-texPri)', whiteSpace: 'pre-wrap' }}>{result}</p>}
       </div>
     </div>
   );
 }
 
-// ─────────────── Notion 风格工具栏按钮 ───────────────
+// ─────────────── Nexo 风格工具栏按钮 ───────────────
 
 const toolbarBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -192,7 +192,7 @@ function TBtn({ title, onClick, active, children }: {
   );
 }
 
-// ─────────────── Notion 风格选中工具栏 ───────────────
+// ─────────────── Nexo 风格选中工具栏 ───────────────
 
 function CustomFormattingToolbar({
   editor,
@@ -211,7 +211,7 @@ function CustomFormattingToolbar({
 
   return (
     <>
-      {/* Notion 风格浮动工具栏 */}
+      {/* Nexo 风格浮动工具栏 */}
       <FormattingToolbar>
         {/* 行 1: 块类型 + 粗/斜/下划线/删除线 */}
         <BlockTypeSelect key="blockTypeSelect" />
@@ -329,38 +329,41 @@ export function EditorBlockEditor({
       }));
       const allBlocks = [...blocks, ...pageLinkBlocks];
       editor.replaceBlocks(editor.document, allBlocks);
-    } catch {
-      // 解析失败
+    } catch (err) {
+      console.error('内容解析失败:', err);
     }
-    isLoadingRef.current = false;
+    // 延迟重置 isLoadingRef，确保 replaceBlocks 触发的异步 onChange 被过滤掉
+    requestAnimationFrame(() => {
+      setTimeout(() => { isLoadingRef.current = false; }, 50);
+    });
   }, [editor]);
 
+  // 合并为单一 effect：首次加载 + 内容变更时重新加载
   useEffect(() => {
-    if (!editor || editorReady) return;
-    if (!content && (!subPages || subPages.length === 0)) return;
-    (async () => {
-      await loadContent(content || '', subPages || []);
-      prevContentRef.current = content;
-      prevSubPagesRef.current = subPages || [];
-      setEditorReady(true);
-    })();
-  }, [editor, content, subPages, editorReady, loadContent]);
-
-  useEffect(() => {
-    if (!editor || !editorReady) return;
+    if (!editor) return;
+    // 首次加载：editorReady 为 false，有内容可加载
+    if (!editorReady) {
+      if (!content && (!subPages || subPages.length === 0)) return;
+      (async () => {
+        await loadContent(content || '', subPages || []);
+        prevContentRef.current = content;
+        prevSubPagesRef.current = subPages || [];
+        setEditorReady(true);
+      })();
+      return;
+    }
+    // 后续更新：仅当内容真正变化时重新加载
     const contentChanged = content !== prevContentRef.current;
     const subPagesChanged = JSON.stringify(subPages) !== JSON.stringify(prevSubPagesRef.current);
     if (!contentChanged && !subPagesChanged) return;
 
     prevContentRef.current = content;
     prevSubPagesRef.current = subPages || [];
-    setEditorReady(false);
     (async () => {
       await loadContent(content, subPages || []);
       onSaveStateChange?.('saved');
-      setEditorReady(true);
     })();
-  }, [content, subPages, editor, editorReady, loadContent, onSaveStateChange]);
+  }, [editor, content, subPages, editorReady, loadContent, onSaveStateChange]);
 
   const handleChange = useCallback(async () => {
     if (isLoadingRef.current || !editor) return;
@@ -426,10 +429,28 @@ export function EditorBlockEditor({
     };
   }, [editor, onCreatePage]);
 
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!lightboxSrc) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxSrc(null);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [lightboxSrc]);
+
+  const handleEditorClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'IMG' && (target as HTMLImageElement).src) {
+      setLightboxSrc((target as HTMLImageElement).src);
+    }
+  }, []);
+
   return (
-    <div className="h-full overflow-auto" style={{ background: 'var(--c-bacPri)' }}>
-      <div className="notion-layout" style={{ paddingTop: '60px', paddingBottom: '100px' }}>
-        <div className="notion-layout-content">
+    <div className="h-full overflow-auto" style={{ background: 'var(--c-bacPri)' }} onClick={handleEditorClick}>
+      <div className="nx-layout" style={{ paddingTop: '60px', paddingBottom: '100px' }}>
+        <div className="nx-layout-content">
           <BlockNoteView
             editor={editor}
             onChange={handleChange}
@@ -449,6 +470,18 @@ export function EditorBlockEditor({
           </BlockNoteView>
         </div>
       </div>
+      {lightboxSrc && (
+        <div className="image-lightbox-overlay" role="dialog" aria-label="图片预览" onClick={() => setLightboxSrc(null)}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
+            style={{ position: 'fixed', top: '16px', right: '16px', color: '#fff', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+          <img src={lightboxSrc} alt="" />
+        </div>
+      )}
     </div>
   );
 }

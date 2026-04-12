@@ -333,8 +333,21 @@ export async function renameFolder(oldPath: string, newPath: string): Promise<vo
   await fs.rename(oldDir, newDir);
 }
 
-// 重命名文章
+// 重命名文章（支持叶子页面和父页面）
 export async function renameArticle(oldPath: string, newPath: string): Promise<void> {
+  // 先检查是否是父页面（目录形式）
+  const oldDir = safePath(oldPath);
+  try {
+    const stat = await fs.stat(oldDir);
+    if (stat.isDirectory()) {
+      // 父页面：重命名整个目录
+      const newDir = safePath(newPath);
+      await ensureDir(path.dirname(newDir));
+      await fs.rename(oldDir, newDir);
+      return;
+    }
+  } catch { /* 不是目录，继续按叶子页面处理 */ }
+
   const oldFile = safePath(`${oldPath}.md`);
   const newFile = safePath(`${newPath}.md`);
   await ensureDir(path.dirname(newFile));
@@ -367,14 +380,24 @@ export async function moveFolder(folderPath: string, newParentPath: string): Pro
   return newPath;
 }
 
-// 移动文章到新的父目录
+// 移动文章到新的父目录（支持叶子页面和父页面）
 export async function moveArticle(articlePath: string, newParentPath: string): Promise<string> {
   const articleName = path.basename(articlePath);
   const newPath = newParentPath ? `${newParentPath}/${articleName}` : articleName;
-  
+
+  // 检查是否是父页面（目录形式）
+  const oldDir = safePath(articlePath);
+  try {
+    const stat = await fs.stat(oldDir);
+    if (stat.isDirectory()) {
+      // 父页面：按文件夹模式移动
+      return moveFolder(articlePath, newParentPath);
+    }
+  } catch { /* 不是目录，按叶子页面处理 */ }
+
   const oldFile = safePath(`${articlePath}.md`);
   const newFile = safePath(`${newPath}.md`);
-  
+
   // 检查目标是否已存在
   try {
     await fs.stat(newFile);
@@ -382,7 +405,7 @@ export async function moveArticle(articlePath: string, newParentPath: string): P
   } catch (e: unknown) {
     if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
   }
-  
+
   await ensureDir(path.dirname(newFile));
   await fs.rename(oldFile, newFile);
   return newPath;

@@ -17,7 +17,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         background: 'var(--c-bacPri)',
         color: 'var(--c-texPri)',
       }}
-      onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--notion-blue)'; }}
+      onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--nx-blue)'; }}
       onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
       ref={ref}
       {...props}

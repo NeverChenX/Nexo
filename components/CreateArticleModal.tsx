@@ -39,7 +39,7 @@ export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: C
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[200] flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.15)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
@@ -58,7 +58,7 @@ export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: C
             <span className="text-sm" style={{ fontWeight: 500, color: 'var(--c-texPri)' }}>新建文档</span>
           </div>
           <button
-            className="notion-hoverable w-6 h-6 flex items-center justify-center rounded"
+            className="nx-hoverable w-6 h-6 flex items-center justify-center rounded"
             style={{ color: 'var(--c-icoSec)' }}
             onClick={onClose}
           >
@@ -82,7 +82,7 @@ export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: C
             color: 'var(--c-texPri)',
             outline: 'none',
           }}
-          onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--notion-blue)'; }}
+          onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--nx-blue)'; }}
           onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
           placeholder="文档名称"
           value={name}
@@ -93,7 +93,7 @@ export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: C
         <div className="flex gap-2 justify-end">
           <button
             onClick={onClose}
-            className="notion-hoverable px-3 py-1.5 text-sm rounded-md"
+            className="nx-hoverable px-3 py-1.5 text-sm rounded-md"
             style={{ color: 'var(--c-texSec)', background: 'var(--c-bacTer)' }}
           >
             取消
@@ -102,7 +102,7 @@ export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: C
             disabled={!name.trim()}
             onClick={handleConfirm}
             className="px-3 py-1.5 text-sm rounded-md transition-colors text-white disabled:opacity-40"
-            style={{ background: 'var(--notion-blue)' }}
+            style={{ background: 'var(--nx-blue)' }}
           >
             创建
           </button>

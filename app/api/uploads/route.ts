@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    // 生产环境应使用结构化日志
+    console.error('上传失败:', error);
     return NextResponse.json(
       { ok: false, error: '上传失败' },
       { status: 500 }

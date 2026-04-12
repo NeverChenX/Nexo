@@ -63,7 +63,7 @@ function Modal({ config }: { config: ModalConfig }) {
               if (config.type === 'alert') config.onClose();
               else config.onCancel();
             }}
-            className="notion-hoverable rounded p-0.5"
+            className="nx-hoverable rounded p-0.5"
             style={{ color: 'var(--c-icoSec)' }}
           >
             <X className="h-4 w-4" />
@@ -89,7 +89,7 @@ function Modal({ config }: { config: ModalConfig }) {
                 color: 'var(--c-texPri)',
                 outline: 'none',
               }}
-              onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--notion-blue)'; }}
+              onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--nx-blue)'; }}
               onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
             />
           )}
@@ -99,7 +99,7 @@ function Modal({ config }: { config: ModalConfig }) {
           {config.type !== 'alert' && (
             <button
               onClick={config.onCancel}
-              className="notion-hoverable px-3 py-1.5 text-sm rounded-md"
+              className="nx-hoverable px-3 py-1.5 text-sm rounded-md"
               style={{ color: 'var(--c-texSec)', background: 'var(--c-bacTer)' }}
             >
               取消
@@ -113,7 +113,7 @@ function Modal({ config }: { config: ModalConfig }) {
             }}
             className="px-3 py-1.5 text-sm rounded-md transition-colors text-white"
             style={{
-              background: config.type === 'confirm' ? 'var(--notion-red)' : 'var(--notion-blue)',
+              background: config.type === 'confirm' ? 'var(--nx-red)' : 'var(--nx-blue)',
             }}
           >
             {config.type === 'alert' ? '确定' : config.type === 'confirm' ? '删除' : '确定'}
@@ -222,8 +222,8 @@ export function TreeMenu({
       const res = await fetch('/api/folders?tree=true');
       const json = await res.json();
       if (json.ok) setTree(json.data);
-    } catch {
-      // 加载失败
+    } catch (err) {
+      console.error('加载文件树失败:', err);
     } finally {
       setLoading(false);
     }
@@ -234,8 +234,8 @@ export function TreeMenu({
       const res = await fetch('/api/sort-order');
       const json = await res.json();
       if (json.ok) setSortOrders(json.data);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('加载排序失败:', err);
     }
   };
 
@@ -246,8 +246,8 @@ export function TreeMenu({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ parentPath, order }),
       });
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('保存排序失败:', err);
     }
   };
 
@@ -313,7 +313,7 @@ export function TreeMenu({
     let newFolder: string | null = null;
     let newPos: DropPosition | null = null;
 
-    if (ratio > 0.25 && ratio < 0.75) {
+    if (ratio > 0.25 && ratio < 0.75 && item.isFolder) {
       newFolder = item.path;
     } else if (ratio <= 0.5) {
       newPos = { parentPath, index };
@@ -548,7 +548,7 @@ export function TreeMenu({
     if (dropPosition.parentPath !== parentPath || dropPosition.index !== index) return null;
     return (
       <li aria-hidden className="pointer-events-none px-2 py-0.5">
-        <div className="h-[2px] rounded-full mx-1" style={{ background: 'var(--notion-blue)', boxShadow: '0 0 4px rgba(35,131,226,0.5)' }} />
+        <div className="h-[2px] rounded-full mx-1" style={{ background: 'var(--nx-blue)', boxShadow: '0 0 4px rgba(35,131,226,0.5)' }} />
       </li>
     );
   };
@@ -556,7 +556,7 @@ export function TreeMenu({
   const renderTree = (items: TreeItem[], depth: number = 0, parentPath: string = '') => {
     const sorted = applySortOrder(items, parentPath);
 
-    // Notion 统一字号和字重
+    // Nexo 统一字号和字重
     const getFontSize = () => '14px';
     const getFolderWeight = () => 400;
 
@@ -581,7 +581,7 @@ export function TreeMenu({
                 style={{
                   paddingLeft: `${depth * 16 + 4}px`,
                   background: isFolderTarget ? 'var(--ca-butHovBac)' : undefined,
-                  outline: isFolderTarget ? '1px solid var(--notion-blue)' : undefined,
+                  outline: isFolderTarget ? '1px solid var(--nx-blue)' : undefined,
                   borderRadius: '6px',
                   marginTop: item.isFolder && depth === 0 && index > 0 ? '2px' : undefined,
                   marginLeft: '4px',
@@ -665,7 +665,7 @@ export function TreeMenu({
           <button
             onClick={() => onCreateArticle('')}
             title="新建文档"
-            className="notion-hoverable flex items-center justify-center rounded p-1"
+            className="nx-hoverable flex items-center justify-center rounded p-1"
             style={{ color: 'var(--c-icoSec)' }}
           >
             <Plus className="h-4 w-4" />
@@ -680,7 +680,15 @@ export function TreeMenu({
         onDrop={handleRootZoneDrop}
       >
         {tree.length === 0 ? (
-          <p className="p-2 text-sm" style={{ color: 'var(--c-texDis)' }}>还没有内容，右键新建</p>
+          <div className="p-2 text-sm" style={{ color: 'var(--c-texDis)' }}>
+            <p>还没有内容</p>
+            {!isReadMode && (
+              <p className="mt-1">
+                <span className="hidden lg:inline">右键新建</span>
+                <span className="lg:hidden">点击上方 + 新建</span>
+              </p>
+            )}
+          </div>
         ) : (
           renderTree(tree)
         )}
@@ -709,7 +717,7 @@ export function TreeMenu({
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            className="notion-hoverable w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
+            className="nx-hoverable w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
             style={{ color: 'var(--c-texSec)' }}
             onClick={() => { onCreateArticle(contextMenu.path); setContextMenu(null); }}
           >
@@ -718,7 +726,7 @@ export function TreeMenu({
           </button>
           <div className="my-1" style={{ borderTop: '1px solid var(--c-borSec)' }} />
           <button
-            className="notion-hoverable w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
+            className="nx-hoverable w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
             style={{ color: 'var(--c-texSec)' }}
             onClick={() => { handleRename(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
           >
@@ -726,8 +734,8 @@ export function TreeMenu({
             重命名
           </button>
           <button
-            className="notion-hoverable-danger w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
-            style={{ color: 'var(--notion-red)' }}
+            className="nx-hoverable-danger w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
+            style={{ color: 'var(--nx-red)' }}
             onClick={() => { handleDelete(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
           >
             <Trash2 className="h-3.5 w-3.5" />
