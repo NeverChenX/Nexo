@@ -1,0 +1,61 @@
+[2026年  4月  9日 木曜日 08:46:03 CST] 开始执行每日深度投资研究搜集
+[2026年  4月  9日 木曜日 08:49:15 CST] 开始执行每日深度投资研究搜集
+文件已写入：`/home/Neverchen/project/never_wiki/wiki-data/投资文章/2026-04-09/全球深度投资研究精选.md`
+
+---
+
+## 本次研究摘要
+
+共执行12轮搜索，筛选出**7篇真正有深度**的机构研究，涵盖：
+
+| 编号 | 来源 | 核心价值 |
+|------|------|---------|
+| 1 | **Howard Marks / Oaktree** | AI泡沫哲学辩论，用AI分析AI，5星精品 |
+| 2 | **Jeremy Grantham / GMO** | 百年泡沫数据框架，2σ偏离定量标准 |
+| 3 | **AQR Capital** | 全球60/40预期回报3.4%，量化估值压缩证据 |
+| 4 | **John Hussman** | "陷阱门条件"框架，估值超越1929/2000峰值 |
+| 5 | **J.P. Morgan** | 关税一年数据复盘，违约率走升预测 |
+| 6 | **多机构信用分析** | 高收益利差300bp的不对称风险，6家机构共识 |
+| 7 | **BlackRock + 美联储** | 宏观-市场错位识别，美联储换届尾部风险 |
+
+**今日核心结论**：估值体系（AQR/GMO/Hussman三方独立确认）、关税重构（JPM定量化）、信用周期成熟（6机构共识）三条主线同时指向"风险/收益比处于历史极端区间"。黄金和非美价值资产是当前最有共识支撑的配置方向。
+[2026年  4月  9日 木曜日 08:51:08 CST] 执行完成，输出文件：/home/Neverchen/project/never_wiki/wiki-data/投资文章/2026-04-09/全球深度投资研究精选.md
+完成。以下是本次执行结果：
+
+**文件路径**：`/home/Neverchen/project/never_wiki/wiki-data/投资文章/2026-04-09/全球深度投资研究精选.md`
+
+---
+
+**文件原有内容**（第一轮，今日早些时候已生成）：7篇精选，覆盖 Howard Marks、Grantham/GMO、AQR资本市场假设、Hussman估值预警、JPM关税分析、多机构信用市场分析、BlackRock+美联储联合视角。
+
+**本次新增**（第二轮，10条搜索后补充3篇）：
+
+| 新增编号 | 来源 | 核心价值 |
+|---------|------|---------|
+| 8 | **BIS季报2026年3月** | 黄金避险功能弱化信号、日本利率异常上升的全球传导风险 |
+| 9 | **麦肯锡全球研究院 — 贸易格局2026** | 实证推翻"关税压缩贸易"预期；AI商品占全球贸易增量1/3 |
+| 10 | **GMO年终信2025：深度价值** | 量化美国深度价值预期超额回报>50%，发达非美>20-30% |
+
+**今日宏观主线**：极端估值预警（三大机构异口同声）× 贸易战贸易转移实证 × AI叙事与泡沫的双重叙事 × 黄金功能性转变，四条主线相互交织，共同指向一个问题：在历史最高估值叠加地缘政治重塑的双重压力下，确定性在哪里？
+
+Sources:
+- [AQR 2026 Capital Market Assumptions](https://www.aqr.com/Insights/Research/Alternative-Thinking/2026-Capital-Market-Assumptions-for-Major-Asset-Classes)
+- [Howard Marks: AI Hurtles Ahead](https://www.oaktreecapital.com/insights/memo/ai-hurtles-ahead)
+- [GMO Research Library](https://www.gmo.com/americas/research-library/)
+- [Hussman Funds Market Comments](https://www.hussmanfunds.com/category/comment/)
+- [BIS Quarterly Review March 2026](https://www.bis.org/publ/qtrpdf/r_qt2603a.pdf)
+- [McKinsey Global Trade 2026](https://www.mckinsey.com/mgi/our-research/geopolitics-and-the-geometry-of-global-trade-2026-update)
+- [GMO Year-End Letter 2025: Deep Value](https://www.gmo.com/americas/research-library/year-end-letter-for-2025-deep-value_insights/)
+- [Ray Dalio Big Cycle - Fortune](https://fortune.com/2026/03/16/bridgewater-ray-dalio-thinks-world-looks-like-pre-1945-big-cycle/)
+- [Federal Reserve FEDS 2026](https://www.federalreserve.gov/econres/feds/2026.htm)
+- [J.P. Morgan US Tariffs](https://www.jpmorgan.com/insights/global-research/current-events/us-tariffs)
+[2026年  4月  9日 木曜日 08:55:55 CST] 执行成功，文件已生成：/home/Neverchen/project/never_wiki/wiki-data/投资文章/2026-04-09/全球深度投资研究精选.md
+[2026年  4月 10日 金曜日 03:03:01 CST] 开始执行每日深度投资研究搜集
+Not logged in · Please run /login
+[2026年  4月 10日 金曜日 03:03:04 CST] 警告：执行完成但未找到输出文件，退出码=1
+[2026年  4月 11日 土曜日 03:03:01 CST] 开始执行每日深度投资研究搜集
+Not logged in · Please run /login
+[2026年  4月 11日 土曜日 03:03:04 CST] 警告：执行完成但未找到输出文件，退出码=1
+[2026年  4月 12日 日曜日 03:03:01 CST] 开始执行每日深度投资研究搜集
+Not logged in · Please run /login
+[2026年  4月 12日 日曜日 03:03:03 CST] 警告：执行完成但未找到输出文件，退出码=1

@@ -7,6 +7,7 @@ import {
   isFolder,
   renameFolder,
   moveFolder,
+  promoteParentIfNeeded,
 } from '@/lib/storage';
 
 // GET: 获取文件夹内容或完整树
@@ -98,6 +99,11 @@ export async function PUT(request: NextRequest) {
           { ok: false, error: '原文件夹不存在' },
           { status: 404 }
         );
+      }
+
+      // 如果目标是普通文档，自动提升为父页面
+      if (newParentPath) {
+        await promoteParentIfNeeded(newParentPath);
       }
 
       const resultPath = await moveFolder(oldPath, newParentPath);

@@ -7,7 +7,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push('/view');
+    router.push('/editor');
   }, [router]);
 
   return null;

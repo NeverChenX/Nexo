@@ -165,6 +165,11 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
+      // 如果 newParentPath 是普通文档，自动提升为父页面
+      if (newParentPath) {
+        await promoteParentIfNeeded(newParentPath);
+      }
+
       const resultPath = await moveArticle(oldPath, newParentPath);
 
       return NextResponse.json({
