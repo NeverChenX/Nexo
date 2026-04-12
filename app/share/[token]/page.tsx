@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Preview } from '@/components/Preview';
-import { Card } from '@/components/ui/card';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useParams } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 
@@ -33,7 +33,6 @@ export default function SharePage() {
         }
       } catch (err) {
         setError('加载失败');
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -43,53 +42,71 @@ export default function SharePage() {
   }, [token]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-gray-600">加载中...</div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--c-bacPri)' }}>
+        <div style={{ color: 'var(--c-texTer)' }}>加载中...</div>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="p-6 max-w-md">
-          <div className="flex gap-3 text-red-600">
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            <p>{error}</p>
-          </div>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--c-bacPri)' }}>
+        <div
+          className="flex gap-3 p-6 rounded-lg max-w-md"
+          style={{ border: '1px solid var(--c-borPri)', color: 'var(--notion-red)' }}
+        >
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <p>{error}</p>
+        </div>
       </div>
     );
   }
 
   if (!shareData) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-400">没有内容</p></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--c-bacPri)' }}>
+        <p style={{ color: 'var(--c-texDis)' }}>没有内容</p>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {shareData.type === 'article' ? (
-          <Card className="p-8">
-            <Preview content={shareData.content || ''} />
-          </Card>
-        ) : (
-          <Card className="p-8">
-            <h1 className="text-3xl font-bold mb-6">{shareData.path}</h1>
-            {shareData.contents && shareData.contents.length > 0 ? (
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold mb-4">文件列表</h2>
-                <ul className="space-y-2">
-                  {shareData.contents.map((item: any) => (
-                    <li key={item.path} className="flex items-center gap-2">
-                      <span>{item.isFolder ? '📁' : '📄'}</span>
-                      <span className="text-gray-700">{item.name}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <p className="text-gray-400">该文件夹为空</p>
-            )}
-          </Card>
-        )}
+    <div className="min-h-screen" style={{ background: 'var(--c-bacPri)', paddingTop: '48px', paddingBottom: '80px' }}>
+      <div className="notion-layout">
+        <div className="notion-layout-content">
+          {shareData.type === 'article' ? (
+            <div className="notion-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {shareData.content || ''}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <div>
+              <h1 style={{ fontSize: '1.875em', fontWeight: 700, color: 'var(--c-texPri)', marginBottom: '16px' }}>
+                {shareData.path}
+              </h1>
+              {shareData.contents && shareData.contents.length > 0 ? (
+                <div>
+                  <h2 style={{ fontSize: '1.25em', fontWeight: 600, color: 'var(--c-texPri)', marginBottom: '12px' }}>文件列表</h2>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {shareData.contents.map((item: any) => (
+                      <li
+                        key={item.path}
+                        className="notion-hoverable flex items-center gap-2 px-2 py-1.5 rounded"
+                      >
+                        <span style={{ fontSize: '14px' }}>{item.isFolder ? '📁' : '📄'}</span>
+                        <span style={{ color: 'var(--c-texPri)', fontSize: '14px' }}>{item.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--c-texDis)' }}>该文件夹为空</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

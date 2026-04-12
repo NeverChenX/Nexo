@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { ChevronRight, ChevronDown, FileText, Pencil, Trash2, X, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, FolderOpen, FolderClosed, Pencil, Trash2, X, AlertCircle, Plus } from 'lucide-react';
 
 interface TreeItem {
   name: string;
@@ -12,6 +12,7 @@ interface TreeItem {
 }
 
 interface TreeMenuProps {
+  mode?: 'editor' | 'read';
   onSelectItem: (path: string, isFolder: boolean) => void;
   onCreateArticle: (parentPath: string) => void;
   onMoveItem?: (oldPath: string, newParentPath: string, isFolder: boolean) => Promise<boolean>;
@@ -42,11 +43,19 @@ function Modal({ config }: { config: ModalConfig }) {
   }, [config.type]);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-xl shadow-2xl w-[340px] overflow-hidden border border-slate-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-          <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <AlertCircle className="h-4 w-4 text-slate-400" />
+    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.15)' }}>
+      <div
+        className="w-[340px] overflow-hidden"
+        style={{
+          background: 'var(--c-bacPri)',
+          borderRadius: '8px',
+          boxShadow: 'var(--c-shaOutLg)',
+          border: '1px solid var(--c-borPri)',
+        }}
+      >
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
+          <div className="flex items-center gap-2 text-sm" style={{ fontWeight: 500, color: 'var(--c-texPri)' }}>
+            <AlertCircle className="h-4 w-4" style={{ color: 'var(--c-icoSec)' }} />
             {config.type === 'alert' ? '提示' : config.type === 'confirm' ? '确认' : '输入'}
           </div>
           <button
@@ -54,14 +63,15 @@ function Modal({ config }: { config: ModalConfig }) {
               if (config.type === 'alert') config.onClose();
               else config.onCancel();
             }}
-            className="text-slate-400 hover:text-slate-600 rounded p-0.5 hover:bg-slate-100"
+            className="notion-hoverable rounded p-0.5"
+            style={{ color: 'var(--c-icoSec)' }}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="px-4 py-4">
-          <p className="text-sm text-slate-600 mb-3">{config.message}</p>
+          <p className="text-sm mb-3" style={{ color: 'var(--c-texSec)' }}>{config.message}</p>
           {config.type === 'prompt' && (
             <input
               ref={inputRef}
@@ -72,7 +82,15 @@ function Modal({ config }: { config: ModalConfig }) {
                 if (e.key === 'Enter') config.onConfirm(inputValue);
                 if (e.key === 'Escape') config.onCancel();
               }}
-              className="w-full px-3 py-1.5 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400"
+              className="w-full px-3 py-1.5 text-sm rounded-md"
+              style={{
+                border: '1px solid var(--c-borPri)',
+                background: 'var(--c-bacPri)',
+                color: 'var(--c-texPri)',
+                outline: 'none',
+              }}
+              onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0 0 2px var(--c-bacPri), 0 0 0 4px var(--notion-blue)'; }}
+              onBlur={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
             />
           )}
         </div>
@@ -81,7 +99,8 @@ function Modal({ config }: { config: ModalConfig }) {
           {config.type !== 'alert' && (
             <button
               onClick={config.onCancel}
-              className="px-3 py-1.5 text-sm text-slate-600 bg-slate-100 rounded-md hover:bg-slate-200 transition-colors"
+              className="notion-hoverable px-3 py-1.5 text-sm rounded-md"
+              style={{ color: 'var(--c-texSec)', background: 'var(--c-bacTer)' }}
             >
               取消
             </button>
@@ -92,12 +111,10 @@ function Modal({ config }: { config: ModalConfig }) {
               else if (config.type === 'confirm') config.onConfirm();
               else config.onConfirm(inputValue);
             }}
-            className={cn(
-              'px-3 py-1.5 text-sm rounded-md transition-colors',
-              config.type === 'confirm'
-                ? 'bg-red-500 text-white hover:bg-red-600'
-                : 'bg-blue-500 text-white hover:bg-blue-600'
-            )}
+            className="px-3 py-1.5 text-sm rounded-md transition-colors text-white"
+            style={{
+              background: config.type === 'confirm' ? 'var(--notion-red)' : 'var(--notion-blue)',
+            }}
           >
             {config.type === 'alert' ? '确定' : config.type === 'confirm' ? '删除' : '确定'}
           </button>
@@ -117,6 +134,7 @@ interface DropPosition {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function TreeMenu({
+  mode = 'editor',
   onSelectItem,
   onCreateArticle,
   onMoveItem,
@@ -124,6 +142,7 @@ export function TreeMenu({
   className,
   refreshKey,
 }: TreeMenuProps) {
+  const isReadMode = mode === 'read';
   const [tree, setTree] = useState<TreeItem[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -170,6 +189,26 @@ export function TreeMenu({
       });
     });
 
+  // ─── Auto-expand selected path's ancestors ──────────────────────────────────
+
+  useEffect(() => {
+    if (!selectedPath) return;
+    const parts = selectedPath.split('/');
+    if (parts.length <= 1) return;
+    const ancestors: string[] = [];
+    for (let i = 1; i < parts.length; i++) {
+      ancestors.push(parts.slice(0, i).join('/'));
+    }
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const a of ancestors) {
+        if (!next.has(a)) { next.add(a); changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [selectedPath]);
+
   // ─── Data loading ───────────────────────────────────────────────────────────
 
   useEffect(() => { fetchTree(); fetchSortOrders(); }, []);
@@ -183,8 +222,8 @@ export function TreeMenu({
       const res = await fetch('/api/folders?tree=true');
       const json = await res.json();
       if (json.ok) setTree(json.data);
-    } catch (error) {
-      console.error('Failed to load tree:', error);
+    } catch {
+      // 加载失败
     } finally {
       setLoading(false);
     }
@@ -274,7 +313,7 @@ export function TreeMenu({
     let newFolder: string | null = null;
     let newPos: DropPosition | null = null;
 
-    if (item.isFolder && ratio > 0.25 && ratio < 0.75) {
+    if (ratio > 0.25 && ratio < 0.75) {
       newFolder = item.path;
     } else if (ratio <= 0.5) {
       newPos = { parentPath, index };
@@ -309,27 +348,31 @@ export function TreeMenu({
 
     const { path: sourcePath, isFolder: sourceIsFolder } = parsed;
 
-    if (folderDropTarget) {
+    // 使用 pendingDragState.current 而非 state，避免 RAF 异步导致读到旧状态
+    const { folder: currentFolder, pos: currentPos } = pendingDragState.current;
+
+    if (currentFolder) {
       // Move into folder
-      await doMoveIntoFolder(sourcePath, folderDropTarget, sourceIsFolder);
-    } else if (dropPosition) {
+      await doMoveIntoFolder(sourcePath, currentFolder, sourceIsFolder);
+    } else if (currentPos) {
       // Reorder within same level
       const sourceParent = sourcePath.includes('/')
         ? sourcePath.substring(0, sourcePath.lastIndexOf('/'))
         : '';
 
-      if (sourceParent === dropPosition.parentPath) {
+      if (sourceParent === currentPos.parentPath) {
         // Same parent → just reorder
-        await doReorder(sourcePath, dropPosition.parentPath, dropPosition.index, item);
+        await doReorder(sourcePath, currentPos.parentPath, currentPos.index, item);
       } else {
         // Different parent → move and then reorder
-        await doMoveIntoFolder(sourcePath, dropPosition.parentPath || '', sourceIsFolder, dropPosition.index);
+        await doMoveIntoFolder(sourcePath, currentPos.parentPath || '', sourceIsFolder, currentPos.index);
       }
     }
 
     setFolderDropTarget(null);
     setDropPosition(null);
     setDraggingItem(null);
+    pendingDragState.current = { folder: null, pos: null };
   };
 
   const doMoveIntoFolder = async (
@@ -505,13 +548,17 @@ export function TreeMenu({
     if (dropPosition.parentPath !== parentPath || dropPosition.index !== index) return null;
     return (
       <li aria-hidden className="pointer-events-none px-2 py-0.5">
-        <div className="h-[2px] rounded-full bg-blue-500 mx-1 shadow-[0_0_4px_rgba(59,130,246,0.6)]" />
+        <div className="h-[2px] rounded-full mx-1" style={{ background: 'var(--notion-blue)', boxShadow: '0 0 4px rgba(35,131,226,0.5)' }} />
       </li>
     );
   };
 
   const renderTree = (items: TreeItem[], depth: number = 0, parentPath: string = '') => {
     const sorted = applySortOrder(items, parentPath);
+
+    // Notion 统一字号和字重
+    const getFontSize = () => '14px';
+    const getFolderWeight = () => 400;
 
     return (
       <ul className="space-y-0 list-none p-0 m-0">
@@ -521,22 +568,29 @@ export function TreeMenu({
           const isExpanded = expanded.has(item.path);
           const isFolderTarget = folderDropTarget === item.path;
           const isDragging = draggingItem?.path === item.path;
+          const isSelected = selectedPath === item.path;
+          const FolderIcon = isExpanded ? FolderOpen : FolderClosed;
 
           return (
             <li key={item.path}>
               <div
                 className={cn(
-                  'flex items-center rounded-md min-w-0 transition-colors',
-                  isFolderTarget ? 'bg-blue-100 ring-1 ring-blue-300' : '',
+                  'flex items-center rounded min-w-0 transition-colors',
                   isDragging ? 'opacity-40' : ''
                 )}
-                style={{ paddingLeft: `${depth * 12 + 4}px` }}
-                draggable
-                onDragStart={(e) => handleDragStart(e, item)}
-                onDragEnd={handleDragEnd}
-                onDragOver={(e) => handleItemDragOver(e, item, parentPath, index)}
-                onDrop={(e) => handleItemDrop(e, item, parentPath, index)}
-                onContextMenu={(e) => {
+                style={{
+                  paddingLeft: `${depth * 16 + 4}px`,
+                  background: isFolderTarget ? 'var(--ca-butHovBac)' : undefined,
+                  outline: isFolderTarget ? '1px solid var(--notion-blue)' : undefined,
+                  borderRadius: '4px',
+                  marginTop: item.isFolder && depth === 0 && index > 0 ? '4px' : undefined,
+                }}
+                draggable={!isReadMode}
+                onDragStart={isReadMode ? undefined : (e) => handleDragStart(e, item)}
+                onDragEnd={isReadMode ? undefined : handleDragEnd}
+                onDragOver={isReadMode ? undefined : (e) => handleItemDragOver(e, item, parentPath, index)}
+                onDrop={isReadMode ? undefined : (e) => handleItemDrop(e, item, parentPath, index)}
+                onContextMenu={isReadMode ? undefined : (e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   setContextMenu({ path: item.path, isFolder: item.isFolder, x: e.clientX, y: e.clientY });
@@ -544,7 +598,8 @@ export function TreeMenu({
               >
                 {item.isFolder ? (
                   <span
-                    className="w-4 h-4 flex-shrink-0 flex items-center justify-center text-slate-400 cursor-pointer hover:text-slate-600"
+                    className="w-4 h-4 flex-shrink-0 flex items-center justify-center cursor-pointer"
+                    style={{ color: 'var(--c-icoSec)' }}
                     onClick={(e) => { e.stopPropagation(); toggleFolder(item.path); }}
                   >
                     {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
@@ -553,13 +608,27 @@ export function TreeMenu({
                   <span className="w-4 flex-shrink-0" />
                 )}
                 <button
-                  className={cn(
-                    'flex-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-[13px] text-left text-slate-700 hover:bg-slate-100 min-w-0 cursor-grab active:cursor-grabbing',
-                    selectedPath === item.path ? 'bg-slate-200/70 font-medium text-slate-900' : ''
-                  )}
+                  className={`flex-1 flex items-center gap-1.5 rounded px-2 py-1 text-left min-w-0 transition-colors ${isReadMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+                  style={{
+                    fontSize: getFontSize(),
+                    fontWeight: item.isFolder ? getFolderWeight() : 400,
+                    color: 'var(--c-texPri)',
+                    background: isSelected ? 'var(--ca-sidIteSelBac)' : undefined,
+                    borderRadius: '4px',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'var(--ca-butHovBac)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = '';
+                  }}
                   onClick={() => onSelectItem(item.path, item.isFolder)}
                 >
-                  <FileText className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  {item.isFolder ? (
+                    <FolderIcon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--c-icoSec)' }} />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--c-icoSec)' }} />
+                  )}
                   <span className="truncate">{item.name}</span>
                 </button>
               </div>
@@ -576,17 +645,27 @@ export function TreeMenu({
 
   if (loading) {
     return (
-      <div className={cn('h-full border-r border-slate-200 bg-white flex-shrink-0 p-4', className)}>
-        <p className="text-sm text-gray-400">加载中...</p>
+      <div className={cn('h-full flex-shrink-0 p-4 border-r', className)} style={{ background: 'var(--c-bacSec)', borderColor: 'var(--c-borSec)' }}>
+        <p className="text-sm" style={{ color: 'var(--c-texDis)' }}>加载中...</p>
       </div>
     );
   }
 
   return (
-    <div className={cn('h-full border-r border-slate-200 bg-[#fbfbfa] flex-shrink-0 flex flex-col overflow-hidden', className)}>
+    <div className={cn('h-full flex-shrink-0 flex flex-col overflow-hidden border-r', className)} style={{ background: 'var(--c-bacSec)', borderColor: 'var(--c-borSec)' }}>
       {/* 标题 */}
-      <div className="p-3 border-b border-slate-200">
-        <h2 className="text-sm font-semibold text-slate-700 px-1">Nexo</h2>
+      <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
+        <h2 className="px-1" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--c-texPri)' }}>Nexo</h2>
+        {!isReadMode && (
+          <button
+            onClick={() => onCreateArticle('')}
+            title="新建文档"
+            className="notion-hoverable flex items-center justify-center rounded p-1"
+            style={{ color: 'var(--c-icoSec)' }}
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* 文件树 */}
@@ -596,41 +675,54 @@ export function TreeMenu({
         onDrop={handleRootZoneDrop}
       >
         {tree.length === 0 ? (
-          <p className="p-2 text-sm text-gray-400">还没有内容，右键新建</p>
+          <p className="p-2 text-sm" style={{ color: 'var(--c-texDis)' }}>还没有内容，右键新建</p>
         ) : (
           renderTree(tree)
         )}
-        {draggingItem && draggingItem.path.includes('/') && (
-          <div className="mt-4 p-3 border-2 border-dashed border-slate-300 rounded-md text-center text-sm text-slate-500">
+        {!isReadMode && draggingItem && draggingItem.path.includes('/') && (
+          <div
+            className="mt-4 p-3 rounded-md text-center text-sm"
+            style={{ border: '2px dashed var(--c-borPri)', color: 'var(--c-texTer)' }}
+          >
             拖放到此处移动到根目录
           </div>
         )}
       </div>
 
       {/* 右键菜单 */}
-      {contextMenu && (
+      {!isReadMode && contextMenu && (
         <div
-          className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[140px]"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          className="fixed z-50 py-1 min-w-[160px]"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            background: 'var(--c-bacPri)',
+            borderRadius: '6px',
+            boxShadow: 'var(--c-shaOutMd)',
+            border: '1px solid var(--c-borPri)',
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
-            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+            className="notion-hoverable w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
+            style={{ color: 'var(--c-texSec)' }}
             onClick={() => { onCreateArticle(contextMenu.path); setContextMenu(null); }}
           >
-            <FileText className="h-3.5 w-3.5 text-gray-400" />
+            <FileText className="h-3.5 w-3.5" style={{ color: 'var(--c-icoSec)' }} />
             新建子页面
           </button>
-          <div className="border-t border-slate-100 my-1" />
+          <div className="my-1" style={{ borderTop: '1px solid var(--c-borSec)' }} />
           <button
-            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 flex items-center gap-2"
+            className="notion-hoverable w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
+            style={{ color: 'var(--c-texSec)' }}
             onClick={() => { handleRename(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
           >
-            <Pencil className="h-3.5 w-3.5 text-gray-400" />
+            <Pencil className="h-3.5 w-3.5" style={{ color: 'var(--c-icoSec)' }} />
             重命名
           </button>
           <button
-            className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+            className="notion-hoverable-danger w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
+            style={{ color: 'var(--notion-red)' }}
             onClick={() => { handleDelete(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
           >
             <Trash2 className="h-3.5 w-3.5" />

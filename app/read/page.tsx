@@ -57,7 +57,6 @@ function ReadPageInner() {
     url.searchParams.set('path', itemPath);
     window.history.replaceState(null, '', url.toString());
     setMobileSidebarOpen(false);
-    // 滚动到顶部
     if (articleRef.current) articleRef.current.scrollTop = 0;
   };
 
@@ -69,11 +68,11 @@ function ReadPageInner() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--c-bacPri)' }}>
       {/* 手机端侧栏遮罩 */}
       {mobileSidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/30 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/20 lg:hidden"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
@@ -82,19 +81,24 @@ function ReadPageInner() {
       <aside
         className={`
           fixed lg:relative inset-y-0 left-0 z-40
-          flex flex-col bg-[#f7f6f3] border-r border-gray-200
+          flex flex-col
           transition-all duration-200
           ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${sidebarCollapsed ? 'lg:w-4 overflow-hidden' : 'w-60'}
         `}
+        style={{ background: 'var(--c-bacSec)', borderRight: '1px solid var(--c-borSec)' }}
       >
         {/* 桌面端：展开状态头部 */}
         {!sidebarCollapsed && (
-          <div className="hidden lg:flex items-center justify-between px-3 py-2 border-b border-gray-200 flex-shrink-0">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">文章</span>
+          <div
+            className="hidden lg:flex items-center justify-between px-3 py-2.5 flex-shrink-0"
+            style={{ borderBottom: '1px solid var(--c-borSec)' }}
+          >
+            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--c-texSec)' }}>目录</span>
             <button
               onClick={() => setSidebarCollapsed(true)}
-              className="p-1 rounded hover:bg-gray-200 text-gray-400"
+              className="notion-hoverable p-1 rounded"
+              style={{ color: 'var(--c-icoSec)' }}
               title="折叠侧栏"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -107,7 +111,8 @@ function ReadPageInner() {
           <div className="hidden lg:flex flex-col items-center py-3">
             <button
               onClick={() => setSidebarCollapsed(false)}
-              className="p-1 rounded hover:bg-gray-200 text-gray-400"
+              className="notion-hoverable p-1 rounded"
+              style={{ color: 'var(--c-icoSec)' }}
               title="展开侧栏"
             >
               <ChevronRight className="h-3.5 w-3.5" />
@@ -116,11 +121,15 @@ function ReadPageInner() {
         )}
 
         {/* 手机端头部 */}
-        <div className="lg:hidden flex items-center justify-between px-3 py-2 border-b border-gray-200 flex-shrink-0">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">文章</span>
+        <div
+          className="lg:hidden flex items-center justify-between px-3 py-2.5 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--c-borSec)' }}
+        >
+          <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--c-texSec)' }}>目录</span>
           <button
             onClick={() => setMobileSidebarOpen(false)}
-            className="p-1 rounded hover:bg-gray-200 text-gray-400"
+            className="p-1 rounded transition-colors"
+            style={{ color: 'var(--c-icoSec)' }}
           >
             <X className="h-4 w-4" />
           </button>
@@ -130,6 +139,7 @@ function ReadPageInner() {
         {!sidebarCollapsed && (
           <div className="flex-1 overflow-y-auto">
             <TreeMenu
+              mode="read"
               onSelectItem={handleSelectItem}
               onCreateArticle={() => {}}
               selectedPath={currentPath}
@@ -142,62 +152,88 @@ function ReadPageInner() {
       {/* 主内容区 */}
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {/* 手机端 / iPad 顶部栏 */}
-        <header className="flex items-center justify-between px-4 h-12 border-b border-gray-100 flex-shrink-0 bg-white lg:hidden">
+        <header
+          className="flex items-center justify-between px-4 flex-shrink-0 lg:hidden"
+          style={{ height: '44px', background: 'var(--c-bacPri)', borderBottom: '1px solid var(--c-borSec)' }}
+        >
           <button
             onClick={() => setMobileSidebarOpen(true)}
-            className="p-1.5 rounded hover:bg-gray-100 text-gray-500"
+            className="notion-hoverable p-1.5 rounded"
+            style={{ color: 'var(--c-icoSec)' }}
           >
             <Menu className="h-5 w-5" />
           </button>
-          <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]">
+          <span className="truncate max-w-[200px]" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--c-texPri)' }}>
             {title}
           </span>
           <div className="w-9" />
         </header>
 
+        {/* Notion 风格扁平布局 */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* 文章内容 */}
-          <article ref={articleRef} className="flex-1 min-w-0 overflow-y-auto px-6 py-10 lg:py-12">
-            <div className="mx-auto" style={{ maxWidth: '700px' }}>
-              {/* 桌面端路径显示 */}
-              {currentPath && (
-                <div className="hidden lg:block mb-8">
-                  <span className="text-xs text-gray-400 truncate">
-                    {currentPath}
-                  </span>
-                </div>
-              )}
+          <article ref={articleRef} className="flex-1 min-w-0 overflow-y-auto" style={{ paddingTop: '32px', paddingBottom: '80px' }}>
+            <div className="notion-layout">
+              <div className="notion-layout-content">
+                {/* 面包屑 */}
+                {currentPath && (
+                  <div className="flex items-center gap-1 mb-2" style={{ paddingBottom: '12px' }}>
+                    {currentPath.split('/').map((seg, i, arr) => {
+                      const isLast = i === arr.length - 1;
+                      const segPath = arr.slice(0, i + 1).join('/');
+                      return (
+                        <span key={i} className="flex items-center gap-1">
+                          {i > 0 && <span style={{ color: 'var(--c-texDis)', fontSize: '12px' }}>/</span>}
+                          {isLast ? (
+                            <span style={{ fontSize: '12px', color: 'var(--c-texSec)' }}>
+                              {seg.replace(/\.md$/, '')}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSelectItem(segPath, true)}
+                              className="notion-hoverable rounded px-0.5"
+                              style={{ fontSize: '12px', color: 'var(--c-texTer)' }}
+                            >
+                              {seg.replace(/\.md$/, '')}
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
 
-              {loading && (
-                <div className="text-gray-400 text-sm">加载中...</div>
-              )}
+                {loading && (
+                  <div style={{ color: 'var(--c-texTer)', fontSize: '14px' }}>加载中…</div>
+                )}
 
-              {!loading && !content && (
-                <div className="text-center py-20 text-gray-400">
-                  <p className="text-lg mb-2">选择一篇文章开始阅读</p>
-                  <p className="text-sm">从左侧目录中选择文章</p>
-                </div>
-              )}
+                {!loading && !content && (
+                  <div className="text-center" style={{ padding: '80px 0' }}>
+                    <p style={{ fontSize: '16px', color: 'var(--c-texTer)', marginBottom: '8px' }}>选择一篇文章开始阅读</p>
+                    <p style={{ fontSize: '14px', color: 'var(--c-texDis)' }}>从左侧目录中选择</p>
+                  </div>
+                )}
 
-              {!loading && content && (
-                <div className="read-content">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeSlug]}
-                    urlTransform={safeUrlTransform}
-                  >
-                    {content}
-                  </ReactMarkdown>
-                </div>
-              )}
+                {!loading && content && (
+                  <div className="notion-content">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeSlug]}
+                      urlTransform={safeUrlTransform}
+                    >
+                      {content}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
             </div>
           </article>
 
           {/* 右侧目录（仅超宽桌面端） */}
           {content && (
-            <aside className="hidden xl:block w-52 flex-shrink-0 overflow-y-auto px-4 py-12 border-l border-gray-100">
-              <div className="sticky top-12">
-                <ReadTOC contentKey={currentPath} containerSelector=".read-content" />
+            <aside className="hidden xl:block flex-shrink-0 overflow-y-auto" style={{ width: '220px', paddingTop: '32px', paddingRight: '16px' }}>
+              <div className="sticky" style={{ top: '32px' }}>
+                <ReadTOC contentKey={currentPath} containerSelector=".notion-content" />
               </div>
             </aside>
           )}
@@ -211,7 +247,7 @@ export default function ReadPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen items-center justify-center text-gray-400">
+        <div className="flex h-screen items-center justify-center" style={{ color: 'var(--c-texDis)' }}>
           加载中...
         </div>
       }

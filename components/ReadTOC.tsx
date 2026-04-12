@@ -9,9 +9,7 @@ interface TocItem {
 }
 
 interface ReadTOCProps {
-  /** 用于触发重新扫描 DOM 的 key（文章内容变化时更新） */
   contentKey: string;
-  /** 包含渲染后标题的容器选择器 */
   containerSelector: string;
 }
 
@@ -19,7 +17,6 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
   const [items, setItems] = useState<TocItem[]>([]);
   const [activeId, setActiveId] = useState<string>('');
 
-  // 从 DOM 中扫描标题（rehype-slug 已为标题加好 id）
   const scanHeadings = useCallback(() => {
     const container = document.querySelector(containerSelector);
     if (!container) return;
@@ -37,13 +34,11 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
     setItems(result);
   }, [containerSelector]);
 
-  // 内容变化后延迟扫描 DOM（等 ReactMarkdown 渲染完成）
   useEffect(() => {
     const timer = setTimeout(scanHeadings, 100);
     return () => clearTimeout(timer);
   }, [contentKey, scanHeadings]);
 
-  // IntersectionObserver 追踪当前可见标题
   useEffect(() => {
     if (items.length === 0) return;
 
@@ -76,21 +71,47 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
   };
 
   return (
-    <nav className="text-sm">
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">目录</p>
-      <ul className="space-y-1">
+    <nav>
+      <p
+        className="mb-3"
+        style={{
+          fontSize: '12px',
+          fontWeight: 500,
+          color: 'var(--c-texTer)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+        }}
+      >
+        目录
+      </p>
+      <ul className="space-y-0.5">
         {items.map((item) => (
-          <li
-            key={item.id}
-            style={{ paddingLeft: `${(item.level - 1) * 12}px` }}
-          >
+          <li key={item.id}>
             <button
               onClick={() => handleClick(item.id)}
-              className={`text-left w-full leading-snug py-0.5 transition-colors ${
-                activeId === item.id
-                  ? 'text-blue-600 font-medium'
-                  : 'text-gray-500 hover:text-gray-900'
-              }`}
+              title={item.text}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                fontSize: '12.5px',
+                lineHeight: '1.5',
+                padding: '3px 0',
+                transition: 'color 0.15s ease',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                fontWeight: activeId === item.id ? 500 : 400,
+                color: activeId === item.id ? 'var(--notion-blue)' : 'var(--c-texTer)',
+                borderLeft: activeId === item.id ? '2px solid var(--notion-blue)' : '2px solid transparent',
+                paddingLeft: `${(item.level - 1) * 12 + 8}px`,
+              }}
+              onMouseEnter={(e) => {
+                if (activeId !== item.id) (e.currentTarget as HTMLButtonElement).style.color = 'var(--c-texSec)';
+              }}
+              onMouseLeave={(e) => {
+                if (activeId !== item.id) (e.currentTarget as HTMLButtonElement).style.color = 'var(--c-texTer)';
+              }}
             >
               {item.text}
             </button>
