@@ -500,7 +500,7 @@ export function TreeMenu({
 
       fetchTree();
     } catch (error) {
-      await showAlert('重命名失败: ' + error);
+      await showAlert('重命名失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 
@@ -531,7 +531,7 @@ export function TreeMenu({
 
       fetchTree();
     } catch (error) {
-      await showAlert('删除失败: ' + error);
+      await showAlert('删除失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
   };
 
@@ -582,8 +582,10 @@ export function TreeMenu({
                   paddingLeft: `${depth * 16 + 4}px`,
                   background: isFolderTarget ? 'var(--ca-butHovBac)' : undefined,
                   outline: isFolderTarget ? '1px solid var(--notion-blue)' : undefined,
-                  borderRadius: '4px',
-                  marginTop: item.isFolder && depth === 0 && index > 0 ? '4px' : undefined,
+                  borderRadius: '6px',
+                  marginTop: item.isFolder && depth === 0 && index > 0 ? '2px' : undefined,
+                  marginLeft: '4px',
+                  marginRight: '4px',
                 }}
                 draggable={!isReadMode}
                 onDragStart={isReadMode ? undefined : (e) => handleDragStart(e, item)}
@@ -608,13 +610,16 @@ export function TreeMenu({
                   <span className="w-4 flex-shrink-0" />
                 )}
                 <button
-                  className={`flex-1 flex items-center gap-1.5 rounded px-2 py-1 text-left min-w-0 transition-colors ${isReadMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+                  className={`flex-1 flex items-center gap-2 rounded px-2 text-left min-w-0 transition-colors ${isReadMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
                   style={{
                     fontSize: getFontSize(),
                     fontWeight: item.isFolder ? getFolderWeight() : 400,
                     color: 'var(--c-texPri)',
                     background: isSelected ? 'var(--ca-sidIteSelBac)' : undefined,
-                    borderRadius: '4px',
+                    borderRadius: '6px',
+                    minHeight: '30px',
+                    paddingTop: '4px',
+                    paddingBottom: '4px',
                   }}
                   onMouseEnter={(e) => {
                     if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = 'var(--ca-butHovBac)';
@@ -645,14 +650,14 @@ export function TreeMenu({
 
   if (loading) {
     return (
-      <div className={cn('h-full flex-shrink-0 p-4 border-r', className)} style={{ background: 'var(--c-bacSec)', borderColor: 'var(--c-borSec)' }}>
+      <div className={cn('h-full flex-shrink-0 p-4', className)} style={{ background: 'var(--c-bacSec)', boxShadow: 'inset -1px 0 0 0 var(--c-borSec)' }}>
         <p className="text-sm" style={{ color: 'var(--c-texDis)' }}>加载中...</p>
       </div>
     );
   }
 
   return (
-    <div className={cn('h-full flex-shrink-0 flex flex-col overflow-hidden border-r', className)} style={{ background: 'var(--c-bacSec)', borderColor: 'var(--c-borSec)' }}>
+    <div className={cn('h-full flex-shrink-0 flex flex-col overflow-hidden', className)} style={{ background: 'var(--c-bacSec)', boxShadow: 'inset -1px 0 0 0 var(--c-borSec)' }}>
       {/* 标题 */}
       <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
         <h2 className="px-1" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--c-texPri)' }}>Nexo</h2>

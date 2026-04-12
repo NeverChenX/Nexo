@@ -75,11 +75,10 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
       <p
         className="mb-3"
         style={{
-          fontSize: '12px',
+          fontSize: '11px',
           fontWeight: 500,
-          color: 'var(--c-texTer)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
+          color: 'var(--c-texSec)',
+          letterSpacing: '0',
         }}
       >
         目录
@@ -94,9 +93,9 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
                 display: 'block',
                 width: '100%',
                 textAlign: 'left',
-                fontSize: '12.5px',
+                fontSize: '13px',
                 lineHeight: '1.5',
-                padding: '3px 0',
+                padding: '4px 0',
                 transition: 'color 0.15s ease',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',

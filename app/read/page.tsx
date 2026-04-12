@@ -86,7 +86,7 @@ function ReadPageInner() {
           ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${sidebarCollapsed ? 'lg:w-4 overflow-hidden' : 'w-60'}
         `}
-        style={{ background: 'var(--c-bacSec)', borderRight: '1px solid var(--c-borSec)' }}
+        style={{ background: 'var(--c-bacSec)', boxShadow: 'inset -1px 0 0 0 var(--c-borSec)' }}
       >
         {/* 桌面端：展开状态头部 */}
         {!sidebarCollapsed && (

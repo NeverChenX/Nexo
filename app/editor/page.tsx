@@ -263,14 +263,14 @@ function EditorPageInner() {
                     <span key={i} className="flex items-center gap-1">
                       {i > 0 && <span style={{ color: 'var(--c-texDis)', fontSize: '12px' }}>/</span>}
                       {isLast ? (
-                        <span style={{ fontSize: '13px', color: 'var(--c-texPri)' }}>
+                        <span style={{ fontSize: '14px', color: 'var(--c-texPri)' }}>
                           {seg.replace(/\.md$/, '')}
                         </span>
                       ) : (
                         <button
                           onClick={() => handleSelectItem(segPath, true)}
                           className="notion-hoverable rounded px-1"
-                          style={{ fontSize: '13px', color: 'var(--c-texTer)' }}
+                          style={{ fontSize: '14px', color: 'var(--c-texTer)' }}
                         >
                           {seg.replace(/\.md$/, '')}
                         </button>
@@ -280,7 +280,7 @@ function EditorPageInner() {
                 })}
               </div>
             ) : (
-              <span style={{ fontSize: '13px', color: 'var(--c-texTer)' }}>未选择文档</span>
+              <span style={{ fontSize: '14px', color: 'var(--c-texTer)' }}>未选择文档</span>
             )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">

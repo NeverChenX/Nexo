@@ -24,6 +24,8 @@ export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: C
   const handleConfirm = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    // 拒绝包含路径分隔符或路径遍历字符的名称
+    if (/[\/\\]/.test(trimmed) || trimmed === '..' || trimmed === '.') return;
     onConfirm(trimmed);
     setName('');
   };

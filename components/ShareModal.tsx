@@ -63,7 +63,7 @@ export function ShareModal({
     }
   };
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
   const copyToClipboard = async () => {
     if (shareToken) {
