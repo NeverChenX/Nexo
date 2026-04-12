@@ -1,6 +1,7 @@
 // Markdown 处理工具
 // 此文件预留用于 markdown 特殊处理，目前基本功能由 react-markdown 和 easymde 处理
 
+/** @deprecated 使用 rehype-sanitize 替代，此函数基于正则的消毒方式不够安全 */
 export function sanitizeMarkdown(content: string): string {
   // 移除危险的 HTML 标签和属性（script, iframe, on* 事件处理器, javascript: 协议）
   return content

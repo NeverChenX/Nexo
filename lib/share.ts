@@ -4,6 +4,15 @@ import crypto from 'crypto';
 
 const SHARE_LINKS_FILE = path.join(process.cwd(), 'share-links.json');
 
+// 进程内互斥锁，防止并发读-改-写丢失数据
+let _lock: Promise<void> = Promise.resolve();
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const prev = _lock;
+  let release: () => void;
+  _lock = new Promise<void>((r) => { release = r; });
+  return prev.then(fn).finally(() => release!());
+}
+
 interface ShareLink {
   path: string;
   type: 'article' | 'folder';
@@ -38,34 +47,37 @@ export async function createShareLink(
   itemPath: string,
   type: 'article' | 'folder'
 ): Promise<string> {
-  const links = await getAllShareLinks();
-  // 使用 crypto.randomBytes 确保足够的熵（128 bit），并避免碰撞
-  let token: string;
-  do {
-    token = crypto.randomBytes(16).toString('hex');
-  } while (links[token]);
+  return withLock(async () => {
+    const links = await getAllShareLinks();
+    let token: string;
+    do {
+      token = crypto.randomBytes(16).toString('hex');
+    } while (links[token]);
 
-  links[token] = {
-    path: itemPath,
-    type,
-    createdAt: new Date().toISOString(),
-  };
+    links[token] = {
+      path: itemPath,
+      type,
+      createdAt: new Date().toISOString(),
+    };
 
-  await saveShareLinks(links);
-  return token;
+    await saveShareLinks(links);
+    return token;
+  });
 }
 
 // 删除分享链接
 export async function deleteShareLink(token: string): Promise<boolean> {
-  const links = await getAllShareLinks();
+  return withLock(async () => {
+    const links = await getAllShareLinks();
 
-  if (!links[token]) {
-    return false;
-  }
+    if (!links[token]) {
+      return false;
+    }
 
-  delete links[token];
-  await saveShareLinks(links);
-  return true;
+    delete links[token];
+    await saveShareLinks(links);
+    return true;
+  });
 }
 
 // 获取分享链接信息

@@ -30,8 +30,8 @@ const buttonVariants = cva(
 )
 
 const variantStyles: Record<string, React.CSSProperties> = {
-  default: { background: 'var(--notion-blue)', color: '#fff' },
-  destructive: { background: 'var(--notion-red)', color: '#fff' },
+  default: { background: 'var(--nx-blue)', color: '#fff' },
+  destructive: { background: 'var(--nx-red)', color: '#fff' },
   outline: { border: '1px solid var(--c-borPri)', background: 'var(--c-bacPri)', color: 'var(--c-texPri)' },
   secondary: { background: 'var(--c-bacTer)', color: 'var(--c-texPri)' },
   ghost: { color: 'var(--c-texPri)' },

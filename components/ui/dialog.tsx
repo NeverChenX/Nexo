@@ -50,7 +50,7 @@ const DialogContent = React.forwardRef<
     >
       {children}
       <DialogPrimitive.Close
-        className="absolute right-4 top-4 rounded-sm transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none notion-hoverable p-0.5"
+        className="absolute right-4 top-4 rounded-sm transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none nx-hoverable p-0.5"
         style={{ color: 'var(--c-icoSec)', opacity: 0.7 }}
       >
         <X className="h-4 w-4" />

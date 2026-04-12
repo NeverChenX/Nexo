@@ -20,9 +20,13 @@ function CodeBlock({ title, method, url, body, description }: {
     : `curl -X ${method} {BASE_URL}${url}`;
 
   const copy = async () => {
-    await navigator.clipboard.writeText(curlCmd.replace('{BASE_URL}', window.location.origin));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(curlCmd.replace('{BASE_URL}', window.location.origin));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard API 可能在非 HTTPS 环境下不可用
+    }
   };
 
   const methodColors: Record<string, string> = {

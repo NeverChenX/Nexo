@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getShareLink } from '@/lib/share';
-import { readArticle, getFolderContents, getRecursiveTree } from '@/lib/storage';
+import { readArticle, getRecursiveTree } from '@/lib/storage';
+
+interface TreeItem {
+  name: string;
+  path: string;
+  isFolder: boolean;
+  children?: TreeItem[];
+}
 
 // GET: 通过 token 获取分享的内容
 export async function GET(
@@ -40,9 +47,9 @@ export async function GET(
 
       // 提取指定文件夹的子树
       function findSubtree(
-        items: any[],
+        items: TreeItem[],
         targetPath: string
-      ): any[] | null {
+      ): TreeItem[] | null {
         for (const item of items) {
           if (item.path === targetPath) {
             return item.children || [];
@@ -55,7 +62,7 @@ export async function GET(
         return null;
       }
 
-      const subtree = findSubtree(tree, shareLink.path);
+      const subtree = findSubtree(tree as TreeItem[], shareLink.path);
 
       return NextResponse.json({
         ok: true,
@@ -75,6 +82,7 @@ export async function GET(
       { status: 500 }
     );
   } catch (error) {
+    console.error('获取分享内容失败:', error);
     return NextResponse.json(
       {
         ok: false,

@@ -22,6 +22,7 @@ export async function DELETE(
     await deleteArticle(articlePath);
     return NextResponse.json({ ok: true, data: { path: articlePath } });
   } catch (error) {
+    console.error('删除文章失败:', error);
     return NextResponse.json({ ok: false, error: '删除失败' }, { status: 500 });
   }
 }

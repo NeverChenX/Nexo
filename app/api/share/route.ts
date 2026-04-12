@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       data: { token, path, type },
     });
   } catch (error) {
+    console.error('创建分享链接失败:', error);
     return NextResponse.json(
       {
         ok: false,
@@ -92,6 +93,7 @@ export async function DELETE(request: NextRequest) {
       data: { token },
     });
   } catch (error) {
+    console.error('删除分享链接失败:', error);
     return NextResponse.json(
       {
         ok: false,
@@ -111,6 +113,7 @@ export async function GET(request: NextRequest) {
       data: shares,
     });
   } catch (error) {
+    console.error('获取分享链接失败:', error);
     return NextResponse.json(
       {
         ok: false,

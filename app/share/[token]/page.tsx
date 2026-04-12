@@ -3,14 +3,22 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { useParams } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
+
+interface ShareTreeItem {
+  name: string;
+  path: string;
+  isFolder: boolean;
+  children?: ShareTreeItem[];
+}
 
 interface ShareData {
   type: 'article' | 'folder';
   path: string;
   content?: string;
-  contents?: Array<any>;
+  contents?: ShareTreeItem[];
 }
 
 export default function SharePage() {
@@ -54,7 +62,7 @@ export default function SharePage() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--c-bacPri)' }}>
         <div
           className="flex gap-3 p-6 rounded-lg max-w-md"
-          style={{ border: '1px solid var(--c-borPri)', color: 'var(--notion-red)' }}
+          style={{ border: '1px solid var(--c-borPri)', color: 'var(--nx-red)' }}
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <p>{error}</p>
@@ -73,11 +81,11 @@ export default function SharePage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--c-bacPri)', paddingTop: '48px', paddingBottom: '80px' }}>
-      <div className="notion-layout">
-        <div className="notion-layout-content">
+      <div className="nx-layout">
+        <div className="nx-layout-content">
           {shareData.type === 'article' ? (
-            <div className="notion-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <div className="nx-content">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                 {shareData.content || ''}
               </ReactMarkdown>
             </div>
@@ -90,10 +98,10 @@ export default function SharePage() {
                 <div>
                   <h2 style={{ fontSize: '1.25em', fontWeight: 600, color: 'var(--c-texPri)', marginBottom: '12px' }}>文件列表</h2>
                   <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {shareData.contents.map((item: any) => (
+                    {shareData.contents.map((item: ShareTreeItem) => (
                       <li
                         key={item.path}
-                        className="notion-hoverable flex items-center gap-2 px-2 py-1.5 rounded"
+                        className="nx-hoverable flex items-center gap-2 px-2 py-1.5 rounded"
                       >
                         <span style={{ fontSize: '14px' }}>{item.isFolder ? '📁' : '📄'}</span>
                         <span style={{ color: 'var(--c-texPri)', fontSize: '14px' }}>{item.name}</span>

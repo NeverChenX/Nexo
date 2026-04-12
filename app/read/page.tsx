@@ -5,9 +5,42 @@ import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSlug from 'rehype-slug';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { TreeMenu } from '@/components/TreeMenu';
 import { ReadTOC } from '@/components/ReadTOC';
 import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+
+function ImageLightbox({ src, alt }: { src?: string; alt?: string }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open]);
+
+  if (!src) return null;
+  return (
+    <>
+      <img src={src} alt={alt || ''} onClick={() => setOpen(true)} />
+      {open && (
+        <div className="image-lightbox-overlay" role="dialog" aria-label="图片预览" onClick={() => setOpen(false)}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+            style={{ position: 'fixed', top: '16px', right: '16px', color: '#fff', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+          <img src={src} alt={alt || ''} />
+        </div>
+      )}
+    </>
+  );
+}
 
 function ReadPageInner() {
   const searchParams = useSearchParams();
@@ -18,29 +51,39 @@ function ReadPageInner() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [refreshKey] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const articleRef = useRef<HTMLElement>(null);
+  const loadSeqRef = useRef(0);
 
-  const loadArticle = useCallback(async (path: string) => {
-    if (!path) return;
+  const loadArticle = useCallback(async (articlePath: string) => {
+    if (!articlePath) return;
+    const seq = ++loadSeqRef.current;
     setLoading(true);
+    setError(null);
+    setContent('');
     try {
-      const res = await fetch(`/api/articles?path=${encodeURIComponent(path)}`);
+      const res = await fetch(`/api/articles?path=${encodeURIComponent(articlePath)}`);
+      if (seq !== loadSeqRef.current) return; // 竞态保护
       const json = (await res.json()) as {
         ok: boolean;
         data?: { content: string; path: string };
+        error?: string;
       };
+      if (seq !== loadSeqRef.current) return;
       if (json.ok && json.data) {
         setContent(json.data.content);
-        const parts = path.split('/');
+        const parts = articlePath.split('/');
         const filename = parts[parts.length - 1]
           .replace(/\.md$/, '')
           .replace(/^_index$/, parts[parts.length - 2] ?? '');
         setTitle(filename);
+      } else {
+        setError(json.error || '加载失败');
       }
     } catch {
-      // 加载失败静默处理
+      if (seq === loadSeqRef.current) setError('网络错误，请重试');
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
   }, []);
 
@@ -61,10 +104,18 @@ function ReadPageInner() {
   };
 
   const safeUrlTransform = (url: string): string => {
-    const next = url.trim();
-    if (!next) return '';
-    if (next.toLowerCase().startsWith('javascript:')) return '';
-    return next;
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    // 相对路径直接放行
+    if (trimmed.startsWith('/') || trimmed.startsWith('./') || trimmed.startsWith('#')) return trimmed;
+    try {
+      const parsed = new URL(trimmed, 'https://placeholder.invalid');
+      const safe = new Set(['http:', 'https:', 'mailto:']);
+      if (!safe.has(parsed.protocol)) return '';
+      return trimmed;
+    } catch {
+      return trimmed;
+    }
   };
 
   return (
@@ -84,7 +135,7 @@ function ReadPageInner() {
           flex flex-col
           transition-all duration-200
           ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          ${sidebarCollapsed ? 'lg:w-4 overflow-hidden' : 'w-60'}
+          ${sidebarCollapsed ? 'lg:w-4 lg:overflow-hidden' : 'w-60 overflow-hidden'}
         `}
         style={{ background: 'var(--c-bacSec)', boxShadow: 'inset -1px 0 0 0 var(--c-borSec)' }}
       >
@@ -97,7 +148,7 @@ function ReadPageInner() {
             <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--c-texSec)' }}>目录</span>
             <button
               onClick={() => setSidebarCollapsed(true)}
-              className="notion-hoverable p-1 rounded"
+              className="nx-hoverable p-1 rounded"
               style={{ color: 'var(--c-icoSec)' }}
               title="折叠侧栏"
             >
@@ -111,7 +162,7 @@ function ReadPageInner() {
           <div className="hidden lg:flex flex-col items-center py-3">
             <button
               onClick={() => setSidebarCollapsed(false)}
-              className="notion-hoverable p-1 rounded"
+              className="nx-hoverable p-1 rounded"
               style={{ color: 'var(--c-icoSec)' }}
               title="展开侧栏"
             >
@@ -158,7 +209,7 @@ function ReadPageInner() {
         >
           <button
             onClick={() => setMobileSidebarOpen(true)}
-            className="notion-hoverable p-1.5 rounded"
+            className="nx-hoverable p-1.5 rounded"
             style={{ color: 'var(--c-icoSec)' }}
           >
             <Menu className="h-5 w-5" />
@@ -169,12 +220,12 @@ function ReadPageInner() {
           <div className="w-9" />
         </header>
 
-        {/* Notion 风格扁平布局 */}
+        {/* Nexo 风格扁平布局 */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* 文章内容 */}
           <article ref={articleRef} className="flex-1 min-w-0 overflow-y-auto" style={{ paddingTop: '32px', paddingBottom: '80px' }}>
-            <div className="notion-layout">
-              <div className="notion-layout-content">
+            <div className="nx-layout">
+              <div className="nx-layout-content">
                 {/* 面包屑 */}
                 {currentPath && (
                   <div className="flex items-center gap-1 mb-2" style={{ paddingBottom: '12px' }}>
@@ -191,7 +242,7 @@ function ReadPageInner() {
                           ) : (
                             <button
                               onClick={() => handleSelectItem(segPath, true)}
-                              className="notion-hoverable rounded px-0.5"
+                              className="nx-hoverable rounded px-0.5"
                               style={{ fontSize: '12px', color: 'var(--c-texTer)' }}
                             >
                               {seg.replace(/\.md$/, '')}
@@ -207,7 +258,13 @@ function ReadPageInner() {
                   <div style={{ color: 'var(--c-texTer)', fontSize: '14px' }}>加载中…</div>
                 )}
 
-                {!loading && !content && (
+                {!loading && error && (
+                  <div className="text-center" style={{ padding: '40px 0' }}>
+                    <p style={{ fontSize: '14px', color: 'var(--nx-red)' }}>{error}</p>
+                  </div>
+                )}
+
+                {!loading && !content && !error && (
                   <div className="text-center" style={{ padding: '80px 0' }}>
                     <p style={{ fontSize: '16px', color: 'var(--c-texTer)', marginBottom: '8px' }}>选择一篇文章开始阅读</p>
                     <p style={{ fontSize: '14px', color: 'var(--c-texDis)' }}>从左侧目录中选择</p>
@@ -215,11 +272,17 @@ function ReadPageInner() {
                 )}
 
                 {!loading && content && (
-                  <div className="notion-content">
+                  <div className="nx-content">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeSlug]}
+                      rehypePlugins={[
+                        rehypeSlug,
+                        [rehypeSanitize, { ...defaultSchema, attributes: { ...defaultSchema.attributes, '*': [...(defaultSchema.attributes?.['*'] || []), 'id', 'className'] } }],
+                      ]}
                       urlTransform={safeUrlTransform}
+                      components={{
+                        img: ({ src, alt }) => <ImageLightbox src={src} alt={alt} />,
+                      }}
                     >
                       {content}
                     </ReactMarkdown>
@@ -233,7 +296,7 @@ function ReadPageInner() {
           {content && (
             <aside className="hidden xl:block flex-shrink-0 overflow-y-auto" style={{ width: '220px', paddingTop: '32px', paddingRight: '16px' }}>
               <div className="sticky" style={{ top: '32px' }}>
-                <ReadTOC contentKey={currentPath} containerSelector=".notion-content" />
+                <ReadTOC contentKey={currentPath} containerSelector=".nx-content" />
               </div>
             </aside>
           )}

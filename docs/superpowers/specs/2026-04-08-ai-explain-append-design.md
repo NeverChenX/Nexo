@@ -23,7 +23,7 @@ View 页面已有 AI 浮动面板，选中文本后显示"解释说明"按钮，
 ### 1. 新建 `.env.local`
 ```
 OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
-OPENCLAW_GATEWAY_TOKEN=***REDACTED-OPENCLAW-TOKEN***
+OPENCLAW_GATEWAY_TOKEN=<your-token-here>
 ```
 
 ### 2. 新建 `app/api/explain/route.ts`

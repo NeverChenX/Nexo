@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       });
     }
   } catch (error) {
+    console.error('获取文件夹内容失败:', error);
     return NextResponse.json(
       {
         ok: false,
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
       data: { path },
     });
   } catch (error) {
+    console.error('创建文件夹失败:', error);
     return NextResponse.json(
       {
         ok: false,
@@ -141,7 +143,8 @@ export async function PUT(request: NextRequest) {
       ok: true,
       data: { oldPath, newPath },
     });
-  } catch {
+  } catch (error) {
+    console.error('重命名/移动文件夹失败:', error);
     return NextResponse.json(
       { ok: false, error: '重命名/移动文件夹失败' },
       { status: 500 }

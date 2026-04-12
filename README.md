@@ -1,8 +1,8 @@
 # Nexo
 
 <p align="center">
-  <b>轻量级个人 Wiki 与知识文档管理系统</b><br>
-  <b>Lightweight Personal Wiki & Knowledge Document Manager</b>
+  <b>轻量级个人 Wiki 与知识管理系统</b><br>
+  <b>Lightweight Personal Wiki & Knowledge Management System</b>
 </p>
 
 <p align="center">
@@ -12,32 +12,34 @@
 ---
 
 <a name="中文介绍"></a>
-## 📖 中文介绍
+## 中文介绍
 
-**Nexo** 是一个基于 Next.js 构建的轻量级个人 Wiki 和知识文档管理系统。它为你提供了一个快速、本地优先的工作空间，用于编写、组织、预览和分享笔记与文档。
+**Nexo** 是一个基于 Next.js 构建的轻量级个人 Wiki 和知识管理系统。本地优先，数据完全由你掌控——所有文档以 Markdown 文件形式存储在本地文件系统中，无需数据库。
 
-### ✨ 核心功能
+### 核心功能
 
-- 📝 **Markdown 编辑器** - 支持 Markdown 语法的实时编辑与预览
-- 🌲 **文档树导航** - 层级化的文件夹结构，轻松管理大量文档
-- 👁️ **实时预览** - 编辑与预览双栏布局，所见即所得
-- 💾 **本地数据存储** - 数据保存在本地，完全掌控自己的知识库
-- 🔗 **分享链接** - 为特定页面生成可分享的链接
-- 📤 **文件上传** - 支持图片等文件的上传与管理
-- 📱 **响应式设计** - 适配桌面和移动设备
+- **块编辑器** — 基于 BlockNote 的富文本块编辑器，支持拖拽排序、斜杠命令、图片上传等
+- **文档树** — 无限层级的文件夹/文章树形导航，支持拖拽排序和右键菜单操作
+- **阅读模式** — 独立的纯阅读视图，Markdown 渲染，自动生成文章目录（TOC）
+- **分享链接** — 为任意文章生成带 token 的分享链接，无需登录即可访问
+- **图片上传** — 编辑器内直接上传图片，存储至本地 `public/uploads/`
+- **AI 解释** — 选中文本后调用 AI 生成解释说明，自动追加到文章末尾
+- **API 文档** — 内置 Swagger 风格的 API 文档页面
+- **响应式设计** — 适配桌面和移动端
 
-### 🛠 技术栈
+### 技术栈
 
 | 技术 | 说明 |
 |------|------|
-| [Next.js 14](https://nextjs.org/) | React 全栈框架 |
+| [Next.js 14](https://nextjs.org/) | React 全栈框架（App Router） |
 | [React 18](https://react.dev/) | 用户界面库 |
-| [TypeScript](https://www.typescriptlang.org/) | 类型安全的 JavaScript |
-| [Tailwind CSS](https://tailwindcss.com/) | 实用优先的 CSS 框架 |
-| [shadcn/ui](https://ui.shadcn.com/) | 精美的 UI 组件 |
-| [EasyMDE](https://easymde.tk/) | Markdown 编辑器 |
+| [TypeScript](https://www.typescriptlang.org/) | 类型安全 |
+| [BlockNote](https://www.blocknotejs.org/) | 块编辑器 |
+| [Tailwind CSS](https://tailwindcss.com/) | CSS 框架 |
+| [shadcn/ui](https://ui.shadcn.com/) | UI 组件库 |
+| [react-markdown](https://github.com/remarkjs/react-markdown) | Markdown 渲染 |
 
-### 🚀 快速开始
+### 快速开始
 
 ```bash
 # 克隆仓库
@@ -51,118 +53,118 @@ npm install
 npm run dev
 ```
 
-访问 http://localhost:3000 即可使用。
+访问 `http://localhost:3000` 即可使用。
 
-### 📂 项目结构
+#### 环境变量（可选）
+
+创建 `.env.local` 文件来启用 AI 解释功能：
+
+```
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+OPENCLAW_GATEWAY_TOKEN=<your-token-here>
+```
+
+### 项目结构
 
 ```
 Nexo/
-├── app/                    # Next.js App Router
-│   ├── api/               # API 路由
+├── app/
+│   ├── api/
+│   │   ├── articles/      # 文章 CRUD
+│   │   ├── folders/       # 文件夹 CRUD
+│   │   ├── share/         # 分享链接管理
+│   │   ├── uploads/       # 文件上传
+│   │   ├── sort-order/    # 排序
+│   │   └── explain/       # AI 解释
 │   ├── editor/            # 编辑器页面
-│   ├── view/              # 预览页面
-│   └── layout.tsx         # 根布局
-├── components/            # React 组件
-│   ├── Editor.tsx         # Markdown 编辑器
-│   ├── Preview.tsx        # 预览组件
-│   └── TreeMenu.tsx       # 文档树菜单
-├── lib/                   # 工具函数
-├── wiki-data/             # Wiki 数据目录
-├── never博客文章/          # 博客文章目录
-└── public/                # 静态资源
+│   ├── read/              # 阅读模式页面
+│   ├── share/[token]/     # 分享页面
+│   └── api-docs/          # API 文档页面
+├── components/
+│   ├── editor/            # 编辑器组件（BlockNote）
+│   ├── TreeMenu.tsx       # 文档树菜单
+│   ├── CreateArticleModal.tsx  # 新建文章/文件夹弹窗
+│   ├── ShareModal.tsx     # 分享弹窗
+│   ├── ReadTOC.tsx        # 阅读模式目录
+│   └── ui/                # shadcn/ui 基础组件
+├── lib/
+│   ├── storage.ts         # 文件系统存储层
+│   ├── markdown.ts        # Markdown 处理
+│   └── share.ts           # 分享链接逻辑
+├── wiki-data/             # 文档数据目录（gitignore）
+└── public/uploads/        # 上传文件目录
 ```
 
-### ⚙️ 配置说明
+### 数据存储
 
-项目使用本地文件系统存储数据，默认数据目录为 `wiki-data/`。你可以在项目中创建不同的文件夹来组织文档。
+所有文档以 Markdown 文件形式保存在 `wiki-data/` 目录下。文件夹结构即文档的层级结构，无需数据库。分享链接信息存储在 `share-links.json` 中。
 
-### 📜 许可证
+### 许可证
 
-私有项目 / 个人使用
+MIT
 
 ---
 
 <a name="english-introduction"></a>
-## 📖 English Introduction
+## English Introduction
 
-**Nexo** is a lightweight personal wiki and knowledge document manager built with Next.js. It provides you with a fast, local-first workspace for writing, organizing, previewing, and sharing notes and documents.
+**Nexo** is a lightweight personal wiki and knowledge management system built with Next.js. Local-first — all documents are stored as Markdown files on the local filesystem, no database required.
 
-### ✨ Key Features
+### Key Features
 
-- 📝 **Markdown Editor** - Real-time editing and preview with Markdown syntax support
-- 🌲 **Document Tree Navigation** - Hierarchical folder structure for managing large volumes of documents
-- 👁️ **Live Preview** - Side-by-side editing and preview layout, WYSIWYG
-- 💾 **Local Data Storage** - Data stored locally, full control over your knowledge base
-- 🔗 **Shareable Links** - Generate shareable links for specific pages
-- 📤 **File Upload** - Support for uploading and managing images and other files
-- 📱 **Responsive Design** - Adapted for desktop and mobile devices
+- **Block Editor** — Rich block editor powered by BlockNote with drag-and-drop, slash commands, and image upload
+- **Document Tree** — Infinite-depth folder/article tree navigation with drag-to-reorder and context menus
+- **Reading Mode** — Clean read-only view with Markdown rendering and auto-generated table of contents
+- **Share Links** — Generate token-based share links for any article, accessible without login
+- **Image Upload** — Upload images directly in the editor, stored locally in `public/uploads/`
+- **AI Explain** — Select text and invoke AI to generate explanations, auto-appended to the article
+- **API Docs** — Built-in Swagger-style API documentation page
+- **Responsive** — Works on desktop and mobile
 
-### 🛠 Tech Stack
+### Tech Stack
 
 | Technology | Description |
 |------------|-------------|
-| [Next.js 14](https://nextjs.org/) | React full-stack framework |
-| [React 18](https://react.dev/) | User interface library |
-| [TypeScript](https://www.typescriptlang.org/) | Type-safe JavaScript |
-| [Tailwind CSS](https://tailwindcss.com/) | Utility-first CSS framework |
-| [shadcn/ui](https://ui.shadcn.com/) | Beautiful UI components |
-| [EasyMDE](https://easymde.tk/) | Markdown editor |
+| [Next.js 14](https://nextjs.org/) | React full-stack framework (App Router) |
+| [React 18](https://react.dev/) | UI library |
+| [TypeScript](https://www.typescriptlang.org/) | Type safety |
+| [BlockNote](https://www.blocknotejs.org/) | Block editor |
+| [Tailwind CSS](https://tailwindcss.com/) | CSS framework |
+| [shadcn/ui](https://ui.shadcn.com/) | UI components |
+| [react-markdown](https://github.com/remarkjs/react-markdown) | Markdown rendering |
 
-### 🚀 Quick Start
+### Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/NeverChenX/Nexo.git
 cd Nexo
-
-# Install dependencies
 npm install
-
-# Start the development server
 npm run dev
 ```
 
-Visit http://localhost:3000 to start using.
+Visit `http://localhost:3000` to get started.
 
-### 📂 Project Structure
+#### Environment Variables (Optional)
+
+Create `.env.local` to enable the AI explain feature:
 
 ```
-Nexo/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   ├── editor/            # Editor page
-│   ├── view/              # Preview page
-│   └── layout.tsx         # Root layout
-├── components/            # React components
-│   ├── Editor.tsx         # Markdown editor
-│   ├── Preview.tsx        # Preview component
-│   └── TreeMenu.tsx       # Document tree menu
-├── lib/                   # Utility functions
-├── wiki-data/             # Wiki data directory
-├── never博客文章/          # Blog articles directory
-└── public/                # Static assets
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+OPENCLAW_GATEWAY_TOKEN=<your-token-here>
 ```
 
-### ⚙️ Configuration
+### Data Storage
 
-The project uses the local file system for data storage. The default data directory is `wiki-data/`. You can create different folders within the project to organize your documents.
+All documents are stored as Markdown files under `wiki-data/`. The folder structure mirrors the document hierarchy — no database needed. Share link metadata is stored in `share-links.json`.
 
-### 📜 License
+### License
 
-Private / Personal use
-
----
-
-## 🤝 Contributing
-
-This is a personal project currently open-sourced for reference purposes. Suggestions and feedback are welcome!
-
-## ⭐ Star History
-
-If you find this project helpful, please give it a star! ⭐
+MIT
 
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/NeverChenX">NeverChenX</a>
+  Made with ❤ by <a href="https://github.com/NeverChenX">NeverChenX</a>
 </p>
