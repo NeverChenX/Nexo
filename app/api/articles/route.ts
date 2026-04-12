@@ -217,9 +217,9 @@ export async function PATCH(request: NextRequest) {
         newId: articlePathToId(newPath),
       },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
-      { ok: false, error: error.message || '重命名/移动文章失败' },
+      { ok: false, error: '重命名/移动文章失败' },
       { status: 500 }
     );
   }

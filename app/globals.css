@@ -42,6 +42,12 @@
   /* 代码块 */
   --cd-codBloBac: #f7f6f3;
   --cd-tabHeaRowColBac: #f7f6f3;
+
+  /* 字体栈 */
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    'Segoe UI Variable Display', 'Segoe UI', Helvetica,
+    'Apple Color Emoji', Arial, sans-serif, 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC';
 }
 
 /* ====== 全局重置 ====== */
@@ -59,11 +65,8 @@ html {
 body {
   background-color: var(--c-bacPri);
   color: var(--c-texPri);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica,
-    'Apple Color Emoji', Arial, sans-serif, 'Segoe UI Emoji', 'Segoe UI Symbol',
-    'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC';
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: auto;
   font-size: 16px;
   line-height: 1.5;
 }
@@ -95,11 +98,9 @@ body {
   background: rgba(0, 0, 0, 0.25);
 }
 
-@-moz-document url-prefix() {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
 
 /* ====== Notion 布局网格 ====== */
@@ -121,7 +122,11 @@ body {
 
 @media (max-width: 768px) {
   .notion-layout {
-    grid-template-columns: 24px 1fr 24px;
+    grid-template-columns:
+      [full-start] 24px
+      [content-start] 1fr
+      [content-end] 24px
+      [full-end];
   }
 }
 
@@ -208,65 +213,73 @@ body {
   font-size: 16px;
   line-height: 1.5;
   color: var(--c-texPri);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica,
-    'Apple Color Emoji', Arial, sans-serif, 'Segoe UI Emoji', 'Segoe UI Symbol',
-    'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC', 'Noto Sans CJK SC';
-  -webkit-font-smoothing: antialiased;
+  font-family: var(--font-sans);
   word-break: break-word;
 }
 
 .notion-content h1 {
-  font-size: 1.875em;
+  font-size: 1.75em;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.2;
   color: var(--c-texPri);
-  margin: 1em 0 4px;
+  margin: 0;
+  padding-top: 30px;
+  padding-bottom: 4px;
 }
 
 .notion-content h2 {
-  font-size: 1.5em;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--c-texPri);
-  margin: 1.4em 0 2px;
-}
-
-.notion-content h3 {
   font-size: 1.25em;
   font-weight: 600;
   line-height: 1.3;
   color: var(--c-texPri);
-  margin: 1em 0 2px;
+  margin: 0;
+  padding-top: 24px;
+  padding-bottom: 2px;
+}
+
+.notion-content h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--c-texPri);
+  margin: 0;
+  padding-top: 22px;
+  padding-bottom: 2px;
 }
 
 .notion-content h4 {
-  font-size: 1em;
+  font-size: 0.95em;
   font-weight: 600;
-  color: var(--c-texPri);
-  margin: 0.8em 0 2px;
+  color: var(--c-texSec);
+  margin: 0;
+  padding-top: 14px;
+  padding-bottom: 2px;
 }
 
 .notion-content p {
-  margin: 2px 0;
+  margin: 0;
+  padding: 2px 0;
   line-height: 1.5;
-  min-height: 1em;
+  min-height: 1.5em;
 }
 
 .notion-content ul {
   list-style: disc;
-  margin: 2px 0;
+  margin: 0;
   padding-left: 1.5em;
 }
 
 .notion-content ol {
   list-style: decimal;
-  margin: 2px 0;
+  margin: 0;
   padding-left: 1.5em;
 }
 
 .notion-content li {
-  margin: 2px 0;
+  margin: 0;
+  padding: 2px 0;
   line-height: 1.5;
+  min-height: 1.5em;
 }
 
 .notion-content li > ul,
@@ -275,9 +288,9 @@ body {
 }
 
 .notion-content blockquote {
-  border-left: 3px solid var(--c-borPri);
-  padding: 0 0 0 14px;
-  margin: 4px 0;
+  border-left: 2px solid var(--c-texTer);
+  padding: 3px 0 3px 14px;
+  margin: 2px 0;
   color: var(--c-texPri);
   font-style: normal;
   background: transparent;
@@ -300,7 +313,7 @@ body {
 
 .notion-content pre {
   background: var(--cd-codBloBac);
-  padding: 2em 1em 2em 1.2em;
+  padding: 1.2em 1em 1.2em 1.2em;
   border-radius: 4px;
   overflow-x: auto;
   margin: 4px 0;
@@ -322,7 +335,7 @@ body {
   text-decoration: underline;
   text-decoration-color: rgba(55, 53, 47, 0.4);
   text-underline-offset: 3px;
-  transition: all 0.1s ease-in;
+  transition: color 0.1s ease-in, text-decoration-color 0.1s ease-in;
 }
 
 .notion-content a:hover {
@@ -443,9 +456,9 @@ body {
     font-size: 15px;
   }
 
-  .notion-content h1 { font-size: 1.6em; }
-  .notion-content h2 { font-size: 1.35em; }
-  .notion-content h3 { font-size: 1.15em; }
+  .notion-content h1 { font-size: 1.5em; }
+  .notion-content h2 { font-size: 1.15em; }
+  .notion-content h3 { font-size: 1.05em; }
 }
 
 /* ====== BlockNote 覆盖：选中状态 & 颜色变量 ====== */
@@ -467,7 +480,7 @@ body {
   --bn-colors-shadow: rgba(0, 0, 0, 0.08);
   --bn-colors-border: var(--c-borPri);
   --bn-colors-side-menu: var(--c-borPri);
-  --bn-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif, 'PingFang SC', 'Microsoft YaHei';
+  --bn-font-family: var(--font-sans);
   --bn-border-radius: 4px;
 }
 
@@ -494,21 +507,31 @@ body {
 .bn-editor [data-content-type="paragraph"] {
   font-size: 16px;
   line-height: 1.5;
+  min-height: 1.5em;
 }
 
-.bn-editor [data-content-type="heading"][data-level="1"] {
-  font-size: 1.875em;
-  font-weight: 700;
+.bn-editor [data-content-type="heading"][data-level="1"],
+.bn-editor h1 {
+  font-size: 1.75em !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  padding-top: 30px !important;
 }
 
-.bn-editor [data-content-type="heading"][data-level="2"] {
-  font-size: 1.5em;
-  font-weight: 600;
+.bn-editor [data-content-type="heading"][data-level="2"],
+.bn-editor h2 {
+  font-size: 1.25em !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  padding-top: 24px !important;
 }
 
-.bn-editor [data-content-type="heading"][data-level="3"] {
-  font-size: 1.25em;
-  font-weight: 600;
+.bn-editor [data-content-type="heading"][data-level="3"],
+.bn-editor h3 {
+  font-size: 1.1em !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  padding-top: 22px !important;
 }
 
 /* ====== BlockNote 图标大小收紧 ====== */
@@ -527,9 +550,6 @@ body {
   height: 14px !important;
 }
 
-/* ====== 斜杠菜单（Slash Menu）精致化 ====== */
-
-/* 整体容器 */
 /* ====== 斜杠菜单 — 对齐 Notion 风格 ====== */
 
 .bn-suggestion-menu {
@@ -616,67 +636,42 @@ body {
   text-transform: none !important;
 }
 
-/* ====== 格式化工具栏 — Notion 风格 ====== */
+/* ====== 格式化工具栏 ====== */
 
-/* 工具栏容器：Notion 192px 宽，竖向两行，大圆角 */
-.bn-shadcn .bn-toolbar,
-.bn-shadcn [role="toolbar"] {
-  flex-wrap: wrap !important;
-  flex-direction: row !important;
-  width: 192px !important;
-  max-width: 192px !important;
-  height: auto !important;
-  min-height: auto !important;
-  padding: 8px !important;
-  gap: 4px !important;
-  border-radius: 14px !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06) !important;
+/* 工具栏容器：精致阴影和圆角，不干预宽高（避免浮层定位失效） */
+.bn-shadcn .bn-toolbar {
+  gap: 2px !important;
+  padding: 4px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06) !important;
   border: none !important;
   background: var(--c-bacPri) !important;
-  align-content: flex-start !important;
 }
 
-/* 工具栏按钮：32×28px，6px 圆角 */
-.bn-shadcn .bn-toolbar button,
-.bn-shadcn [role="toolbar"] button {
-  width: 32px !important;
+/* 工具栏按钮 */
+.bn-shadcn .bn-toolbar button {
   height: 28px !important;
-  min-width: 32px !important;
-  max-width: 32px !important;
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-radius: 6px !important;
+  min-width: 28px !important;
+  padding: 0 5px !important;
+  border-radius: 5px !important;
   font-size: 13px !important;
-  flex-shrink: 0 !important;
 }
 
-/* 工具栏内 SVG 图标 */
-.bn-shadcn .bn-toolbar button svg,
-.bn-shadcn [role="toolbar"] button svg {
-  width: 16px !important;
+/* 工具栏 SVG 图标 */
+.bn-shadcn .bn-toolbar button svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* 块类型选择器 */
+.bn-shadcn .bn-toolbar [data-radix-select-trigger] {
+  height: 28px !important;
+  font-size: 13px !important;
+  padding: 0 6px !important;
+}
+
+/* 分隔符 */
+.bn-shadcn .bn-toolbar [role="separator"] {
   height: 16px !important;
-}
-
-/* 块类型选择器：占满一整行 */
-.bn-shadcn .bn-toolbar [data-radix-select-trigger],
-.bn-shadcn [role="toolbar"] [data-radix-select-trigger] {
-  width: 100% !important;
-  max-width: 100% !important;
-  height: 28px !important;
-  font-size: 13px !important;
-  padding: 0 8px !important;
-  border-radius: 6px !important;
-  border: 1px solid var(--c-borPri) !important;
-  margin-bottom: 2px !important;
-}
-
-/* 分隔符：变为全宽水平线 */
-.bn-shadcn .bn-toolbar [role="separator"],
-.bn-shadcn [role="toolbar"] [role="separator"] {
-  width: 100% !important;
-  height: 1px !important;
-  margin: 2px 0 !important;
-  background: var(--c-borSec) !important;
+  margin: 0 2px !important;
 }

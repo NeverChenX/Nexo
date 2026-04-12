@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 const SHARE_LINKS_FILE = path.join(process.cwd(), 'share-links.json');
 
@@ -38,8 +38,12 @@ export async function createShareLink(
   itemPath: string,
   type: 'article' | 'folder'
 ): Promise<string> {
-  const token = uuidv4().replace(/-/g, '').substring(0, 12);
   const links = await getAllShareLinks();
+  // 使用 crypto.randomBytes 确保足够的熵（128 bit），并避免碰撞
+  let token: string;
+  do {
+    token = crypto.randomBytes(16).toString('hex');
+  } while (links[token]);
 
   links[token] = {
     path: itemPath,

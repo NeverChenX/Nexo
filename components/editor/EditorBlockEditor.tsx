@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { createReactBlockSpec } from '@blocknote/react';
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultStyleSpecs, filterSuggestionItems } from '@blocknote/core';
 import {
@@ -202,57 +202,12 @@ function CustomFormattingToolbar({
   articlePath: string;
 }) {
   const [aiPanelText, setAiPanelText] = useState<string | null>(null);
-  const [aiInput, setAiInput] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [activeStyles, setActiveStyles] = useState<Set<string>>(new Set());
-
-  // 实时同步活跃样式
-  useEffect(() => {
-    if (!editor) return;
-    const update = () => {
-      const styles = editor.getActiveStyles?.() ?? {};
-      setActiveStyles(new Set(Object.keys(styles)));
-    };
-    update();
-    editor.onEditorContentChange?.(update);
-    editor.onEditorSelectionChange?.(update);
-  }, [editor]);
-
-  const toggle = (style: string) => {
-    editor.toggleStyles?.({ [style]: true });
-    editor.focus?.();
-  };
 
   const handleExplain = () => {
     const selected = editor.getSelectedText?.() ?? '';
     if (!selected.trim()) return;
     setAiPanelText(selected);
   };
-
-  const handleAiSubmit = async () => {
-    if (!aiInput.trim()) return;
-    const selected = editor.getSelectedText?.() ?? '';
-    setAiLoading(true);
-    try {
-      const res = await fetch('/api/explain', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: aiInput + (selected ? `\n\n内容：${selected}` : ''),
-          articlePath,
-        }),
-      });
-      const json = await res.json();
-      if (json.ok) setAiPanelText(json.data.explanation);
-    } catch { /* ignore */ } finally {
-      setAiLoading(false);
-      setAiInput('');
-    }
-  };
-
-  const sep = (
-    <div style={{ height: '1px', margin: '4px 8px', background: 'var(--c-borSec)' }} />
-  );
 
   return (
     <>
@@ -473,7 +428,7 @@ export function EditorBlockEditor({
 
   return (
     <div className="h-full overflow-auto" style={{ background: 'var(--c-bacPri)' }}>
-      <div className="notion-layout" style={{ paddingTop: '32px', paddingBottom: '80px' }}>
+      <div className="notion-layout" style={{ paddingTop: '60px', paddingBottom: '100px' }}>
         <div className="notion-layout-content">
           <BlockNoteView
             editor={editor}

@@ -3,13 +3,21 @@ import path from 'path';
 
 const WIKI_DATA_DIR = path.join(process.cwd(), 'wiki-data');
 
+/**
+ * 路径安全守卫：确保解析后的路径不会逃逸出 WIKI_DATA_DIR。
+ * 拒绝包含 .. 或绝对路径的输入。
+ */
+function safePath(...segments: string[]): string {
+  const resolved = path.resolve(WIKI_DATA_DIR, ...segments);
+  if (!resolved.startsWith(WIKI_DATA_DIR + path.sep) && resolved !== WIKI_DATA_DIR) {
+    throw new Error('路径不合法：禁止访问数据目录之外的位置');
+  }
+  return resolved;
+}
+
 // 确保目录存在
 async function ensureDir(dirPath: string): Promise<void> {
-  try {
-    await fs.stat(dirPath);
-  } catch {
-    await fs.mkdir(dirPath, { recursive: true });
-  }
+  await fs.mkdir(dirPath, { recursive: true });
 }
 
 // 获取文件树结构
@@ -106,13 +114,13 @@ export async function getRecursiveTree(
 
 // 读取文章内容（支持叶子页面和父页面双模式）
 export async function readArticle(articlePath: string): Promise<string> {
-  const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
+  const filePath = safePath(`${articlePath}.md`);
   try {
     return await fs.readFile(filePath, 'utf-8');
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     // 回退：父页面将内容存储在目录/_index.md 中
-    const indexPath = path.join(WIKI_DATA_DIR, articlePath, '_index.md');
+    const indexPath = safePath(articlePath, '_index.md');
     return await fs.readFile(indexPath, 'utf-8');
   }
 }
@@ -122,7 +130,7 @@ export async function writeArticle(
   articlePath: string,
   content: string
 ): Promise<void> {
-  const dirPath = path.join(WIKI_DATA_DIR, articlePath);
+  const dirPath = safePath(articlePath);
   try {
     const stat = await fs.stat(dirPath);
     if (stat.isDirectory()) {
@@ -135,7 +143,7 @@ export async function writeArticle(
     /* 目录不存在 — 继续叶子写入 */
   }
 
-  const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
+  const filePath = safePath(`${articlePath}.md`);
   const parentDir = path.dirname(filePath);
   await ensureDir(parentDir);
   await fs.writeFile(filePath, content, 'utf-8');
@@ -159,8 +167,8 @@ export async function writeArticle(
  * 当第一个子页面被添加到叶子页面时自动调用。
  */
 export async function promoteToParent(articlePath: string): Promise<void> {
-  const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
-  const dirPath = path.join(WIKI_DATA_DIR, articlePath);
+  const filePath = safePath(`${articlePath}.md`);
+  const dirPath = safePath(articlePath);
   const indexPath = path.join(dirPath, '_index.md');
 
   const content = await fs.readFile(filePath, 'utf-8');
@@ -176,7 +184,7 @@ export async function promoteToParent(articlePath: string): Promise<void> {
  * - Otherwise: do nothing (parent will be created when child is written)
  */
 export async function promoteParentIfNeeded(parentPath: string): Promise<void> {
-  const filePath = path.join(WIKI_DATA_DIR, `${parentPath}.md`);
+  const filePath = safePath(`${parentPath}.md`);
   try {
     await fs.stat(filePath);
     // Leaf page exists — promote it to parent page
@@ -187,7 +195,7 @@ export async function promoteParentIfNeeded(parentPath: string): Promise<void> {
   }
 
   // Check if directory exists without _index.md
-  const dirPath = path.join(WIKI_DATA_DIR, parentPath);
+  const dirPath = safePath(parentPath);
   try {
     const stat = await fs.stat(dirPath);
     if (stat.isDirectory()) {
@@ -214,9 +222,9 @@ export async function promoteParentIfNeeded(parentPath: string): Promise<void> {
  */
 export async function isFolderPage(itemPath: string): Promise<boolean> {
   try {
-    const dirStat = await fs.stat(path.join(WIKI_DATA_DIR, itemPath));
+    const dirStat = await fs.stat(safePath(itemPath));
     if (!dirStat.isDirectory()) return false;
-    await fs.stat(path.join(WIKI_DATA_DIR, itemPath, '_index.md'));
+    await fs.stat(safePath(itemPath, '_index.md'));
     return true;
   } catch {
     return false;
@@ -257,32 +265,32 @@ export async function migrateToPageModel(
 
 // 删除文章
 export async function deleteArticle(articlePath: string): Promise<void> {
-  const filePath = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
+  const filePath = safePath(`${articlePath}.md`);
   await fs.unlink(filePath);
 }
 
 // 创建文件夹
 export async function createFolder(folderPath: string): Promise<void> {
-  const dirPath = path.join(WIKI_DATA_DIR, folderPath);
+  const dirPath = safePath(folderPath);
   await ensureDir(dirPath);
 }
 
 // 删除文件夹
 export async function deleteFolder(folderPath: string): Promise<void> {
-  const dirPath = path.join(WIKI_DATA_DIR, folderPath);
+  const dirPath = safePath(folderPath);
   await fs.rm(dirPath, { recursive: true, force: true });
 }
 
 // 检查文件/文件夹是否存在（同时检查原始路径和 .md 后缀）
 export async function exists(itemPath: string): Promise<boolean> {
   try {
-    const filePath = path.join(WIKI_DATA_DIR, itemPath);
+    const filePath = safePath(itemPath);
     await fs.stat(filePath);
     return true;
   } catch {
     // 文章在文件系统上存为 .md，也检查一下
     try {
-      const mdPath = path.join(WIKI_DATA_DIR, `${itemPath}.md`);
+      const mdPath = safePath(`${itemPath}.md`);
       await fs.stat(mdPath);
       return true;
     } catch {
@@ -294,7 +302,7 @@ export async function exists(itemPath: string): Promise<boolean> {
 // 检查是否是文件夹
 export async function isFolder(itemPath: string): Promise<boolean> {
   try {
-    const dirPath = path.join(WIKI_DATA_DIR, itemPath);
+    const dirPath = safePath(itemPath);
     const stat = await fs.stat(dirPath);
     return stat.isDirectory();
   } catch {
@@ -305,11 +313,11 @@ export async function isFolder(itemPath: string): Promise<boolean> {
 // 检查是否是文章（支持叶子页面和父页面双模式）
 export async function isArticle(itemPath: string): Promise<boolean> {
   try {
-    await fs.stat(path.join(WIKI_DATA_DIR, `${itemPath}.md`));
+    await fs.stat(safePath(`${itemPath}.md`));
     return true;
   } catch {
     try {
-      await fs.stat(path.join(WIKI_DATA_DIR, itemPath, '_index.md'));
+      await fs.stat(safePath(itemPath, '_index.md'));
       return true;
     } catch {
       return false;
@@ -319,16 +327,16 @@ export async function isArticle(itemPath: string): Promise<boolean> {
 
 // 重命名文件夹
 export async function renameFolder(oldPath: string, newPath: string): Promise<void> {
-  const oldDir = path.join(WIKI_DATA_DIR, oldPath);
-  const newDir = path.join(WIKI_DATA_DIR, newPath);
+  const oldDir = safePath(oldPath);
+  const newDir = safePath(newPath);
   await ensureDir(path.dirname(newDir));
   await fs.rename(oldDir, newDir);
 }
 
 // 重命名文章
 export async function renameArticle(oldPath: string, newPath: string): Promise<void> {
-  const oldFile = path.join(WIKI_DATA_DIR, `${oldPath}.md`);
-  const newFile = path.join(WIKI_DATA_DIR, `${newPath}.md`);
+  const oldFile = safePath(`${oldPath}.md`);
+  const newFile = safePath(`${newPath}.md`);
   await ensureDir(path.dirname(newFile));
   await fs.rename(oldFile, newFile);
 }
@@ -338,15 +346,15 @@ export async function moveFolder(folderPath: string, newParentPath: string): Pro
   const folderName = path.basename(folderPath);
   const newPath = newParentPath ? `${newParentPath}/${folderName}` : folderName;
   
-  const oldDir = path.join(WIKI_DATA_DIR, folderPath);
-  const newDir = path.join(WIKI_DATA_DIR, newPath);
+  const oldDir = safePath(folderPath);
+  const newDir = safePath(newPath);
   
   // 检查目标是否已存在
   try {
     await fs.stat(newDir);
     throw new Error('目标位置已存在同名文件夹');
-  } catch (e: any) {
-    if (e.code !== 'ENOENT') throw e;
+  } catch (e: unknown) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
   }
   
   // 检查是否移动到自身子目录
@@ -364,15 +372,15 @@ export async function moveArticle(articlePath: string, newParentPath: string): P
   const articleName = path.basename(articlePath);
   const newPath = newParentPath ? `${newParentPath}/${articleName}` : articleName;
   
-  const oldFile = path.join(WIKI_DATA_DIR, `${articlePath}.md`);
-  const newFile = path.join(WIKI_DATA_DIR, `${newPath}.md`);
+  const oldFile = safePath(`${articlePath}.md`);
+  const newFile = safePath(`${newPath}.md`);
   
   // 检查目标是否已存在
   try {
     await fs.stat(newFile);
     throw new Error('目标位置已存在同名文章');
-  } catch (e: any) {
-    if (e.code !== 'ENOENT') throw e;
+  } catch (e: unknown) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
   }
   
   await ensureDir(path.dirname(newFile));
@@ -385,7 +393,7 @@ export async function getFolderContents(
   folderPath: string
 ): Promise<Array<{ name: string; path: string; isFolder: boolean }>> {
   const dirPath = folderPath
-    ? path.join(WIKI_DATA_DIR, folderPath)
+    ? safePath(folderPath)
     : WIKI_DATA_DIR;
   return getFileTree(dirPath, folderPath);
 }
@@ -404,7 +412,7 @@ export async function getFolderContentsDetailed(
   }>
 > {
   const dirPath = folderPath
-    ? path.join(WIKI_DATA_DIR, folderPath)
+    ? safePath(folderPath)
     : WIKI_DATA_DIR;
   await ensureDir(dirPath);
 

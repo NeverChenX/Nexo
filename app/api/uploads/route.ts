@@ -13,11 +13,13 @@ const MIME_EXT: Record<string, string> = {
   'image/gif': 'gif',
 };
 
+// 仅允许图片扩展名白名单，不回退到原始文件扩展名
+const ALLOWED_EXTS = new Set(Object.values(MIME_EXT));
+
 function getExtension(file: File): string {
   const byMime = MIME_EXT[file.type];
   if (byMime) return byMime;
-  const originalExt = file.name.split('.').pop()?.toLowerCase();
-  if (originalExt && /^[a-z0-9]+$/.test(originalExt)) return originalExt;
+  // MIME 类型不在白名单 → 回退到 png 而非原始扩展名（防止上传 .html/.svg 等）
   return 'png';
 }
 
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Image upload failed:', error);
+    // 生产环境应使用结构化日志
     return NextResponse.json(
       { ok: false, error: '上传失败' },
       { status: 500 }

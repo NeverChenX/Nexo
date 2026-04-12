@@ -141,9 +141,9 @@ export async function PUT(request: NextRequest) {
       ok: true,
       data: { oldPath, newPath },
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
-      { ok: false, error: error.message || '重命名/移动文件夹失败' },
+      { ok: false, error: '重命名/移动文件夹失败' },
       { status: 500 }
     );
   }
