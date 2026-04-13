@@ -15,6 +15,9 @@ import {
 import { BlockNoteView } from '@blocknote/shadcn';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/shadcn/style.css';
+import { useI18n } from '@/lib/i18n';
+import { BacklinksPanel } from '@/components/BacklinksPanel';
+import { CommentsPanel } from '@/components/CommentsPanel';
 
 // ─────────────── PageLink 自定义 Block ───────────────
 
@@ -29,7 +32,7 @@ const PageLink = createReactBlockSpec(
   },
   {
     render: ({ block }) => {
-      const name = block.props.pageName || block.props.pagePath?.split('/').pop() || '未命名页面';
+      const name = block.props.pageName || block.props.pagePath?.split('/').pop() || 'Untitled';
       return (
         <div
           className="nx-hoverable group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer -mx-2"
@@ -89,9 +92,9 @@ function AiExplainPanel({
         const json = await res.json();
         if (cancelled) return;
         if (json.ok) setResult(json.data.explanation);
-        else setError(json.error || '解释失败');
+        else setError(json.error || 'Explanation failed');
       } catch {
-        if (!cancelled) setError('请求失败');
+        if (!cancelled) setError('Request failed');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -128,7 +131,7 @@ function AiExplainPanel({
         flexShrink: 0,
       }}>
         <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--c-texSec)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-          ✦ AI 解释
+          ✦ AI Explain
         </span>
         <button
           onClick={onClose}
@@ -153,7 +156,7 @@ function AiExplainPanel({
       <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1 }}>
         {loading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--c-texTer)', fontSize: '13px' }}>
-            <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> 解释中...
+            <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Explaining...
           </div>
         )}
         {error && <p style={{ color: 'var(--nx-red)', fontSize: '13px' }}>{error}</p>}
@@ -238,6 +241,143 @@ function CustomFormattingToolbar({
   );
 }
 
+// ─────────────── EditorTOC ───────────────
+
+interface TocEntry {
+  id: string;
+  level: number;
+  text: string;
+}
+
+function EditorTOC({ editor }: { editor: any }) {
+  const [items, setItems] = useState<TocEntry[]>([]);
+  const [activeId, setActiveId] = useState<string>('');
+  const scanRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useI18n();
+
+  const extractHeadings = useCallback(() => {
+    if (!editor) return;
+    const headings: TocEntry[] = [];
+    for (const block of editor.document) {
+      if (block.type === 'heading' && block.content) {
+        const text = block.content
+          .map((c: any) => (typeof c === 'string' ? c : c.text ?? ''))
+          .join('');
+        if (text.trim()) {
+          headings.push({ id: block.id, level: block.props?.level ?? 1, text });
+        }
+      }
+    }
+    setItems(headings);
+  }, [editor]);
+
+  useEffect(() => {
+    extractHeadings();
+  }, [extractHeadings]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => {
+      if (scanRef.current) clearTimeout(scanRef.current);
+      scanRef.current = setTimeout(extractHeadings, 300);
+    };
+    const unsubscribe = editor.onChange(handler);
+    return () => {
+      if (scanRef.current) clearTimeout(scanRef.current);
+      unsubscribe();
+    };
+  }, [editor, extractHeadings]);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveId(entry.target.getAttribute('data-id') ?? '');
+          }
+        }
+      },
+      { rootMargin: '-20% 0% -70% 0%', threshold: 0 }
+    );
+    for (const item of items) {
+      const el = document.querySelector(`[data-id="${item.id}"]`);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [items]);
+
+  const handleClick = useCallback(
+    (id: string) => {
+      if (!editor) return;
+      editor.focus();
+      editor.setTextCursorPosition(id, 'end');
+      const el = document.querySelector(`[data-id="${id}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    [editor]
+  );
+
+  if (items.length === 0) return null;
+
+  return (
+    <nav aria-label={t('toc.title')} style={{ cursor: 'default' }}>
+      <p
+        style={{
+          fontSize: '11px',
+          fontWeight: 500,
+          color: 'var(--c-texSec)',
+          letterSpacing: '0',
+          marginBottom: '12px',
+        }}
+      >
+        {t('toc.title')}
+      </p>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {items.map((item) => {
+          const isActive = activeId === item.id;
+          return (
+            <li key={item.id}>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleClick(item.id); }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  padding: '3px 0',
+                  paddingLeft: `${(item.level - 1) * 12 + 8}px`,
+                  borderLeft: isActive ? '2px solid var(--nx-blue)' : '2px solid transparent',
+                  fontWeight: isActive ? 500 : 400,
+                  color: isActive ? 'var(--nx-blue)' : 'var(--c-texTer)',
+                  background: 'transparent',
+                  border: 'none',
+                  borderLeftStyle: 'solid',
+                  borderLeftWidth: '2px',
+                  borderLeftColor: isActive ? 'var(--nx-blue)' : 'transparent',
+                  cursor: 'pointer',
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  transition: 'color 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.currentTarget.style.color = 'var(--c-texSec)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.currentTarget.style.color = 'var(--c-texTer)';
+                }}
+              >
+                {item.text}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
 // ─────────────── Component ───────────────
 
 interface SubPage {
@@ -265,6 +405,7 @@ export function EditorBlockEditor({
   subPages,
   onSelectSubPage,
 }: EditorBlockEditorProps) {
+  const { t } = useI18n();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoadingRef = useRef(false);
   const prevContentRef = useRef(content);
@@ -311,7 +452,7 @@ export function EditorBlockEditor({
       const res = await fetch('/api/uploads', { method: 'POST', body: fd });
       const json = await res.json();
       if (json.ok && json.data?.url) return json.data.url;
-      throw new Error('上传失败');
+      throw new Error('Upload failed');
     },
   });
 
@@ -330,7 +471,7 @@ export function EditorBlockEditor({
       const allBlocks = [...blocks, ...pageLinkBlocks];
       editor.replaceBlocks(editor.document, allBlocks);
     } catch (err) {
-      console.error('内容解析失败:', err);
+      console.error('Failed to parse content:', err);
     }
     // 延迟重置 isLoadingRef，确保 replaceBlocks 触发的异步 onChange 被过滤掉
     requestAnimationFrame(() => {
@@ -416,9 +557,9 @@ export function EditorBlockEditor({
     return async (query: string) => {
       const defaultItems = getDefaultReactSlashMenuItems(editor);
       const createPageItem = {
-        title: '新建子页面',
-        subtext: '创建一个子页面',
-        group: '页面',
+        title: t('bn.newSubPage'),
+        subtext: t('bn.newSubPageDesc'),
+        group: t('bn.pageGroup'),
         onItemClick: () => {
           onCreatePage?.(articlePathRef.current);
         },
@@ -427,7 +568,7 @@ export function EditorBlockEditor({
       };
       return filterSuggestionItems([...defaultItems, createPageItem], query);
     };
-  }, [editor, onCreatePage]);
+  }, [editor, onCreatePage, t]);
 
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
@@ -440,15 +581,26 @@ export function EditorBlockEditor({
     return () => window.removeEventListener('keydown', handler);
   }, [lightboxSrc]);
 
-  const handleEditorClick = useCallback((e: React.MouseEvent) => {
+  const handleEditorDblClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.tagName === 'IMG' && (target as HTMLImageElement).src) {
       setLightboxSrc((target as HTMLImageElement).src);
     }
   }, []);
 
+  const handleBlankClick = useCallback((e: React.MouseEvent) => {
+    if (!editor) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('.bn-editor') || target.closest('.nx-layout-toc')) return;
+    const blocks = editor.document;
+    if (blocks.length === 0) return;
+    const lastBlock = blocks[blocks.length - 1];
+    editor.focus();
+    editor.setTextCursorPosition(lastBlock.id, 'end');
+  }, [editor]);
+
   return (
-    <div className="h-full overflow-auto" style={{ background: 'var(--c-bacPri)' }} onClick={handleEditorClick}>
+    <div className="h-full overflow-auto" style={{ background: 'var(--c-bacPri)', cursor: 'text' }} onClick={handleBlankClick} onDoubleClick={handleEditorDblClick}>
       <div className="nx-layout" style={{ paddingTop: '60px', paddingBottom: '100px' }}>
         <div className="nx-layout-content">
           <BlockNoteView
@@ -469,13 +621,26 @@ export function EditorBlockEditor({
             />
           </BlockNoteView>
         </div>
+        <aside className="nx-layout-toc">
+          <div className="sticky" style={{ top: '60px' }}>
+            <EditorTOC editor={editor} />
+            <BacklinksPanel
+              articlePath={articlePath}
+              onSelect={(path) => {
+                const event = new CustomEvent('pagelink-click', { detail: { path } });
+                window.dispatchEvent(event);
+              }}
+            />
+            <CommentsPanel articlePath={articlePath} />
+          </div>
+        </aside>
       </div>
       {lightboxSrc && (
-        <div className="image-lightbox-overlay" role="dialog" aria-label="图片预览" onClick={() => setLightboxSrc(null)}>
+        <div className="image-lightbox-overlay" role="dialog" aria-label="Image preview" onClick={() => setLightboxSrc(null)}>
           <button
             onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
             style={{ position: 'fixed', top: '16px', right: '16px', color: '#fff', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}
-            aria-label="关闭"
+            aria-label="Close"
           >
             ✕
           </button>

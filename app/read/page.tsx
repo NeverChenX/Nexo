@@ -9,6 +9,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { TreeMenu } from '@/components/TreeMenu';
 import { ReadTOC } from '@/components/ReadTOC';
 import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 function ImageLightbox({ src, alt }: { src?: string; alt?: string }) {
   const [open, setOpen] = useState(false);
@@ -27,11 +28,11 @@ function ImageLightbox({ src, alt }: { src?: string; alt?: string }) {
     <>
       <img src={src} alt={alt || ''} onClick={() => setOpen(true)} />
       {open && (
-        <div className="image-lightbox-overlay" role="dialog" aria-label="图片预览" onClick={() => setOpen(false)}>
+        <div className="image-lightbox-overlay" role="dialog" aria-label="Image preview" onClick={() => setOpen(false)}>
           <button
             onClick={(e) => { e.stopPropagation(); setOpen(false); }}
             style={{ position: 'fixed', top: '16px', right: '16px', color: '#fff', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}
-            aria-label="关闭"
+            aria-label="Close"
           >
             ✕
           </button>
@@ -46,7 +47,8 @@ function ReadPageInner() {
   const searchParams = useSearchParams();
   const [currentPath, setCurrentPath] = useState<string>('');
   const [content, setContent] = useState('');
-  const [title, setTitle] = useState('请选择一篇文章');
+  const { t } = useI18n();
+  const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -78,10 +80,10 @@ function ReadPageInner() {
           .replace(/^_index$/, parts[parts.length - 2] ?? '');
         setTitle(filename);
       } else {
-        setError(json.error || '加载失败');
+        setError(json.error || t('read.loadFailed'));
       }
     } catch {
-      if (seq === loadSeqRef.current) setError('网络错误，请重试');
+      if (seq === loadSeqRef.current) setError(t('read.networkError'));
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
     }
@@ -145,12 +147,12 @@ function ReadPageInner() {
             className="hidden lg:flex items-center justify-between px-3 py-2.5 flex-shrink-0"
             style={{ borderBottom: '1px solid var(--c-borSec)' }}
           >
-            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--c-texSec)' }}>目录</span>
+            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--c-texSec)' }}>{t('read.catalog')}</span>
             <button
               onClick={() => setSidebarCollapsed(true)}
               className="nx-hoverable p-1 rounded"
               style={{ color: 'var(--c-icoSec)' }}
-              title="折叠侧栏"
+              title={t('read.collapseSidebar')}
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -164,7 +166,7 @@ function ReadPageInner() {
               onClick={() => setSidebarCollapsed(false)}
               className="nx-hoverable p-1 rounded"
               style={{ color: 'var(--c-icoSec)' }}
-              title="展开侧栏"
+              title={t('read.expandSidebar')}
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -215,7 +217,7 @@ function ReadPageInner() {
             <Menu className="h-5 w-5" />
           </button>
           <span className="truncate max-w-[200px]" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--c-texPri)' }}>
-            {title}
+            {title || t('read.selectArticle')}
           </span>
           <div className="w-9" />
         </header>
@@ -255,7 +257,7 @@ function ReadPageInner() {
                 )}
 
                 {loading && (
-                  <div style={{ color: 'var(--c-texTer)', fontSize: '14px' }}>加载中…</div>
+                  <div style={{ color: 'var(--c-texTer)', fontSize: '14px' }}>{t('common.loadingEllipsis')}</div>
                 )}
 
                 {!loading && error && (
@@ -266,8 +268,8 @@ function ReadPageInner() {
 
                 {!loading && !content && !error && (
                   <div className="text-center" style={{ padding: '80px 0' }}>
-                    <p style={{ fontSize: '16px', color: 'var(--c-texTer)', marginBottom: '8px' }}>选择一篇文章开始阅读</p>
-                    <p style={{ fontSize: '14px', color: 'var(--c-texDis)' }}>从左侧目录中选择</p>
+                    <p style={{ fontSize: '16px', color: 'var(--c-texTer)', marginBottom: '8px' }}>{t('read.selectArticle')}</p>
+                    <p style={{ fontSize: '14px', color: 'var(--c-texDis)' }}>{t('read.selectFromSidebar')}</p>
                   </div>
                 )}
 

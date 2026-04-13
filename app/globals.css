@@ -115,7 +115,8 @@ body {
   grid-template-columns:
     [full-start] minmax(96px, 1fr)
     [content-start] minmax(auto, 720px)
-    [content-end] minmax(96px, 1fr)
+    [content-end] minmax(0, 280px)
+    [toc-end] minmax(48px, 1fr)
     [full-end];
   width: 100%;
 }
@@ -125,13 +126,24 @@ body {
   min-width: 0;
 }
 
+.nx-layout-toc {
+  grid-column: content-end / toc-end;
+  min-width: 0;
+  padding-top: 8px;
+  padding-left: 24px;
+}
+
 @media (max-width: 1024px) {
   .nx-layout {
     grid-template-columns:
       [full-start] 48px
       [content-start] 1fr
-      [content-end] 48px
+      [content-end] 0
+      [toc-end] 48px
       [full-end];
+  }
+  .nx-layout-toc {
+    display: none;
   }
 }
 
@@ -140,7 +152,8 @@ body {
     grid-template-columns:
       [full-start] 24px
       [content-start] 1fr
-      [content-end] 24px
+      [content-end] 0
+      [toc-end] 24px
       [full-end];
   }
 }
@@ -226,56 +239,57 @@ body {
 
 .nx-content {
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.7;
   color: var(--c-texPri);
   font-family: var(--font-sans);
   word-break: break-word;
 }
 
 .nx-content h1 {
-  font-size: 1.5em;
+  font-size: 1.875em;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   color: var(--c-texPri);
   margin: 0;
-  padding-top: 30px;
-  padding-bottom: 4px;
+  padding-top: 40px;
+  padding-bottom: 6px;
+  letter-spacing: -0.01em;
 }
 
 .nx-content h2 {
-  font-size: 1.25em;
+  font-size: 1.375em;
   font-weight: 600;
   line-height: 1.3;
   color: var(--c-texPri);
   margin: 0;
-  padding-top: 24px;
-  padding-bottom: 2px;
+  padding-top: 32px;
+  padding-bottom: 4px;
 }
 
 .nx-content h3 {
-  font-size: 1.1em;
+  font-size: 1.15em;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.4;
   color: var(--c-texPri);
   margin: 0;
-  padding-top: 22px;
+  padding-top: 26px;
   padding-bottom: 2px;
 }
 
 .nx-content h4 {
-  font-size: 0.95em;
+  font-size: 1em;
   font-weight: 600;
   color: var(--c-texSec);
   margin: 0;
-  padding-top: 14px;
+  padding-top: 20px;
   padding-bottom: 2px;
 }
 
 .nx-content p {
   margin: 0;
-  padding: 2px 0;
-  line-height: 1.5;
-  min-height: 1.5em;
+  padding: 3px 0;
+  line-height: 1.7;
+  min-height: 1.7em;
 }
 
 .nx-content ul {
@@ -292,9 +306,9 @@ body {
 
 .nx-content li {
   margin: 0;
-  padding: 2px 0;
-  line-height: 1.5;
-  min-height: 1.5em;
+  padding: 3px 0;
+  line-height: 1.7;
+  min-height: 1.7em;
 }
 
 .nx-content li > ul,
@@ -322,7 +336,7 @@ body {
   border-radius: 3px;
   font-family: 'SFMono-Regular', Menlo, Consolas, 'PT Mono', 'Liberation Mono', Courier, monospace;
   font-size: 0.875em;
-  color: var(--nx-red);
+  color: #37352f;
   line-height: normal;
 }
 
@@ -354,14 +368,14 @@ body {
 }
 
 .nx-content a:hover {
-  color: var(--nx-red);
-  text-decoration-color: var(--nx-red);
+  color: var(--nx-blue);
+  text-decoration-color: var(--nx-blue);
 }
 
 .nx-content hr {
   border: none;
   border-top: 1px solid var(--c-borPri);
-  margin: 8px 0;
+  margin: 24px 0;
 }
 
 .nx-content img {
@@ -499,9 +513,9 @@ body {
     font-size: 15px;
   }
 
-  .nx-content h1 { font-size: 1.5em; }
-  .nx-content h2 { font-size: 1.15em; }
-  .nx-content h3 { font-size: 1.05em; }
+  .nx-content h1 { font-size: 1.625em; }
+  .nx-content h2 { font-size: 1.25em; }
+  .nx-content h3 { font-size: 1.1em; }
 }
 
 /* ====== BlockNote 覆盖：选中状态 & 颜色变量 ====== */
@@ -546,6 +560,35 @@ body {
 }
 
 /* ====== BlockNote 编辑器对齐 Nexo 风格 ====== */
+
+/* 引用块（blockquote）— 编辑器 + 阅读页统一 */
+.bn-editor blockquote,
+.nx-content blockquote {
+  position: relative !important;
+  border: none !important;
+  border-left: 2px solid rgba(55, 53, 47, 0.16) !important;
+  border-radius: 0 !important;
+  padding: 4px 0 4px 16px !important;
+  margin: 8px 0 !important;
+  color: var(--c-texSec) !important;
+  font-style: normal !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.bn-editor blockquote::before,
+.nx-content blockquote::before {
+  content: none !important;
+}
+
+.bn-editor blockquote p,
+.nx-content blockquote p {
+  color: inherit !important;
+  margin-bottom: 0 !important;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  letter-spacing: 0.01em !important;
+}
 
 .bn-editor [data-content-type="paragraph"] {
   font-size: 16px;

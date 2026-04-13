@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Copy, Check } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 interface ShareModalProps {
   path: string;
@@ -29,6 +30,7 @@ export function ShareModal({
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   // 重置状态当对话框关闭
   useEffect(() => {
@@ -53,11 +55,11 @@ export function ShareModal({
       if (json.ok) {
         setShareToken(json.data.token);
       } else {
-        setError(json.error || '生成失败');
+        setError(json.error || t('share.generateFailed'));
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '未知错误';
-      setError('生成失败: ' + message);
+      setError(t('share.generateFailed') + ': ' + message);
     } finally {
       setLoading(false);
     }
@@ -91,10 +93,10 @@ export function ShareModal({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            分享{type === 'article' ? '文章' : '文件夹'}
+            {type === 'article' ? t('share.shareArticle') : t('share.shareFolder')}
           </DialogTitle>
           <DialogDescription>
-            生成一个永久的分享链接，允许其他人查看内容
+            {t('share.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -112,12 +114,12 @@ export function ShareModal({
               className="w-full"
               size="lg"
             >
-              {loading ? '生成中...' : '生成分享链接'}
+              {loading ? t('share.generating') : t('share.generate')}
             </Button>
           ) : (
             <>
               <div className="space-y-2">
-                <label className="text-sm font-medium">分享链接</label>
+                <label className="text-sm font-medium">{t('share.linkLabel')}</label>
                 <div className="flex gap-2">
                   <Input
                     readOnly
@@ -146,7 +148,7 @@ export function ShareModal({
                 }}
                 className="w-full"
               >
-                生成新链接
+                {t('share.generateNew')}
               </Button>
             </>
           )}
