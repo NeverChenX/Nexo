@@ -1,0 +1,174 @@
+const zh: Record<string, string> = {
+  // 通用
+  'common.cancel': '取消',
+  'common.confirm': '确定',
+  'common.delete': '删除',
+  'common.rename': '重命名',
+  'common.create': '创建',
+  'common.close': '关闭',
+  'common.loading': '加载中...',
+  'common.loadingEllipsis': '加载中…',
+  'common.save': '保存',
+  'common.search': '搜索',
+  'common.noResults': '无结果',
+  'common.error': '错误',
+  'common.success': '成功',
+  'common.tip': '提示',
+  'common.input': '输入',
+
+  // 编辑器页面
+  'editor.noDocSelected': '未选择文档',
+  'editor.saving': '保存中...',
+  'editor.unsaved': '未保存',
+  'editor.saved': '已保存',
+  'editor.selectOrCreate': '选择或创建一篇文档开始编辑',
+  'editor.selectFromSidebar': '从左侧目录选择，或右键新建',
+  'editor.share': '分享',
+  'editor.delete': '删除',
+  'editor.resizeSidebar': '调整左侧菜单宽度',
+  'editor.confirmDelete': '确认删除',
+  'editor.confirmDeleteMsg': '确定要删除 "{name}" 吗？',
+  'editor.confirmDeleteFolderMsg': '确定要删除 "{name}" 吗？子页面也会一并删除。',
+  'editor.loadFailed': '加载文章失败',
+  'editor.deleteFailed': '删除失败',
+  'editor.createFailed': '创建文章失败',
+
+  // 阅读页面
+  'read.selectArticle': '选择一篇文章开始阅读',
+  'read.selectFromSidebar': '从左侧目录中选择',
+  'read.collapseSidebar': '折叠侧栏',
+  'read.expandSidebar': '展开侧栏',
+  'read.catalog': '目录',
+  'read.networkError': '网络错误，请重试',
+  'read.loadFailed': '加载失败',
+  'read.imagePreview': '图片预览',
+
+  // 目录
+  'toc.title': '目录',
+
+  // 树形菜单
+  'tree.catalog': '目录',
+  'tree.newSubPage': '新建子页面',
+  'tree.newSubFolder': '新建子文件夹',
+  'tree.renameTo': '重命名为:',
+  'tree.moveTo': '移动到:',
+  'tree.deleteConfirm': '确定删除 "{name}" 吗？',
+  'tree.deleteFolderConfirm': '确定删除文件夹 "{name}" 及其所有内容吗？',
+  'tree.emptyTree': '暂无文档',
+  'tree.renameFailed': '重命名失败',
+  'tree.deleteFailed': '删除失败',
+  'tree.moveFailed': '移动失败',
+  'tree.loadFailed': '加载文档树失败',
+  'tree.createFolderFailed': '创建文件夹失败',
+
+  // 创建文档弹窗
+  'createModal.title': '新建文档',
+  'createModal.location': '位置：{path}',
+  'createModal.placeholder': '文档名称',
+
+  // 分享弹窗
+  'share.shareArticle': '分享文章',
+  'share.shareFolder': '分享文件夹',
+  'share.description': '生成一个永久的分享链接，允许其他人查看内容',
+  'share.generate': '生成分享链接',
+  'share.generating': '生成中...',
+  'share.linkLabel': '分享链接',
+  'share.generateNew': '生成新链接',
+  'share.generateFailed': '生成失败',
+
+  // BlockNote 编辑器
+  'bn.newSubPage': '新建子页面',
+  'bn.newSubPageDesc': '创建一个子页面',
+  'bn.pageGroup': '页面',
+  'bn.unnamedPage': '未命名页面',
+  'bn.uploadFailed': '上传失败',
+  'bn.parseFailed': '内容解析失败',
+
+  // AI 解释
+  'ai.title': '✦ AI 解释',
+  'ai.explaining': '解释中...',
+  'ai.explainFailed': '解释失败',
+  'ai.requestFailed': '请求失败',
+  'ai.explain': 'AI 解释',
+
+  // 搜索（Phase 2）
+  'search.placeholder': '搜索文档...',
+  'search.noResults': '未找到相关文档',
+
+  // 命令面板（Phase 3）
+  'cmd.placeholder': '搜索文档或输入命令...',
+  'cmd.recentDocs': '最近文档',
+  'cmd.actions': '操作',
+  'cmd.newDoc': '新建文档',
+  'cmd.goToRead': '进入阅读模式',
+
+  // 最近文档（Phase 4）
+  'recent.title': '最近访问',
+  'recent.empty': '暂无最近文档',
+
+  // 文档统计（Phase 6）
+  'stats.words': '{count} 字',
+  'stats.readTime': '约 {min} 分钟',
+
+  // 标签（Phase 8）
+  'tags.add': '添加标签',
+  'tags.placeholder': '输入标签名...',
+
+  // 反向链接（Phase 9）
+  'backlinks.title': '反向链接',
+  'backlinks.count': '{count} 篇文档链接到此页面',
+  'backlinks.none': '暂无反向链接',
+
+  // 模板（Phase 10）
+  'template.select': '选择模板',
+  'template.blank': '空白文档',
+  'template.meetingNotes': '会议纪要',
+  'template.techSpec': '技术方案',
+  'template.dailyReport': '日报',
+  'template.readingNotes': '读书笔记',
+
+  // 导出（Phase 11）
+  'export.title': '导出',
+  'export.markdown': '导出为 Markdown',
+  'export.html': '导出为 HTML',
+  'export.pdf': '打印为 PDF',
+
+  // 回收站（Phase 12）
+  'trash.title': '回收站',
+  'trash.empty': '回收站为空',
+  'trash.restore': '恢复',
+  'trash.deletePermanently': '永久删除',
+  'trash.emptyTrash': '清空回收站',
+  'trash.deleteTime': '删除于 {time}',
+  'trash.confirmEmpty': '确定要清空回收站吗？此操作不可恢复。',
+
+  // 导入（Phase 13）
+  'import.title': '导入',
+  'import.selectFiles': '选择 Markdown 文件',
+  'import.dragHint': '拖拽文件到此处，或点击选择',
+  'import.importing': '导入中...',
+
+  // 附件（Phase 14）
+  'attachment.upload': '上传附件',
+  'attachment.download': '下载',
+
+  // 评论（Phase 15）
+  'comments.title': '备注',
+  'comments.add': '添加备注',
+  'comments.placeholder': '输入备注内容...',
+  'comments.empty': '暂无备注',
+
+  // 快捷键（Phase 16）
+  'shortcuts.title': '快捷键',
+  'shortcuts.save': '保存',
+  'shortcuts.search': '搜索 / 命令面板',
+  'shortcuts.slashMenu': '插入块',
+  'shortcuts.help': '快捷键帮助',
+
+  // 语言
+  'locale.zh': '中文',
+  'locale.en': 'English',
+  'locale.switch': '语言',
+};
+
+export default zh;

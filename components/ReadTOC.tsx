@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useI18n } from '@/lib/i18n';
 
 interface TocItem {
   level: number;
@@ -61,6 +62,8 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
     return () => observer.disconnect();
   }, [items]);
 
+  const { t } = useI18n();
+
   if (items.length === 0) return null;
 
   const handleClick = (id: string) => {
@@ -71,7 +74,7 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
   };
 
   return (
-    <nav aria-label="目录">
+    <nav aria-label={t('toc.title')}>
       <p
         className="mb-3"
         style={{
@@ -81,7 +84,7 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
           letterSpacing: '0',
         }}
       >
-        目录
+        {t('toc.title')}
       </p>
       <ul className="space-y-0.5">
         {items.map((item) => (
@@ -97,9 +100,8 @@ export function ReadTOC({ contentKey, containerSelector }: ReadTOCProps) {
                 lineHeight: '1.5',
                 padding: '4px 0',
                 transition: 'color 0.15s ease',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
                 fontWeight: activeId === item.id ? 500 : 400,
                 color: activeId === item.id ? 'var(--nx-blue)' : 'var(--c-texTer)',
                 borderLeft: activeId === item.id ? '2px solid var(--nx-blue)' : '2px solid transparent',

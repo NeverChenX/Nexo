@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { ChevronRight, ChevronDown, FileText, FolderOpen, FolderClosed, Pencil, Trash2, X, AlertCircle, Plus } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 
 interface TreeItem {
   name: string;
@@ -28,7 +29,7 @@ type ModalConfig =
   | { type: 'confirm'; message: string; onConfirm: () => void; onCancel: () => void }
   | { type: 'prompt'; message: string; defaultValue: string; onConfirm: (v: string) => void; onCancel: () => void };
 
-function Modal({ config }: { config: ModalConfig }) {
+function Modal({ config, modalLabels }: { config: ModalConfig; modalLabels: { tip: string; confirm: string; input: string; cancel: string; delete: string; ok: string } }) {
   const [inputValue, setInputValue] = useState(
     config.type === 'prompt' ? config.defaultValue : ''
   );
@@ -56,7 +57,7 @@ function Modal({ config }: { config: ModalConfig }) {
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
           <div className="flex items-center gap-2 text-sm" style={{ fontWeight: 500, color: 'var(--c-texPri)' }}>
             <AlertCircle className="h-4 w-4" style={{ color: 'var(--c-icoSec)' }} />
-            {config.type === 'alert' ? '提示' : config.type === 'confirm' ? '确认' : '输入'}
+            {config.type === 'alert' ? modalLabels.tip : config.type === 'confirm' ? modalLabels.confirm : modalLabels.input}
           </div>
           <button
             onClick={() => {
@@ -102,7 +103,7 @@ function Modal({ config }: { config: ModalConfig }) {
               className="nx-hoverable px-3 py-1.5 text-sm rounded-md"
               style={{ color: 'var(--c-texSec)', background: 'var(--c-bacTer)' }}
             >
-              取消
+              {modalLabels.cancel}
             </button>
           )}
           <button
@@ -116,7 +117,7 @@ function Modal({ config }: { config: ModalConfig }) {
               background: config.type === 'confirm' ? 'var(--nx-red)' : 'var(--nx-blue)',
             }}
           >
-            {config.type === 'alert' ? '确定' : config.type === 'confirm' ? '删除' : '确定'}
+            {config.type === 'alert' ? modalLabels.ok : config.type === 'confirm' ? modalLabels.delete : modalLabels.ok}
           </button>
         </div>
       </div>
@@ -143,8 +144,17 @@ export function TreeMenu({
   refreshKey,
 }: TreeMenuProps) {
   const isReadMode = mode === 'read';
+  const { t } = useI18n();
+  const modalLabels = { tip: t('common.tip'), confirm: t('common.confirm'), input: t('common.input'), cancel: t('common.cancel'), delete: t('common.delete'), ok: t('common.confirm') };
   const [tree, setTree] = useState<TreeItem[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set<string>();
+    try {
+      const saved = window.localStorage.getItem('nexo_tree_expanded');
+      if (saved) return new Set<string>(JSON.parse(saved));
+    } catch { /* ignore */ }
+    return new Set<string>();
+  });
   const [loading, setLoading] = useState(true);
   const [sortOrders, setSortOrders] = useState<Record<string, string[]>>({});
 
@@ -189,6 +199,17 @@ export function TreeMenu({
       });
     });
 
+  // ─── Persist expanded state ──────────────────────────────────────────────────
+
+  const expandedSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (expandedSaveTimer.current) clearTimeout(expandedSaveTimer.current);
+    expandedSaveTimer.current = setTimeout(() => {
+      window.localStorage.setItem('nexo_tree_expanded', JSON.stringify([...expanded]));
+    }, 300);
+    return () => { if (expandedSaveTimer.current) clearTimeout(expandedSaveTimer.current); };
+  }, [expanded]);
+
   // ─── Auto-expand selected path's ancestors ──────────────────────────────────
 
   useEffect(() => {
@@ -223,7 +244,7 @@ export function TreeMenu({
       const json = await res.json();
       if (json.ok) setTree(json.data);
     } catch (err) {
-      console.error('加载文件树失败:', err);
+      console.error('Failed to load tree:', err);
     } finally {
       setLoading(false);
     }
@@ -235,7 +256,7 @@ export function TreeMenu({
       const json = await res.json();
       if (json.ok) setSortOrders(json.data);
     } catch (err) {
-      console.error('加载排序失败:', err);
+      console.error('Failed to load sort order:', err);
     }
   };
 
@@ -247,7 +268,7 @@ export function TreeMenu({
         body: JSON.stringify({ parentPath, order }),
       });
     } catch (err) {
-      console.error('保存排序失败:', err);
+      console.error('Failed to save sort order:', err);
     }
   };
 
@@ -407,7 +428,7 @@ export function TreeMenu({
         await saveSortOrder(targetFolderPath, filtered);
       }
     } else {
-      await showAlert('移动失败: ' + json.error);
+      await showAlert(t('tree.moveFailed') + ': ' + json.error);
     }
   };
 
@@ -472,7 +493,7 @@ export function TreeMenu({
 
   const handleRename = async (oldPath: string, isFolder: boolean) => {
     const oldName = oldPath.split('/').pop() || oldPath;
-    const newName = await showPrompt('输入新名称:', oldName);
+    const newName = await showPrompt(t('tree.renameTo'), oldName);
     if (!newName || newName === oldName) return;
 
     const parentPath = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
@@ -487,7 +508,7 @@ export function TreeMenu({
         body: JSON.stringify({ oldPath, newPath }),
       });
       const json = await res.json();
-      if (!json.ok) { await showAlert('重命名失败: ' + json.error); return; }
+      if (!json.ok) { await showAlert(t('tree.renameFailed') + ': ' + json.error); return; }
 
       // Update sort order: replace old name with new name
       const order = sortOrders[parentPath];
@@ -500,14 +521,14 @@ export function TreeMenu({
 
       fetchTree();
     } catch (error) {
-      await showAlert('重命名失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      await showAlert(t('tree.renameFailed') + ': ' + (error instanceof Error ? error.message : ''));
     }
   };
 
   const handleDelete = async (itemPath: string, isFolder: boolean) => {
     const name = itemPath.split('/').pop();
     const confirmed = await showConfirm(
-      `确定要删除 "${name}" 吗？${isFolder ? '\n（包含的所有子文档也会被删除）' : ''}`
+      isFolder ? t('tree.deleteFolderConfirm', { name: name || '' }) : t('tree.deleteConfirm', { name: name || '' })
     );
     if (!confirmed) return;
 
@@ -516,7 +537,7 @@ export function TreeMenu({
       const url = isFolder ? `/api/folders/${encoded}` : `/api/articles/${encoded}`;
       const res = await fetch(url, { method: 'DELETE' });
       const json = await res.json();
-      if (!json.ok) { await showAlert('删除失败: ' + json.error); return; }
+      if (!json.ok) { await showAlert(t('tree.deleteFailed') + ': ' + json.error); return; }
 
       // Remove from sort order
       const parentPath = itemPath.includes('/') ? itemPath.substring(0, itemPath.lastIndexOf('/')) : '';
@@ -531,7 +552,7 @@ export function TreeMenu({
 
       fetchTree();
     } catch (error) {
-      await showAlert('删除失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      await showAlert(t('tree.deleteFailed') + ': ' + (error instanceof Error ? error.message : ''));
     }
   };
 
@@ -651,7 +672,7 @@ export function TreeMenu({
   if (loading) {
     return (
       <div className={cn('h-full flex-shrink-0 p-4', className)} style={{ background: 'var(--c-bacSec)', boxShadow: 'inset -1px 0 0 0 var(--c-borSec)' }}>
-        <p className="text-sm" style={{ color: 'var(--c-texDis)' }}>加载中...</p>
+        <p className="text-sm" style={{ color: 'var(--c-texDis)' }}>{t('common.loading')}</p>
       </div>
     );
   }
@@ -664,7 +685,7 @@ export function TreeMenu({
         {!isReadMode && (
           <button
             onClick={() => onCreateArticle('')}
-            title="新建文档"
+            title={t('createModal.title')}
             className="nx-hoverable flex items-center justify-center rounded p-1"
             style={{ color: 'var(--c-icoSec)' }}
           >
@@ -681,13 +702,7 @@ export function TreeMenu({
       >
         {tree.length === 0 ? (
           <div className="p-2 text-sm" style={{ color: 'var(--c-texDis)' }}>
-            <p>还没有内容</p>
-            {!isReadMode && (
-              <p className="mt-1">
-                <span className="hidden lg:inline">右键新建</span>
-                <span className="lg:hidden">点击上方 + 新建</span>
-              </p>
-            )}
+            <p>{t('tree.emptyTree')}</p>
           </div>
         ) : (
           renderTree(tree)
@@ -697,7 +712,7 @@ export function TreeMenu({
             className="mt-4 p-3 rounded-md text-center text-sm"
             style={{ border: '2px dashed var(--c-borPri)', color: 'var(--c-texTer)' }}
           >
-            拖放到此处移动到根目录
+            {t('tree.moveTo')} /
           </div>
         )}
       </div>
@@ -722,7 +737,7 @@ export function TreeMenu({
             onClick={() => { onCreateArticle(contextMenu.path); setContextMenu(null); }}
           >
             <FileText className="h-3.5 w-3.5" style={{ color: 'var(--c-icoSec)' }} />
-            新建子页面
+            {t('tree.newSubPage')}
           </button>
           <div className="my-1" style={{ borderTop: '1px solid var(--c-borSec)' }} />
           <button
@@ -731,7 +746,7 @@ export function TreeMenu({
             onClick={() => { handleRename(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
           >
             <Pencil className="h-3.5 w-3.5" style={{ color: 'var(--c-icoSec)' }} />
-            重命名
+            {t('common.rename')}
           </button>
           <button
             className="nx-hoverable-danger w-full text-left px-3 py-1.5 text-sm flex items-center gap-2"
@@ -739,13 +754,13 @@ export function TreeMenu({
             onClick={() => { handleDelete(contextMenu.path, contextMenu.isFolder); setContextMenu(null); }}
           >
             <Trash2 className="h-3.5 w-3.5" />
-            删除
+            {t('common.delete')}
           </button>
         </div>
       )}
 
       {/* 自定义弹窗 */}
-      {modal && <Modal config={modal} />}
+      {modal && <Modal config={modal} modalLabels={modalLabels} />}
     </div>
   );
 }
