@@ -28,7 +28,7 @@ interface GraphNode {
 interface GraphEdge {
   source: string;
   target: string;
-  kind?: 'wikilink' | 'mdlink' | 'pagelink' | 'parent';
+  kind?: 'wikilink' | 'mdlink' | 'mention' | 'parent';
 }
 
 interface GraphViewProps {
@@ -79,19 +79,32 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
 
   const nodesRef = useRef<GraphNode[]>([]);
   const edgesRef = useRef<GraphEdge[]>([]);
-  const [stats, setStats] = useState({ totalNodes: 0, totalEdges: 0, orphanCount: 0, viewNodes: 0, viewEdges: 0 });
+  const [stats, setStats] = useState<{
+    totalNodes: number; totalEdges: number; orphanCount: number;
+    viewNodes: number; viewEdges: number;
+    edgeKindCount?: Record<string, number>;
+  }>({ totalNodes: 0, totalEdges: 0, orphanCount: 0, viewNodes: 0, viewEdges: 0 });
   const [allTags, setAllTags] = useState<string[]>([]);
   const [clusters, setClusters] = useState<string[]>([]);
 
   const [viewMode, setViewMode] = useState<ViewMode>('global');
   const [localFocus, setLocalFocus] = useState<string | null>(null);
   const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [recentDays, setRecentDays] = useState<0 | 7 | 30>(0);
 
   const [loading, setLoading] = useState(true);
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GraphNode[]>([]);
   const searchResultsRef = useRef<GraphNode[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2400);
+  }, []);
 
   const zoomRef = useRef(1);
   const offsetRef = useRef({ x: 0, y: 0 });
@@ -145,8 +158,22 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
       for (const n of simNodes) for (const tag of n.tags) tagSet.add(tag);
       setAllTags(Array.from(tagSet).sort());
 
-      zoomRef.current = 1;
-      offsetRef.current = { x: 0, y: 0 };
+      // 自动聚焦：若有 highlightPath，找到节点后定位
+      const focusNodeForOpen = highlightPath
+        ? simNodes.find((n) => n.id === highlightPath)
+        : null;
+      if (focusNodeForOpen) {
+        const w = containerRef.current?.clientWidth || 900;
+        const h = containerRef.current?.clientHeight || 600;
+        zoomRef.current = 1.2;
+        offsetRef.current = {
+          x: w / 2 - focusNodeForOpen.x * 1.2,
+          y: (h - 48) / 2 - focusNodeForOpen.y * 1.2,
+        };
+      } else {
+        zoomRef.current = 1;
+        offsetRef.current = { x: 0, y: 0 };
+      }
       alphaRef.current = 1;
       simRunningRef.current = true;
     } catch { /* ignore */ }
@@ -281,15 +308,36 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
       }
     }
 
-    // 画边（screen coord，线宽固定）
-    for (const edge of edges) {
+    // 画边（screen coord，按类型区分样式）
+    // 顺序：parent (淡灰底层) → mention (虚线) → mdlink → wikilink (最显眼)
+    const kindOrder: Record<string, number> = { parent: 0, mention: 1, mdlink: 2, wikilink: 3 };
+    const sortedEdges = [...edges].sort(
+      (e1, e2) => (kindOrder[e1.kind || 'mdlink'] ?? 2) - (kindOrder[e2.kind || 'mdlink'] ?? 2),
+    );
+    for (const edge of sortedEdges) {
       const a = nodeMap.get(edge.source);
       const b = nodeMap.get(edge.target);
       if (!a || !b) continue;
       if (!tagMatch(a) || !tagMatch(b)) continue;
       const isActive = activeNodeId && (edge.source === activeNodeId || edge.target === activeNodeId);
-      ctx.strokeStyle = isActive ? colors.edgeHighlight : colors.edge;
-      ctx.lineWidth = isActive ? 2 : (edge.kind === 'wikilink' ? 1.2 : 0.8);
+      const kind = edge.kind || 'mdlink';
+
+      // 边样式：按类型区分
+      if (kind === 'parent') {
+        ctx.strokeStyle = isActive ? colors.edgeHighlight : (colors.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)');
+        ctx.lineWidth = isActive ? 1.5 : 0.6;
+        ctx.setLineDash([]);
+      } else if (kind === 'mention') {
+        ctx.strokeStyle = isActive ? colors.edgeHighlight : (colors.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)');
+        ctx.lineWidth = isActive ? 1.8 : 0.9;
+        ctx.setLineDash([3, 3]);
+      } else {
+        // wikilink / mdlink: 实线深色
+        ctx.strokeStyle = isActive ? colors.edgeHighlight : (colors.isDark ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.20)');
+        ctx.lineWidth = isActive ? 2 : 1.2;
+        ctx.setLineDash([]);
+      }
+
       const [sx1, sy1] = toScreen(a.x, a.y);
       const [sx2, sy2] = toScreen(b.x, b.y);
       ctx.beginPath();
@@ -297,6 +345,7 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
       ctx.lineTo(sx2, sy2);
       ctx.stroke();
     }
+    ctx.setLineDash([]);
 
     // 用于标签去重的已占用矩形（避免重叠）
     const occupiedLabels: Array<{ x: number; y: number; w: number; h: number }> = [];
@@ -326,8 +375,11 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
       if (isHighlight) fillColor = colors.highlight;
       if (isHovered) fillColor = colors.hovered;
 
+      const recentCutoff = recentDays > 0 ? Date.now() - recentDays * 86400000 : 0;
+      const isRecent = recentCutoff === 0 || (node.mtime && node.mtime >= recentCutoff);
       const dimmed = (hasSearch && !isSearchMatch && !isHovered) ||
-                     (filterTag !== null && !node.tags.includes(filterTag));
+                     (filterTag !== null && !node.tags.includes(filterTag)) ||
+                     (recentCutoff > 0 && !isRecent && !isHovered && !isHighlight);
       if (dimmed) ctx.globalAlpha = 0.15;
 
       ctx.beginPath();
@@ -378,7 +430,7 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
       }
       if (dimmed) ctx.globalAlpha = 1;
     }
-  }, [hoveredNode, highlightPath, searchQuery, filterTag]);
+  }, [hoveredNode, highlightPath, searchQuery, filterTag, recentDays]);
 
   // 搜索
   useEffect(() => {
@@ -403,10 +455,10 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
-  // 每次 filterTag 改变立刻重绘
+  // 每次 filterTag/recentDays 改变立刻重绘
   useEffect(() => {
     if (!simRunningRef.current) requestAnimationFrame(draw);
-  }, [filterTag, draw]);
+  }, [filterTag, recentDays, draw]);
 
   // 鼠标工具 —— 所有 hit-test 都在 screen 空间做（因为节点半径是 screen 固定）
   const screenToWorld = useCallback((clientX: number, clientY: number) => {
@@ -600,7 +652,7 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
                 key={v}
                 onClick={() => {
                   if (v === 'local' && !localFocus && !highlightPath) {
-                    alert('局部视图需要先选一个中心节点：双击图中任意节点进入局部图');
+                    showToast('局部视图需先选中心节点：双击图中任意节点进入');
                     return;
                   }
                   setViewMode(v);
@@ -670,6 +722,40 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
           </div>
         )}
 
+        {/* 近期编辑过滤 + 边类型 legend */}
+        <div className="flex items-center gap-3 px-4 py-1.5" style={{ borderBottom: '1px solid var(--c-borSec)', flexShrink: 0, fontSize: '11px', color: 'var(--c-texDis)' }}>
+          <div className="flex items-center gap-1">
+            <span style={{ marginRight: '4px' }}>近期编辑:</span>
+            {([
+              { v: 0 as const, l: '全部' },
+              { v: 7 as const, l: '7 天' },
+              { v: 30 as const, l: '30 天' },
+            ]).map(({ v, l }) => (
+              <button
+                key={v}
+                onClick={() => setRecentDays(v)}
+                className="nx-hoverable rounded px-2 py-0.5"
+                style={{
+                  fontSize: '11px',
+                  color: recentDays === v ? 'var(--nx-blue)' : 'var(--c-texTer)',
+                  background: recentDays === v ? 'var(--nx-badge-bg)' : 'transparent',
+                  border: 'none', cursor: 'pointer',
+                }}
+              >{l}</button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3" style={{ marginLeft: 'auto', flexShrink: 0 }}>
+            <span className="flex items-center gap-1"><span style={{ width: '14px', height: '2px', background: 'currentColor', opacity: 0.7, display: 'inline-block' }} />链接</span>
+            <span className="flex items-center gap-1"><span style={{ width: '14px', height: '0', borderTop: '2px dashed currentColor', opacity: 0.5, display: 'inline-block' }} />标题提及</span>
+            <span className="flex items-center gap-1"><span style={{ width: '14px', height: '1px', background: 'currentColor', opacity: 0.25, display: 'inline-block' }} />父子</span>
+            {stats.edgeKindCount && (
+              <span style={{ color: 'var(--c-texDis)' }}>
+                ({stats.edgeKindCount.wikilink || 0} 链接 · {stats.edgeKindCount.mention || 0} 提及 · {stats.edgeKindCount.parent || 0} 父子)
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* 聚类 / 标签过滤 */}
         {(clusters.length > 0 || allTags.length > 0) && (
           <div className="flex items-center gap-1 px-4 py-1.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--c-borSec)', flexShrink: 0 }}>
@@ -707,13 +793,13 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
 
         {/* 画布 */}
         {loading ? (
-          <div className="flex items-center justify-center" style={{ height: 'calc(100% - 90px)' }}>
+          <div className="flex items-center justify-center" style={{ height: 'calc(100% - 130px)' }}>
             <span style={{ color: 'var(--c-texDis)', fontSize: '14px' }}>{t('common.loading')}</span>
           </div>
         ) : (
           <canvas
             ref={canvasRef}
-            style={{ width: '100%', height: 'calc(100% - 90px)', cursor: 'grab' }}
+            style={{ width: '100%', height: 'calc(100% - 130px)', cursor: 'grab' }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -728,30 +814,94 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
           />
         )}
 
-        {/* hover 卡片 */}
-        {hoveredNode && (
-          <div style={{ position: 'absolute', bottom: '16px', left: '16px', padding: '10px 14px', borderRadius: '10px', background: 'var(--c-bacSec)', border: '1px solid var(--c-borSec)', fontSize: '12px', color: 'var(--c-texSec)', maxWidth: '360px', boxShadow: 'var(--c-shaOutMd)' }}>
-            <div style={{ fontWeight: 600, color: 'var(--c-texPri)', marginBottom: '4px', fontSize: '13px' }}>
-              {hoveredNode.title}
-              {hoveredNode.isOrphan && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 6px', background: 'rgba(140,140,140,0.2)', color: 'var(--c-texTer)', borderRadius: '3px' }}>孤岛</span>}
-            </div>
-            <div style={{ color: 'var(--c-texDis)' }}>
-              {hoveredNode.id}
-              {hoveredNode.wordCount > 0 && ` · ${hoveredNode.wordCount} 字`}
-              {` · ${hoveredNode.degree} 连接`}
-            </div>
-            {hoveredNode.tags.length > 0 && (
-              <div className="flex gap-1 mt-2 flex-wrap">
-                {hoveredNode.tags.map((tag) => (
-                  <span key={tag} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '100px', background: 'var(--c-bacTer)', color: 'var(--c-texTer)' }}>
-                    {tag}
-                  </span>
-                ))}
+        {/* hover 卡片 (含邻居栏) */}
+        {hoveredNode && (() => {
+          const out: { path: string; title: string; kind: string }[] = [];
+          const incoming: { path: string; title: string; kind: string }[] = [];
+          const seen = new Set<string>();
+          for (const e of edgesRef.current) {
+            const k = e.kind || 'mdlink';
+            if (e.source === hoveredNode.id) {
+              const n = nodesRef.current.find((x) => x.id === e.target);
+              if (n && !seen.has('o:' + n.id)) { seen.add('o:' + n.id); out.push({ path: n.id, title: n.title, kind: k }); }
+            } else if (e.target === hoveredNode.id) {
+              const n = nodesRef.current.find((x) => x.id === e.source);
+              if (n && !seen.has('i:' + n.id)) { seen.add('i:' + n.id); incoming.push({ path: n.id, title: n.title, kind: k }); }
+            }
+          }
+          const kindLabel = (k: string) => k === 'wikilink' || k === 'mdlink' ? '链接' : k === 'mention' ? '提及' : '父子';
+          return (
+            <div style={{ position: 'absolute', bottom: '16px', left: '16px', padding: '10px 14px', borderRadius: '10px', background: 'var(--c-bacSec)', border: '1px solid var(--c-borSec)', fontSize: '12px', color: 'var(--c-texSec)', maxWidth: '380px', maxHeight: '60vh', overflowY: 'auto', boxShadow: 'var(--c-shaOutMd)' }}>
+              <div style={{ fontWeight: 600, color: 'var(--c-texPri)', marginBottom: '4px', fontSize: '13px' }}>
+                {hoveredNode.title}
+                {hoveredNode.isOrphan && <span style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 6px', background: 'rgba(140,140,140,0.2)', color: 'var(--c-texTer)', borderRadius: '3px' }}>孤岛</span>}
               </div>
-            )}
-            <div style={{ fontSize: '11px', color: 'var(--c-texDis)', marginTop: '6px' }}>
-              单击打开 · 双击以此为中心 · 拖拽移动
+              <div style={{ color: 'var(--c-texDis)' }}>
+                {hoveredNode.id}
+                {hoveredNode.wordCount > 0 && ` · ${hoveredNode.wordCount} 字`}
+                {` · ${hoveredNode.degree} 连接`}
+              </div>
+              {hoveredNode.tags.length > 0 && (
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  {hoveredNode.tags.map((tag) => (
+                    <span key={tag} style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '100px', background: 'var(--c-bacTer)', color: 'var(--c-texTer)' }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {(out.length > 0 || incoming.length > 0) && (
+                <div style={{ marginTop: '8px', borderTop: '1px solid var(--c-borSec)', paddingTop: '6px' }}>
+                  {out.length > 0 && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--c-texDis)', marginBottom: '2px' }}>→ 出邻居 ({out.length})</div>
+                      {out.slice(0, 6).map((n) => (
+                        <div key={'o' + n.path} style={{ fontSize: '11px', color: 'var(--c-texSec)', padding: '1px 0' }}>
+                          <span style={{ marginRight: '6px', fontSize: '9px', color: 'var(--c-texDis)' }}>[{kindLabel(n.kind)}]</span>{n.title}
+                        </div>
+                      ))}
+                      {out.length > 6 && <div style={{ fontSize: '10px', color: 'var(--c-texDis)' }}>… 还有 {out.length - 6}</div>}
+                    </div>
+                  )}
+                  {incoming.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '10px', color: 'var(--c-texDis)', marginBottom: '2px' }}>← 入邻居 ({incoming.length})</div>
+                      {incoming.slice(0, 6).map((n) => (
+                        <div key={'i' + n.path} style={{ fontSize: '11px', color: 'var(--c-texSec)', padding: '1px 0' }}>
+                          <span style={{ marginRight: '6px', fontSize: '9px', color: 'var(--c-texDis)' }}>[{kindLabel(n.kind)}]</span>{n.title}
+                        </div>
+                      ))}
+                      {incoming.length > 6 && <div style={{ fontSize: '10px', color: 'var(--c-texDis)' }}>… 还有 {incoming.length - 6}</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{ fontSize: '11px', color: 'var(--c-texDis)', marginTop: '6px' }}>
+                单击打开 · 双击以此为中心 · 拖拽移动
+              </div>
             </div>
+          );
+        })()}
+
+        {/* 空状态提示 */}
+        {!loading && stats.totalEdges > 0 && stats.edgeKindCount && (
+          (stats.edgeKindCount.wikilink || 0) + (stats.edgeKindCount.mdlink || 0) + (stats.edgeKindCount.mention || 0) === 0
+        ) && (
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', padding: '20px 28px', borderRadius: '12px', background: 'var(--c-bacSec)', border: '1px solid var(--c-borSec)', fontSize: '13px', color: 'var(--c-texSec)', maxWidth: '440px', textAlign: 'center', pointerEvents: 'none', boxShadow: 'var(--c-shaOutMd)' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--c-texPri)', marginBottom: '8px' }}>📝 还没有知识连接</div>
+            当前图谱只有文件树父子关系。在文档中：
+            <ul style={{ textAlign: 'left', marginTop: '8px', paddingLeft: '20px', fontSize: '12px', color: 'var(--c-texTer)' }}>
+              <li>用 <code>[[标题]]</code> 链接其他文档</li>
+              <li>用 <code>[文字](/read/页面ID)</code> 引用</li>
+              <li>在正文中用 <code>#标签</code> 给文档归类</li>
+            </ul>
+          </div>
+        )}
+
+        {/* Toast */}
+        {toast && (
+          <div className="nx-fadein-fast" style={{ position: 'absolute', top: '60px', left: '50%', transform: 'translateX(-50%)', padding: '8px 16px', borderRadius: '6px', background: 'var(--c-bacSec)', border: '1px solid var(--c-borSec)', color: 'var(--c-texPri)', fontSize: '12px', boxShadow: 'var(--c-shaOutMd)', zIndex: 50, whiteSpace: 'nowrap' }}>
+            {toast}
           </div>
         )}
 
