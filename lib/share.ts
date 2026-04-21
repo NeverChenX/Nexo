@@ -4,7 +4,6 @@ import crypto from 'crypto';
 
 const SHARE_LINKS_FILE = path.join(process.cwd(), 'share-links.json');
 
-// 进程内互斥锁，防止并发读-改-写丢失数据
 let _lock: Promise<void> = Promise.resolve();
 function withLock<T>(fn: () => Promise<T>): Promise<T> {
   const prev = _lock;
@@ -13,13 +12,21 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
   return prev.then(fn).finally(() => release!());
 }
 
-interface ShareLink {
+export interface ShareLink {
   path: string;
   type: 'article' | 'folder';
   createdAt: string;
+  /** PIN 码 sha256 hex（6-20 位明文 PIN 的哈希）。为空表示无密码 */
+  pinHash?: string;
+  /** ISO 时间戳；缺失视为永久 */
+  expiresAt?: string;
 }
 
-// 初始化分享链接文件
+export interface CreateShareOptions {
+  pin?: string;              // 明文 PIN
+  expiresInDays?: number;    // 7 / 30 / null=永久
+}
+
 async function initShareLinksFile(): Promise<void> {
   try {
     await fs.stat(SHARE_LINKS_FILE);
@@ -28,24 +35,24 @@ async function initShareLinksFile(): Promise<void> {
   }
 }
 
-// 读取所有分享链接
 async function getAllShareLinks(): Promise<Record<string, ShareLink>> {
   await initShareLinksFile();
   const content = await fs.readFile(SHARE_LINKS_FILE, 'utf-8');
   return JSON.parse(content || '{}');
 }
 
-// 保存分享链接
-async function saveShareLinks(
-  links: Record<string, ShareLink>
-): Promise<void> {
+async function saveShareLinks(links: Record<string, ShareLink>): Promise<void> {
   await fs.writeFile(SHARE_LINKS_FILE, JSON.stringify(links, null, 2), 'utf-8');
 }
 
-// 生成分享链接
+function hashPin(pin: string): string {
+  return crypto.createHash('sha256').update(`nexo:${pin}`).digest('hex');
+}
+
 export async function createShareLink(
   itemPath: string,
-  type: 'article' | 'folder'
+  type: 'article' | 'folder',
+  opts: CreateShareOptions = {},
 ): Promise<string> {
   return withLock(async () => {
     const links = await getAllShareLinks();
@@ -54,51 +61,54 @@ export async function createShareLink(
       token = crypto.randomBytes(16).toString('hex');
     } while (links[token]);
 
-    links[token] = {
+    const entry: ShareLink = {
       path: itemPath,
       type,
       createdAt: new Date().toISOString(),
     };
+    if (opts.pin && opts.pin.trim()) entry.pinHash = hashPin(opts.pin.trim());
+    if (opts.expiresInDays && opts.expiresInDays > 0) {
+      entry.expiresAt = new Date(Date.now() + opts.expiresInDays * 86400000).toISOString();
+    }
 
+    links[token] = entry;
     await saveShareLinks(links);
     return token;
   });
 }
 
-// 删除分享链接
 export async function deleteShareLink(token: string): Promise<boolean> {
   return withLock(async () => {
     const links = await getAllShareLinks();
-
-    if (!links[token]) {
-      return false;
-    }
-
+    if (!links[token]) return false;
     delete links[token];
     await saveShareLinks(links);
     return true;
   });
 }
 
-// 获取分享链接信息
 export async function getShareLink(token: string): Promise<ShareLink | null> {
   const links = await getAllShareLinks();
   return links[token] || null;
 }
 
-// 检查分享链接是否存在
+export function isExpired(link: ShareLink): boolean {
+  if (!link.expiresAt) return false;
+  return new Date(link.expiresAt).getTime() < Date.now();
+}
+
+export function verifyPin(link: ShareLink, pin?: string): boolean {
+  if (!link.pinHash) return true; // 无密码
+  if (!pin) return false;
+  return hashPin(pin) === link.pinHash;
+}
+
 export async function shareTokenExists(token: string): Promise<boolean> {
   const link = await getShareLink(token);
   return !!link;
 }
 
-// 获取所有分享链接
-export async function getAllShares(): Promise<
-  Array<{ token: string } & ShareLink>
-> {
+export async function getAllShares(): Promise<Array<{ token: string } & ShareLink>> {
   const links = await getAllShareLinks();
-  return Object.entries(links).map(([token, link]) => ({
-    token,
-    ...link,
-  }));
+  return Object.entries(links).map(([token, link]) => ({ token, ...link }));
 }

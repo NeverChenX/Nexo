@@ -3,6 +3,7 @@
 export interface RecentItem {
   path: string;
   title: string;
+  idChain?: string;
   timestamp: number;
 }
 
@@ -20,10 +21,10 @@ export function getRecentDocs(): RecentItem[] {
   }
 }
 
-export function addRecentDoc(path: string, title: string) {
+export function addRecentDoc(path: string, title: string, idChain?: string) {
   if (typeof window === 'undefined') return;
   const items = getRecentDocs().filter((i) => i.path !== path);
-  items.unshift({ path, title, timestamp: Date.now() });
+  items.unshift({ path, title, idChain, timestamp: Date.now() });
   if (items.length > MAX_ITEMS) items.length = MAX_ITEMS;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }

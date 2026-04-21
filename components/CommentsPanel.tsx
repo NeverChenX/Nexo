@@ -34,6 +34,14 @@ export function CommentsPanel({ articlePath }: CommentsPanelProps) {
     return () => { cancelled = true; };
   }, [articlePath]);
 
+  // 展开时自动 focus 输入框（更可靠的触发点）
+  useEffect(() => {
+    if (expanded) {
+      const id = window.requestAnimationFrame(() => inputRef.current?.focus());
+      return () => window.cancelAnimationFrame(id);
+    }
+  }, [expanded]);
+
   const handleAdd = async () => {
     if (!text.trim()) return;
     try {
@@ -68,7 +76,7 @@ export function CommentsPanel({ articlePath }: CommentsPanelProps) {
   return (
     <div style={{ marginTop: '24px' }}>
       <button
-        onClick={() => { setExpanded(!expanded); if (!expanded) setTimeout(() => inputRef.current?.focus(), 100); }}
+        onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1.5"
         style={{ fontSize: '11px', fontWeight: 500, color: 'var(--c-texTer)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
       >

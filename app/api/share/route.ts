@@ -43,11 +43,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = await createShareLink(path, type);
+    const pin = typeof body.pin === 'string' && body.pin.trim() ? body.pin.trim() : undefined;
+    const expiresInDays = typeof body.expiresInDays === 'number' ? body.expiresInDays : undefined;
+
+    const token = await createShareLink(path, type, { pin, expiresInDays });
 
     return NextResponse.json({
       ok: true,
-      data: { token, path, type },
+      data: { token, path, type, hasPin: !!pin, expiresInDays: expiresInDays || null },
     });
   } catch (error) {
     console.error('创建分享链接失败:', error);

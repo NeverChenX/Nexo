@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, FileText } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { defaultTemplates, getTemplateContent } from '@/lib/templates';
+import { useModalFocus } from '@/lib/useModalFocus';
 
 interface CreateArticleModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface CreateArticleModalProps {
 }
 
 export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: CreateArticleModalProps) {
+  useModalFocus(isOpen);
   const [name, setName] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('blank');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,11 +44,20 @@ export function CreateArticleModal({ isOpen, parentPath, onConfirm, onClose }: C
 
   if (!isOpen) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (name.trim().length > 0) {
+      const ok = window.confirm(t('createModal.discardConfirm'));
+      if (!ok) return;
+    }
+    onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.15)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={handleBackdropClick}
     >
       <div
         className="w-[360px] p-5"

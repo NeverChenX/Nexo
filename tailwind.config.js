@@ -19,6 +19,7 @@ module.exports = {
             secondary: 'var(--c-bacSec)',
             tertiary: 'var(--c-bacTer)',
             elevated: 'var(--c-bacEle)',
+            warm: 'var(--c-bacWarm)',
           },
           border: {
             primary: 'var(--c-borPri)',
@@ -30,12 +31,28 @@ module.exports = {
             disabled: 'var(--c-icoDis)',
           },
           blue: 'var(--nx-blue)',
+          'blue-active': 'var(--nx-blue-active)',
           red: 'var(--nx-red)',
+          teal: 'var(--nx-teal)',
+          green: 'var(--nx-green)',
+          orange: 'var(--nx-orange)',
+          badge: {
+            bg: 'var(--nx-badge-bg)',
+            text: 'var(--nx-badge-text)',
+          },
         },
+      },
+      borderRadius: {
+        'nx-micro': 'var(--nx-radius-micro)',
+        'nx-subtle': 'var(--nx-radius-subtle)',
+        'nx-std': 'var(--nx-radius-std)',
+        'nx-card': 'var(--nx-radius-card)',
+        'nx-hero': 'var(--nx-radius-hero)',
+        'nx-pill': 'var(--nx-radius-pill)',
       },
       fontFamily: {
         sans: [
-          'ui-sans-serif', '-apple-system', 'BlinkMacSystemFont',
+          '"Inter"', 'ui-sans-serif', '-apple-system', 'BlinkMacSystemFont',
           '"Segoe UI Variable Display"', '"Segoe UI"', 'Helvetica',
           '"Apple Color Emoji"', 'Arial', 'sans-serif', '"Segoe UI Emoji"', '"Segoe UI Symbol"',
           '"PingFang SC"', '"Microsoft YaHei"', '"Source Han Sans SC"', '"Noto Sans CJK SC"',

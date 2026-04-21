@@ -4,11 +4,13 @@
 export interface DocStats {
   wordCount: number;
   charCount: number;
+  charCountNoSpaces: number;
+  paragraphCount: number;
   readingTimeMin: number;
 }
 
 export function computeStats(content: string): DocStats {
-  if (!content.trim()) return { wordCount: 0, charCount: 0, readingTimeMin: 0 };
+  if (!content.trim()) return { wordCount: 0, charCount: 0, charCountNoSpaces: 0, paragraphCount: 0, readingTimeMin: 0 };
 
   // 去掉 markdown 语法标记
   const cleaned = content
@@ -18,6 +20,10 @@ export function computeStats(content: string): DocStats {
     .trim();
 
   const charCount = cleaned.length;
+  const charCountNoSpaces = cleaned.replace(/\s/g, '').length;
+
+  // 段落数：按连续空行分割
+  const paragraphCount = content.split(/\n\s*\n/).filter((p) => p.trim()).length || 1;
 
   // CJK 字符每个算一词，非 CJK 按空格分词
   const cjkChars = cleaned.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g);
@@ -32,5 +38,5 @@ export function computeStats(content: string): DocStats {
   // 中文 ~400字/分钟，英文 ~200词/分钟，取平均
   const readingTimeMin = Math.max(1, Math.ceil(wordCount / 350));
 
-  return { wordCount, charCount, readingTimeMin };
+  return { wordCount, charCount, charCountNoSpaces, paragraphCount, readingTimeMin };
 }

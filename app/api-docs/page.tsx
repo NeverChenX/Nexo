@@ -117,7 +117,7 @@ export default function ApiDocsPage() {
             title="创建文件夹"
             method="POST"
             url="/api/folders"
-            body='{"path": "notes/daily"}'
+            body='{"path": "notes/inbox"}'
             description="创建一个文件夹。支持嵌套路径，父目录会自动创建。"
           />
 

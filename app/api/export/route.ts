@@ -44,20 +44,20 @@ export async function GET(req: NextRequest) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <style>
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 720px; margin: 0 auto; padding: 40px 20px; color: #37352f; line-height: 1.7; }
-h1 { font-size: 1.875em; font-weight: 700; margin-top: 40px; }
-h2 { font-size: 1.375em; font-weight: 600; margin-top: 32px; }
-h3 { font-size: 1.15em; font-weight: 600; margin-top: 26px; }
+body { font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 720px; margin: 0 auto; padding: 40px 20px; color: rgba(0,0,0,0.95); line-height: 1.7; }
+h1 { font-size: 1.875em; font-weight: 700; margin-top: 40px; letter-spacing: -0.03em; }
+h2 { font-size: 1.375em; font-weight: 700; margin-top: 32px; letter-spacing: -0.02em; }
+h3 { font-size: 1.15em; font-weight: 700; margin-top: 26px; letter-spacing: -0.01em; }
 code { background: #f7f6f3; padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.875em; }
-pre { background: #f7f6f3; padding: 1.2em; border-radius: 4px; overflow-x: auto; }
+pre { background: #f7f6f3; padding: 1.2em; border-radius: 8px; overflow-x: auto; }
 pre code { background: none; padding: 0; font-size: 0.9em; }
-blockquote { border-left: 2px solid rgba(55,53,47,0.16); padding: 4px 0 4px 16px; margin: 8px 0; color: #787774; }
+blockquote { border-left: 3px solid rgba(0,0,0,0.1); padding: 4px 0 4px 16px; margin: 8px 0; color: #615d59; }
 table { border-collapse: collapse; width: 100%; margin: 4px 0; font-size: 14px; }
-th, td { border: 1px solid #e6e5e3; padding: 8px 10px; text-align: left; }
-th { background: #f7f6f3; font-weight: 500; }
+th, td { border: 1px solid rgba(0,0,0,0.1); padding: 8px 10px; text-align: left; }
+th { background: #f6f5f4; font-weight: 500; }
 img { max-width: 100%; }
-hr { border: none; border-top: 1px solid #e6e5e3; margin: 24px 0; }
-a { color: #37352f; text-decoration: underline; }
+hr { border: none; border-top: 1px solid rgba(0,0,0,0.1); margin: 24px 0; }
+a { color: rgba(0,0,0,0.95); text-decoration: underline; }
 </style>
 </head>
 <body>

@@ -1,6 +1,19 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+// Pre-register linkify protocols before BlockNote initializes linkifyjs
+// This prevents "already initialized" warnings from tiptap's Link extension
+import { registerCustomProtocol, init as linkifyInit } from 'linkifyjs';
+try {
+  ['http', 'https', 'ftp', 'ftps', 'mailto', 'tel', 'callto', 'sms', 'cid', 'xmpp'].forEach((scheme) => {
+    registerCustomProtocol(scheme);
+  });
+  linkifyInit();
+} catch {
+  // linkify may already be initialized in some environments
+}
+
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo, createContext, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { createReactBlockSpec } from '@blocknote/react';
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultStyleSpecs, filterSuggestionItems } from '@blocknote/core';
 import {
@@ -11,13 +24,22 @@ import {
   FormattingToolbar,
   BasicTextStyleButton,
   BlockTypeSelect,
+  TextAlignButton,
+  CreateLinkButton,
+  NestBlockButton,
+  UnnestBlockButton,
 } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/shadcn';
-import '@blocknote/core/fonts/inter.css';
 import '@blocknote/shadcn/style.css';
 import { useI18n } from '@/lib/i18n';
 import { BacklinksPanel } from '@/components/BacklinksPanel';
 import { CommentsPanel } from '@/components/CommentsPanel';
+import { AiWritePanel } from '@/components/AiWritePanel';
+import { DocumentPropertiesPanel, type DocumentPropertiesPanelHandle } from '@/components/DocumentPropertiesPanel';
+import { PageIconCover, type PageIconCoverHandle } from '@/components/PageIconCover';
+import { SmilePlus, ImageIcon, Plus, Sparkles, Wand2, Highlighter, X, Palette, AlertCircle } from 'lucide-react';
+import { Z } from '@/lib/z-index';
+import { parseFrontmatter, serializeFrontmatter, Frontmatter } from '@/lib/frontmatter';
 
 // ─────────────── PageLink 自定义 Block ───────────────
 
@@ -39,7 +61,7 @@ const PageLink = createReactBlockSpec(
           style={{ borderRadius: '4px' }}
           onClick={(e) => {
             e.preventDefault();
-            const event = new CustomEvent('pagelink-click', { detail: { path: block.props.pagePath } });
+            const event = new CustomEvent('nexo:pagelink-click', { detail: { path: block.props.pagePath } });
             window.dispatchEvent(event);
           }}
           data-page-path={block.props.pagePath}
@@ -65,6 +87,19 @@ const schema = BlockNoteSchema.create({
   styleSpecs: defaultStyleSpecs,
 });
 
+// ─────────────── 切换文档时重置 AI 面板 ───────────────
+
+function AiPanelReset({ articlePath, onReset }: { articlePath: string; onReset: () => void }) {
+  const prev = useRef(articlePath);
+  useEffect(() => {
+    if (prev.current !== articlePath) {
+      prev.current = articlePath;
+      onReset();
+    }
+  }, [articlePath, onReset]);
+  return null;
+}
+
 // ─────────────── AI 解释面板 ───────────────
 
 function AiExplainPanel({
@@ -76,6 +111,7 @@ function AiExplainPanel({
   articlePath: string;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [result, setResult] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -92,15 +128,15 @@ function AiExplainPanel({
         const json = await res.json();
         if (cancelled) return;
         if (json.ok) setResult(json.data.explanation);
-        else setError(json.error || 'Explanation failed');
+        else setError(json.error || t('ai.explainFailed'));
       } catch {
-        if (!cancelled) setError('Request failed');
+        if (!cancelled) setError(t('ai.requestFailed'));
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [text, articlePath]);
+  }, [text, articlePath, t]);
 
   return (
     <div
@@ -115,7 +151,7 @@ function AiExplainPanel({
         border: '1px solid var(--c-borPri)',
         borderRadius: '8px',
         boxShadow: 'var(--c-shaOutLg)',
-        zIndex: 9999,
+        zIndex: Z.FLOATING_PANEL,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -130,13 +166,18 @@ function AiExplainPanel({
         borderBottom: '1px solid var(--c-borSec)',
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--c-texSec)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-          ✦ AI Explain
+        <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--c-texSec)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+          <Sparkles style={{ width: '12px', height: '12px', color: '#8b5cf6' }} />
+          {t('ai.explain')}
         </span>
         <button
           onClick={onClose}
-          style={{ color: 'var(--c-icoSec)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', borderRadius: '3px', lineHeight: 1, fontSize: '14px' }}
-        >✕</button>
+          aria-label={t('common.close')}
+          className="nx-hoverable"
+          style={{ color: 'var(--c-icoSec)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px', borderRadius: '3px', lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <X style={{ width: '13px', height: '13px' }} />
+        </button>
       </div>
       {/* 被解释的原文 */}
       <div style={{
@@ -156,7 +197,7 @@ function AiExplainPanel({
       <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1 }}>
         {loading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--c-texTer)', fontSize: '13px' }}>
-            <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Explaining...
+            <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> {t('ai.explaining')}
           </div>
         )}
         {error && <p style={{ color: 'var(--nx-red)', fontSize: '13px' }}>{error}</p>}
@@ -170,7 +211,7 @@ function AiExplainPanel({
 
 const toolbarBtnStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center',
-  width: '32px', height: '28px', borderRadius: '6px', border: 'none',
+  width: '32px', height: '28px', borderRadius: '4px', border: 'none',
   background: 'transparent', cursor: 'pointer', color: 'var(--c-icoPri)',
   fill: 'var(--c-icoPri)', flexShrink: 0, padding: '0',
 };
@@ -195,49 +236,387 @@ function TBtn({ title, onClick, active, children }: {
   );
 }
 
+// ─────────────── 颜色按钮的跨 Mount state（Context 模式） ───────────────
+// BlockNote toolbar 在 selection collapse/restore 过程中会 unmount 再 mount
+// CustomFormattingToolbar。任何 useState 都会被重置。通过 Context 把 state
+// 上提到 EditorBlockEditor（永不 unmount），子组件哪怕 remount 也能从 Context
+// 读到最新值 —— 这是彻底解决"点颜色按钮色板消失"的唯一可行方案。
+
+interface ColorState {
+  open: boolean;
+  setOpen: (next: boolean | ((prev: boolean) => boolean)) => void;
+  savedSelectionRef: React.MutableRefObject<{ from: number; to: number } | null>;
+}
+const ColorStateCtx = createContext<ColorState | null>(null);
+
+// ─────────────── 自定义颜色按钮（替代内置 ColorStyleButton） ───────────────
+// BlockNote v0.47 的 ColorStyleButton 用 Radix Portal 打开子菜单，
+// 但未调用 setToolbarPositionFrozen，导致 Floating-UI 识别为 outside click，
+// 工具栏连同色板一起 dismiss。这里用 absolute 色板（DOM 在工具栏内）绕开。
+
+const BN_COLORS = ['default', 'gray', 'brown', 'red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink'] as const;
+const BN_TEXT_SWATCH: Record<string, string> = {
+  default: 'var(--c-texPri)',
+  gray: '#787774',
+  brown: '#976D57',
+  red: '#E03E3E',
+  orange: '#D9730D',
+  yellow: '#DFAB01',
+  green: '#0F7B6C',
+  blue: '#0B6E99',
+  purple: '#6940A5',
+  pink: '#AD1A72',
+};
+const BN_BG_SWATCH: Record<string, string> = {
+  default: 'transparent',
+  gray: 'rgba(155,154,151,0.4)',
+  brown: 'rgba(186,133,111,0.3)',
+  red: 'rgba(255,115,105,0.3)',
+  orange: 'rgba(255,163,68,0.3)',
+  yellow: 'rgba(255,220,73,0.4)',
+  green: 'rgba(77,171,154,0.3)',
+  blue: 'rgba(82,156,202,0.3)',
+  purple: 'rgba(154,109,215,0.3)',
+  pink: 'rgba(226,85,161,0.3)',
+};
+
+function ColorPopoverBtn({ editor }: { editor: any }) {
+  const { t } = useI18n();
+  const ctx = useContext(ColorStateCtx);
+  // fallback：如果没有 Provider，用 local state（不会跨 unmount 保存，但不崩溃）
+  const [localOpen, setLocalOpen] = useState(false);
+  const localSavedRef = useRef<{ from: number; to: number } | null>(null);
+  const open = ctx?.open ?? localOpen;
+  const setOpen = ctx?.setOpen ?? setLocalOpen;
+  const savedSelectionRef = ctx?.savedSelectionRef ?? localSavedRef;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // 色板位置（fixed portal），下方空间不够就放按钮上方
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
+
+  const recomputePos = useCallback(() => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    // 色板实际高度（若已渲染则精确测量；否则估 210）
+    const panelH = panelRef.current?.getBoundingClientRect().height || 210;
+    const panelW = panelRef.current?.getBoundingClientRect().width || 240;
+    const GAP = 6;
+    const vpH = window.innerHeight;
+    const vpW = window.innerWidth;
+    const spaceBelow = vpH - r.bottom;
+    const spaceAbove = r.top;
+    // 下方够就放下方，否则若上方更空放上方
+    const placeBelow = spaceBelow >= panelH + GAP || spaceBelow >= spaceAbove;
+    const top = placeBelow ? r.bottom + GAP : Math.max(8, r.top - panelH - GAP);
+    const left = Math.min(Math.max(8, r.left), vpW - panelW - 8);
+    setPanelPos({ top, left, placement: placeBelow ? 'bottom' : 'top' });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) { setPanelPos(null); return; }
+    recomputePos();
+    // 窗口滚动/resize 时重新计算（色板本身 fixed，但按钮位置变 → 色板要跟随）
+    const h = () => recomputePos();
+    window.addEventListener('scroll', h, true);
+    window.addEventListener('resize', h);
+    return () => {
+      window.removeEventListener('scroll', h, true);
+      window.removeEventListener('resize', h);
+    };
+  }, [open, recomputePos]);
+
+  // 色板渲染完之后再测一次精确高度（第一次是估算值）
+  useEffect(() => {
+    if (!open || !panelRef.current) return;
+    const id = window.requestAnimationFrame(recomputePos);
+    return () => window.cancelAnimationFrame(id);
+  }, [open, recomputePos]);
+
+  // 🔧 真正的根因修复：
+  // BlockNote 的 FormattingToolbarExtension 在 editor DOM 监听 pointerdown，
+  // 在 document 监听 pointerup(capture)。当用户点击工具栏按钮时：
+  // ① pointerdown 发生（早于 mousedown）
+  // ② button 默认行为：偷走 focus、清空 editor selection
+  // ③ pointerup 触发 extension 重新评估：selection.empty === true → 关闭工具栏
+  // 必须在 pointerdown 阶段 preventDefault 才能阻止 focus 转移。
+  // onMouseDown preventDefault 太晚，focus 已经转移。
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const handler = (e: PointerEvent) => e.preventDefault();
+    wrap.addEventListener('pointerdown', handler, true);
+    return () => wrap.removeEventListener('pointerdown', handler, true);
+  }, []);
+
+  // 色板 portal 到 body，同样需要 native preventDefault 阻止 ProseMirror 偷走选区
+  useEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const handler = (e: PointerEvent) => e.preventDefault();
+    panel.addEventListener('pointerdown', handler, true);
+    return () => panel.removeEventListener('pointerdown', handler, true);
+  }, [open, panelPos]);
+
+  // ProseMirror 会在 click 后通过 view.setSelection → Selection.collapse
+  // 把选区清空（puppeteer 栈追踪验证），onMouseDown preventDefault 挡不住。
+  // 对策：点击时保存 ProseMirror state.selection 的 from/to，rAF 后恢复。
+  const captureSelection = () => {
+    const tt = (editor as any)._tiptapEditor;
+    const sel = tt?.state?.selection;
+    if (sel && !sel.empty) savedSelectionRef.current = { from: sel.from, to: sel.to };
+  };
+  const restoreSelection = () => {
+    const saved = savedSelectionRef.current;
+    if (!saved) return;
+    const tt = (editor as any)._tiptapEditor;
+    if (!tt) return;
+    window.requestAnimationFrame(() => {
+      try {
+        tt.chain().focus().setTextSelection(saved).run();
+      } catch (err) {
+        console.error('restoreSelection failed:', err);
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      // 色板现在 portal 到 body，所以两个 ref 都要检查
+      if (wrapRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const id = window.requestAnimationFrame(() => document.addEventListener('mousedown', handler));
+    return () => {
+      window.cancelAnimationFrame(id);
+      document.removeEventListener('mousedown', handler);
+    };
+  }, [open]);
+
+  const apply = (kind: 'textColor' | 'backgroundColor', color: string) => {
+    const saved = savedSelectionRef.current;
+    const tt = (editor as any)._tiptapEditor;
+    try {
+      // 先把选区还原回去（ProseMirror 在 click 后会主动 collapse 选区）
+      if (saved && tt) {
+        tt.chain().focus().setTextSelection(saved).run();
+      }
+      if (color === 'default') {
+        editor.removeStyles({ [kind]: '' });
+      } else {
+        editor.addStyles({ [kind]: color });
+      }
+    } catch (err) {
+      console.error('Apply color failed:', err);
+    }
+    setOpen(false);
+  };
+
+  const active = (editor.getActiveStyles?.() ?? {}) as { textColor?: string; backgroundColor?: string };
+
+  return (
+    <div ref={wrapRef} data-nexo-color-popover="" style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onPointerDown={captureSelection}
+        onClick={() => {
+          setOpen((o) => !o);
+          restoreSelection();
+        }}
+        title={t('color.title')}
+        aria-label={t('color.title')}
+        style={{
+          ...toolbarBtnStyle,
+          background: open ? 'var(--ca-butHovBac)' : 'transparent',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ca-butHovBac)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = open ? 'var(--ca-butHovBac)' : 'transparent'; }}
+      >
+        <Palette style={{ width: '14px', height: '14px', color: active.textColor && active.textColor !== 'default' ? BN_TEXT_SWATCH[active.textColor] : 'var(--c-icoPri)' }} />
+      </button>
+      {open && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={panelRef}
+          data-nexo-color-popover=""
+          className="nx-fadein-fast"
+          style={{
+            position: 'fixed',
+            top: panelPos?.top ?? -9999,
+            left: panelPos?.left ?? -9999,
+            visibility: panelPos ? 'visible' : 'hidden',
+            padding: '6px 4px',
+            background: 'var(--c-bacPri)',
+            border: '1px solid var(--c-borPri)',
+            borderRadius: 'var(--nx-radius-std)',
+            boxShadow: 'var(--c-shaOutMd)',
+            zIndex: Z.POPOVER,
+            minWidth: '240px',
+            maxWidth: 'calc(100vw - 16px)',
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--c-texTer)', padding: '2px 6px 4px' }}>
+            {t('color.text')}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', padding: '0 4px 4px' }}>
+            {BN_COLORS.map((c) => {
+              const isActive = (active.textColor ?? 'default') === c;
+              return (
+                <button
+                  key={`t-${c}`}
+                  type="button"
+                  onPointerDown={captureSelection}
+                  onClick={() => apply('textColor', c)}
+                  title={t(`color.name.${c}`)}
+                  aria-label={t(`color.name.${c}`)}
+                  style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '4px',
+                    border: `1px solid ${isActive ? 'var(--nx-blue)' : 'var(--c-borPri)'}`,
+                    background: 'var(--c-bacPri)',
+                    color: BN_TEXT_SWATCH[c],
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                  }}
+                >
+                  A
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--c-texTer)', padding: '6px 6px 4px', borderTop: '1px solid var(--c-borSec)', marginTop: '2px' }}>
+            {t('color.background')}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', padding: '0 4px 2px' }}>
+            {BN_COLORS.map((c) => {
+              const isActive = (active.backgroundColor ?? 'default') === c;
+              return (
+                <button
+                  key={`b-${c}`}
+                  type="button"
+                  onPointerDown={captureSelection}
+                  onClick={() => apply('backgroundColor', c)}
+                  title={t(`color.name.${c}`)}
+                  aria-label={t(`color.name.${c}`)}
+                  style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '4px',
+                    border: `1px solid ${isActive ? 'var(--nx-blue)' : 'var(--c-borPri)'}`,
+                    background: BN_BG_SWATCH[c],
+                    color: 'var(--c-texPri)',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                  }}
+                >
+                  {c === 'default' ? '×' : ''}
+                </button>
+              );
+            })}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
 // ─────────────── Nexo 风格选中工具栏 ───────────────
 
 function CustomFormattingToolbar({
   editor,
-  articlePath,
+  onRequestExplain,
+  onRequestAiWrite,
 }: {
   editor: any;
-  articlePath: string;
+  onRequestExplain: (text: string) => void;
+  onRequestAiWrite: (text: string, range: { from: number; to: number } | null) => void;
 }) {
-  const [aiPanelText, setAiPanelText] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const handleExplain = () => {
     const selected = editor.getSelectedText?.() ?? '';
     if (!selected.trim()) return;
-    setAiPanelText(selected);
+    onRequestExplain(selected);
+  };
+
+  const handleAiWrite = () => {
+    const selected = editor.getSelectedText?.() ?? '';
+    if (!selected.trim()) return;
+    // 保存当前选区范围，工具栏消失后才能准确替换原文
+    const tt = editor._tiptapEditor;
+    const range = tt ? { from: tt.state.selection.from, to: tt.state.selection.to } : null;
+    onRequestAiWrite(selected, range);
+  };
+
+  const handleToggleHighlight = () => {
+    const styles = editor.getActiveStyles?.() ?? {};
+    const currentBg = styles.backgroundColor;
+    const colors = ['rgba(255, 212, 0, 0.35)', 'rgba(0, 200, 83, 0.25)', 'rgba(0, 120, 255, 0.2)', 'rgba(255, 0, 128, 0.2)'];
+    // 若当前无高亮 → 黄色；若为本组色 → 推进到下一档；若走到末尾 → 清除
+    if (!currentBg) {
+      editor.addStyles({ backgroundColor: colors[0] });
+      return;
+    }
+    const idx = colors.indexOf(currentBg);
+    if (idx === -1) {
+      // 不是本组的高亮色（可能用户用了 ColorStyleButton）— 直接清除避免"换成黄色"的惊吓
+      editor.removeStyles({ backgroundColor: '' });
+      return;
+    }
+    if (idx >= colors.length - 1) {
+      editor.removeStyles({ backgroundColor: '' });
+    } else {
+      editor.addStyles({ backgroundColor: colors[idx + 1] });
+    }
   };
 
   return (
-    <>
-      {/* Nexo 风格浮动工具栏 */}
-      <FormattingToolbar>
-        {/* 行 1: 块类型 + 粗/斜/下划线/删除线 */}
-        <BlockTypeSelect key="blockTypeSelect" />
-        <BasicTextStyleButton basicTextStyle="bold" key="bold" />
-        <BasicTextStyleButton basicTextStyle="italic" key="italic" />
-        <BasicTextStyleButton basicTextStyle="underline" key="underline" />
-        <BasicTextStyleButton basicTextStyle="strike" key="strike" />
-        <BasicTextStyleButton basicTextStyle="code" key="code" />
-        {/* AI 解释 */}
-        <TBtn title="AI 解释" onClick={handleExplain}>
-          <span style={{ fontSize: '13px', color: '#8b5cf6' }}>✦</span>
-        </TBtn>
-      </FormattingToolbar>
-
-      {/* AI 解释结果面板 */}
-      {aiPanelText && (
-        <AiExplainPanel
-          text={aiPanelText}
-          articlePath={articlePath}
-          onClose={() => setAiPanelText(null)}
-        />
-      )}
-    </>
+    <FormattingToolbar>
+      {/* 行 1: 块类型 + 粗/斜/下划线/删除线 */}
+      <BlockTypeSelect key="blockTypeSelect" />
+      <BasicTextStyleButton basicTextStyle="bold" key="bold" />
+      <BasicTextStyleButton basicTextStyle="italic" key="italic" />
+      <BasicTextStyleButton basicTextStyle="underline" key="underline" />
+      <BasicTextStyleButton basicTextStyle="strike" key="strike" />
+      <BasicTextStyleButton basicTextStyle="code" key="code" />
+      <ColorPopoverBtn key="colorStyle" editor={editor} />
+      <TextAlignButton textAlignment="left" key="alignLeft" />
+      <TextAlignButton textAlignment="center" key="alignCenter" />
+      <TextAlignButton textAlignment="right" key="alignRight" />
+      <CreateLinkButton key="createLink" />
+      <NestBlockButton key="nestBlock" />
+      <UnnestBlockButton key="unnestBlock" />
+      {/* AI 解释 */}
+      <TBtn title={t('ai.explain')} onClick={handleExplain}>
+        <Sparkles style={{ width: '14px', height: '14px', color: '#8b5cf6' }} />
+      </TBtn>
+      {/* AI 写作 */}
+      <TBtn title={t('aiWrite.title')} onClick={handleAiWrite}>
+        <Wand2 style={{ width: '14px', height: '14px', color: '#2eaadc' }} />
+      </TBtn>
+      {/* 高亮标记 */}
+      <TBtn title={t('highlight.title')} onClick={handleToggleHighlight}>
+        <Highlighter style={{ width: '14px', height: '14px', color: '#dfab01' }} />
+      </TBtn>
+    </FormattingToolbar>
   );
 }
 
@@ -348,11 +727,12 @@ function EditorTOC({ editor }: { editor: any }) {
                   lineHeight: '1.6',
                   padding: '3px 0',
                   paddingLeft: `${(item.level - 1) * 12 + 8}px`,
-                  borderLeft: isActive ? '2px solid var(--nx-blue)' : '2px solid transparent',
                   fontWeight: isActive ? 500 : 400,
                   color: isActive ? 'var(--nx-blue)' : 'var(--c-texTer)',
                   background: 'transparent',
-                  border: 'none',
+                  borderTop: 'none',
+                  borderRight: 'none',
+                  borderBottom: 'none',
                   borderLeftStyle: 'solid',
                   borderLeftWidth: '2px',
                   borderLeftColor: isActive ? 'var(--nx-blue)' : 'transparent',
@@ -412,6 +792,49 @@ export function EditorBlockEditor({
   const prevSubPagesRef = useRef<SubPage[]>([]);
   const articlePathRef = useRef(articlePath);
   const [editorReady, setEditorReady] = useState(false);
+  const [docProperties, setDocProperties] = useState<Frontmatter>({});
+  const docPropertiesRef = useRef<Frontmatter>({});
+  const iconCoverRef = useRef<PageIconCoverHandle>(null);
+  const propsPanelRef = useRef<DocumentPropertiesPanelHandle>(null);
+  // AI 面板 state 提升到顶层 —— 工具栏浮层重建不会导致面板丢失
+  const [aiPanelText, setAiPanelText] = useState<string | null>(null);
+  const [aiWriteCtx, setAiWriteCtx] = useState<{ text: string; range: { from: number; to: number } | null } | null>(null);
+
+  // 保存失败提示 toast
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const showSaveError = useCallback((msg: string) => {
+    setSaveError(msg);
+    window.setTimeout(() => setSaveError(null), 4500);
+  }, []);
+
+  // 颜色按钮 state 也提升到顶层：
+  // BlockNote 在 selection collapse→restore 过程中会 unmount 再 mount
+  // CustomFormattingToolbar，放在工具栏内部的任何 useState 都会被重置，
+  // 这也是颜色按钮"点一下就消失"的最终根因。
+  const [colorOpen, setColorOpen] = useState(false);
+  const savedColorSelectionRef = useRef<{ from: number; to: number } | null>(null);
+
+  // ⚠️ 关键：BlockNote 的 FormattingToolbarController 把 formattingToolbar 当作组件类型
+  // 渲染 (React.createElement(s, {}))。如果 render 函数每次 render 都是新引用，
+  // React 会认为组件类型变了，强制 unmount/remount 整个工具栏子树，
+  // 内部 useState 被重置 —— 这是"点颜色按钮色板就消失"的根因。
+  // 必须用 useCallback 稳定所有传进去的回调和 render 函数。
+  const handleRequestExplain = useCallback((text: string) => {
+    setAiPanelText(text);
+  }, []);
+  const handleRequestAiWrite = useCallback(
+    (text: string, range: { from: number; to: number } | null) => {
+      setAiWriteCtx({ text, range });
+    },
+    [],
+  );
+
+  // 解析 frontmatter 属性
+  useEffect(() => {
+    const { frontmatter } = parseFrontmatter(content);
+    setDocProperties(frontmatter);
+    docPropertiesRef.current = frontmatter;
+  }, [content]);
 
   useEffect(() => { articlePathRef.current = articlePath; }, [articlePath]);
 
@@ -421,19 +844,111 @@ export function EditorBlockEditor({
       const path = (e as CustomEvent).detail?.path;
       if (path && onSelectSubPage) onSelectSubPage(path);
     };
-    window.addEventListener('pagelink-click', handler);
-    return () => window.removeEventListener('pagelink-click', handler);
+    window.addEventListener('nexo:pagelink-click', handler);
+    return () => window.removeEventListener('nexo:pagelink-click', handler);
   }, [onSelectSubPage]);
+
+  // 用事件捕获阶段拦截编辑器内的链接点击（在 BlockNote 阻止冒泡之前）
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = editorContainerRef.current;
+    if (!container) return;
+
+    const handler = (e: Event) => {
+      const anchor = (e.target as HTMLElement).closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href) return;
+
+      // 外部链接：阻止默认跳转，改为新标签页打开
+      if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('mailto:')) {
+        e.preventDefault();
+        window.open(href, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      // 锚点链接直接跳过
+      if (href.startsWith('#')) return;
+
+      // 内部链接：阻止默认跳转，转为应用内导航
+      e.preventDefault();
+      e.stopPropagation();
+      let docPath = decodeURIComponent(href);
+      docPath = docPath.replace(/^\//, '').replace(/\.md$/, '');
+      // 如果是相对路径，基于当前文档目录解析
+      if (!docPath.startsWith('/') && articlePathRef.current.includes('/')) {
+        const parentDir = articlePathRef.current.split('/').slice(0, -1).join('/');
+        docPath = parentDir + '/' + docPath;
+      }
+      const event = new CustomEvent('nexo:pagelink-click', { detail: { path: docPath } });
+      window.dispatchEvent(event);
+    };
+
+    // 使用 capture: true 确保在 BlockNote 内部处理之前拦截
+    container.addEventListener('click', handler, true);
+    return () => container.removeEventListener('click', handler, true);
+  }, []);
 
   const save = useCallback(
     async (markdown: string) => {
       if (!articlePathRef.current) return;
       onSaveStateChange?.('saving');
+      // 如果有 frontmatter 属性，重新序列化
+      const fm = docPropertiesRef.current;
+      const hasProps = Object.keys(fm).length > 0;
+      const fullContent = hasProps ? serializeFrontmatter(fm, markdown) : markdown;
       try {
         const res = await fetch('/api/articles', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: articlePathRef.current, content: markdown }),
+          body: JSON.stringify({ path: articlePathRef.current, content: fullContent }),
+        });
+        const json = await res.json();
+        if (json.ok) {
+          onSaveStateChange?.('saved');
+        } else {
+          onSaveStateChange?.('unsaved');
+          showSaveError(`保存失败: ${json.error || '未知错误'}`);
+        }
+      } catch (err) {
+        onSaveStateChange?.('unsaved');
+        const msg = err instanceof Error ? err.message : '网络错误';
+        showSaveError(`保存失败（网络）: ${msg}`);
+      }
+    },
+    [onSaveStateChange, showSaveError]
+  );
+
+  // 稳定 uploadFile 引用，避免 useCreateBlockNote 重建 editor 实例
+  const uploadFileStable = useCallback(async (file: File) => {
+    const fd = new FormData();
+    fd.append('image', file, file.name);
+    const res = await fetch('/api/uploads', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (json.ok && json.data?.url) return json.data.url;
+    throw new Error('Upload failed');
+  }, []);
+
+  const editor = useCreateBlockNote({
+    schema,
+    uploadFile: uploadFileStable,
+  });
+
+  const handlePropertiesChange = useCallback(
+    async (newProps: Frontmatter) => {
+      setDocProperties(newProps);
+      docPropertiesRef.current = newProps;
+      if (!editor || !articlePathRef.current) return;
+      onSaveStateChange?.('saving');
+      const contentBlocks = editor.document.filter((b: any) => b.type !== 'pageLink');
+      const md = await editor.blocksToMarkdownLossy(contentBlocks);
+      const fullContent = serializeFrontmatter(newProps, md);
+      try {
+        const res = await fetch('/api/articles', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: articlePathRef.current, content: fullContent }),
         });
         const json = await res.json();
         onSaveStateChange?.(json.ok ? 'saved' : 'unsaved');
@@ -441,20 +956,8 @@ export function EditorBlockEditor({
         onSaveStateChange?.('unsaved');
       }
     },
-    [onSaveStateChange]
+    [editor, onSaveStateChange]
   );
-
-  const editor = useCreateBlockNote({
-    schema,
-    uploadFile: async (file: File) => {
-      const fd = new FormData();
-      fd.append('image', file, file.name);
-      const res = await fetch('/api/uploads', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (json.ok && json.data?.url) return json.data.url;
-      throw new Error('Upload failed');
-    },
-  });
 
   const loadContent = useCallback(async (md: string, pages: SubPage[]) => {
     if (!editor) return;
@@ -578,7 +1081,13 @@ export function EditorBlockEditor({
       if (e.key === 'Escape') setLightboxSrc(null);
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    // 打开 lightbox 时锁滚动，避免底层编辑器被滚动
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', handler);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [lightboxSrc]);
 
   const handleEditorDblClick = useCallback((e: React.MouseEvent) => {
@@ -599,10 +1108,80 @@ export function EditorBlockEditor({
     editor.setTextCursorPosition(lastBlock.id, 'end');
   }, [editor]);
 
+  // ⚠️ formattingToolbar render 函数必须稳定引用
+  // 见上方说明：BlockNote 用 React.createElement(s, {}) 把 s 当组件类型，
+  // 引用变 => unmount/remount => 内部 state（颜色面板 open 等）丢失
+  const renderFormattingToolbar = useCallback(
+    () => (
+      <CustomFormattingToolbar
+        editor={editor}
+        onRequestExplain={handleRequestExplain}
+        onRequestAiWrite={handleRequestAiWrite}
+      />
+    ),
+    [editor, handleRequestExplain, handleRequestAiWrite],
+  );
+
+  // ColorStateCtx 的 value：colorOpen 变化时 memoize 出新对象，
+  // Provider 通知 consumer 重渲染（但 BlockNote toolbar 子树不 unmount）
+  const colorCtxValue = useMemo<ColorState>(
+    () => ({ open: colorOpen, setOpen: setColorOpen, savedSelectionRef: savedColorSelectionRef }),
+    [colorOpen],
+  );
+
   return (
-    <div className="h-full overflow-auto" style={{ background: 'var(--c-bacPri)', cursor: 'text' }} onClick={handleBlankClick} onDoubleClick={handleEditorDblClick}>
-      <div className="nx-layout" style={{ paddingTop: '60px', paddingBottom: '100px' }}>
-        <div className="nx-layout-content">
+    <div ref={editorContainerRef} className="h-full overflow-auto" style={{ background: 'var(--c-bacPri)', cursor: 'text' }} onClick={handleBlankClick} onDoubleClick={handleEditorDblClick}>
+      <div className="nx-layout" style={{ paddingTop: '40px', paddingBottom: '100px' }}>
+        <div className="nx-layout-content" style={{ position: 'relative' }}>
+          <PageIconCover
+            ref={iconCoverRef}
+            icon={docProperties.icon as string | undefined}
+            cover={docProperties.cover as string | undefined}
+            onIconChange={(icon) => handlePropertiesChange({ ...docProperties, icon })}
+            onCoverChange={(cover) => handlePropertiesChange({ ...docProperties, cover })}
+            hideActions
+          />
+          {/* 统一 Action Bar：添加图标 | 添加封面 | 添加属性 */}
+          <div className="flex items-center flex-wrap gap-1" style={{ marginBottom: '8px' }}>
+            {!docProperties.icon && (
+              <button
+                type="button"
+                onClick={() => iconCoverRef.current?.openEmojiPicker()}
+                className="nx-hoverable flex items-center gap-1 px-1.5 py-0.5 rounded"
+                style={{ fontSize: '12px', color: 'var(--c-texTer)' }}
+              >
+                <SmilePlus className="h-3.5 w-3.5" />
+                {t('pageIcon.addIcon')}
+              </button>
+            )}
+            {!docProperties.cover && (
+              <button
+                type="button"
+                onClick={() => iconCoverRef.current?.openCoverInput()}
+                className="nx-hoverable flex items-center gap-1 px-1.5 py-0.5 rounded"
+                style={{ fontSize: '12px', color: 'var(--c-texTer)' }}
+              >
+                <ImageIcon className="h-3.5 w-3.5" />
+                {t('pageIcon.addCover')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => propsPanelRef.current?.openAddMenu()}
+              className="nx-hoverable flex items-center gap-1 px-1.5 py-0.5 rounded"
+              style={{ fontSize: '12px', color: 'var(--c-texTer)' }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('props.addProperty')}
+            </button>
+          </div>
+          <DocumentPropertiesPanel
+            ref={propsPanelRef}
+            properties={docProperties}
+            onChange={handlePropertiesChange}
+            hideTrigger
+          />
+          <ColorStateCtx.Provider value={colorCtxValue}>
           <BlockNoteView
             editor={editor}
             onChange={handleChange}
@@ -615,19 +1194,38 @@ export function EditorBlockEditor({
               getItems={getSlashMenuItems}
             />
             <FormattingToolbarController
-              formattingToolbar={() => (
-                <CustomFormattingToolbar editor={editor} articlePath={articlePathRef.current} />
-              )}
+              formattingToolbar={renderFormattingToolbar}
+              floatingUIOptions={{
+                // 🔧 核心修复：BlockNote 默认 useDismiss 会在工具栏内点击时误判
+                // 为 outside-press 并关闭工具栏（ColorStyleButton 等打开子菜单时
+                // 触发的根本原因）。自定义 outsidePress 判断函数：只有真正落在
+                // 工具栏 DOM 之外的点击才关闭，且排除我们自定义色板、AI 面板等。
+                useDismissProps: {
+                  outsidePress: (event) => {
+                    const target = event.target as HTMLElement | null;
+                    if (!target) return true;
+                    // 色板在工具栏内 absolute 定位，但 React 合成事件 target
+                    // 可能指向更深元素；显式允许这些元素
+                    if (target.closest('[data-nexo-color-popover]')) return false;
+                    if (target.closest('[data-nexo-ai-panel]')) return false;
+                    // 工具栏自身的点击一律视为 inside
+                    if (target.closest('.bn-toolbar')) return false;
+                    if (target.closest('.bn-formatting-toolbar')) return false;
+                    return true;
+                  },
+                },
+              }}
             />
           </BlockNoteView>
+          </ColorStateCtx.Provider>
         </div>
         <aside className="nx-layout-toc">
-          <div className="sticky" style={{ top: '60px' }}>
+          <div className="sticky" style={{ top: '40px' }}>
             <EditorTOC editor={editor} />
             <BacklinksPanel
               articlePath={articlePath}
               onSelect={(path) => {
-                const event = new CustomEvent('pagelink-click', { detail: { path } });
+                const event = new CustomEvent('nexo:pagelink-click', { detail: { path } });
                 window.dispatchEvent(event);
               }}
             />
@@ -635,11 +1233,90 @@ export function EditorBlockEditor({
           </div>
         </aside>
       </div>
+      {/* 保存失败 toast */}
+      {saveError && (
+        <div
+          role="alert"
+          className="nx-fadein-fast"
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '10px 16px',
+            background: 'var(--c-bacPri)',
+            border: '1px solid rgba(224,62,62,0.3)',
+            boxShadow: 'var(--c-shaOutLg)',
+            borderRadius: '8px',
+            color: 'var(--nx-red)',
+            fontSize: '13px',
+            zIndex: 400,
+            maxWidth: '500px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <AlertCircle size={16} />
+          <span style={{ wordBreak: 'break-word' }}>{saveError}</span>
+        </div>
+      )}
+      {/* AI 解释结果面板（顶层渲染，不受工具栏浮层生命周期影响） */}
+      {aiPanelText && (
+        <AiExplainPanel
+          text={aiPanelText}
+          articlePath={articlePath}
+          onClose={() => setAiPanelText(null)}
+        />
+      )}
+
+      {/* AI 写作面板 */}
+      {aiWriteCtx && (
+        <AiWritePanel
+          text={aiWriteCtx.text}
+          onClose={() => setAiWriteCtx(null)}
+          onReplace={(newText) => {
+            if (!editor) return;
+            const tt = (editor as any)._tiptapEditor;
+            try {
+              if (tt && aiWriteCtx.range) {
+                tt.chain().focus().setTextSelection(aiWriteCtx.range).insertContent(newText).run();
+              } else if (tt) {
+                tt.chain().focus().insertContent(newText).run();
+              }
+            } catch (err) {
+              console.error('AI 写作替换失败:', err);
+            }
+          }}
+          onInsert={(newText) => {
+            if (!editor) return;
+            try {
+              const cursor = editor.getTextCursorPosition?.();
+              if (cursor?.block) {
+                editor.insertBlocks(
+                  [{ type: 'paragraph', content: newText }],
+                  cursor.block,
+                  'after',
+                );
+              } else {
+                const tt = (editor as any)._tiptapEditor;
+                tt?.chain().focus().insertContent(`\n\n${newText}`).run();
+              }
+            } catch (err) {
+              console.error('AI 写作插入失败:', err);
+            }
+          }}
+        />
+      )}
+
+      {/* 切换文档时清空浮动 AI 面板，避免解释上一篇文档的选段 */}
+      <AiPanelReset articlePath={articlePath} onReset={() => { setAiPanelText(null); setAiWriteCtx(null); }} />
+
       {lightboxSrc && (
         <div className="image-lightbox-overlay" role="dialog" aria-label="Image preview" onClick={() => setLightboxSrc(null)}>
           <button
             onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
-            style={{ position: 'fixed', top: '16px', right: '16px', color: '#fff', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10001 }}
+            style={{ position: 'fixed', top: '16px', right: '16px', color: '#fff', background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: Z.LIGHTBOX + 1 }}
             aria-label="Close"
           >
             ✕

@@ -80,7 +80,10 @@ export function BreadcrumbDropdown({ segment, segmentPath, parentPath, isLast, o
           }}
         >
           {loading && (
-            <div className="px-3 py-2 text-xs" style={{ color: 'var(--c-texTer)' }}>...</div>
+            <div className="px-3 py-2 text-xs flex items-center gap-1.5" style={{ color: 'var(--c-texTer)' }}>
+              <span aria-hidden style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span>
+              <span className="sr-only">loading</span>
+            </div>
           )}
           {!loading && siblings.length === 0 && (
             <div className="px-3 py-2 text-xs" style={{ color: 'var(--c-texTer)' }}>—</div>

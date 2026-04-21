@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
+import 'katex/dist/katex.min.css';
 import { useParams } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 
@@ -28,14 +31,26 @@ export default function SharePage() {
   const [shareData, setShareData] = useState<ShareData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needPin, setNeedPin] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [submittingPin, setSubmittingPin] = useState(false);
+
+  const fetchWithPin = async (pin?: string) => {
+    const headers: Record<string, string> = {};
+    if (pin) headers['X-Share-Pin'] = pin;
+    const res = await fetch(`/api/share/${token}`, { headers });
+    const json = await res.json();
+    return { status: res.status, json };
+  };
 
   useEffect(() => {
-    const loadSharedContent = async () => {
+    (async () => {
       try {
-        const res = await fetch(`/api/share/${token}`);
-        const json = await res.json();
+        const { status, json } = await fetchWithPin();
         if (json.ok) {
           setShareData(json.data);
+        } else if (status === 401 && json.reason === 'need_pin') {
+          setNeedPin(true);
         } else {
           setError(json.error || '加载失败');
         }
@@ -44,15 +59,61 @@ export default function SharePage() {
       } finally {
         setLoading(false);
       }
-    };
-
-    loadSharedContent();
+    })();
   }, [token]);
+
+  const submitPin = async () => {
+    if (!pinInput.trim()) return;
+    setSubmittingPin(true);
+    setError(null);
+    try {
+      const { json } = await fetchWithPin(pinInput.trim());
+      if (json.ok) {
+        setShareData(json.data);
+        setNeedPin(false);
+      } else {
+        setError(json.error || '密码错误');
+      }
+    } finally {
+      setSubmittingPin(false);
+    }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--c-bacPri)' }}>
         <div style={{ color: 'var(--c-texTer)' }}>加载中...</div>
+      </div>
+    );
+  }
+
+  if (needPin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--c-bacPri)' }}>
+        <div style={{ width: '320px', padding: '24px', border: '1px solid var(--c-borPri)', borderRadius: '10px', background: 'var(--c-bacPri)', boxShadow: 'var(--c-shaOutMd)' }}>
+          <p style={{ fontSize: '15px', fontWeight: 500, color: 'var(--c-texPri)', marginBottom: '8px' }}>🔒 此分享链接需要密码</p>
+          <p style={{ fontSize: '12px', color: 'var(--c-texTer)', marginBottom: '16px' }}>请输入发起人提供的访问密码</p>
+          <input
+            autoFocus
+            type="text"
+            value={pinInput}
+            onChange={(e) => setPinInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submitPin(); }}
+            placeholder="访问密码"
+            style={{ width: '100%', padding: '8px 12px', fontSize: '14px', border: '1px solid var(--c-borPri)', borderRadius: '6px', outline: 'none', marginBottom: '12px', color: 'var(--c-texPri)', background: 'var(--c-bacPri)' }}
+          />
+          {error && (
+            <p style={{ fontSize: '12px', color: 'var(--nx-red)', marginBottom: '12px' }}>{error}</p>
+          )}
+          <button
+            onClick={submitPin}
+            disabled={submittingPin || !pinInput.trim()}
+            className="disabled:opacity-40"
+            style={{ width: '100%', padding: '8px', fontSize: '14px', background: 'var(--nx-blue)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 500 }}
+          >
+            {submittingPin ? '验证中...' : '访问'}
+          </button>
+        </div>
       </div>
     );
   }
@@ -85,7 +146,7 @@ export default function SharePage() {
         <div className="nx-layout-content">
           {shareData.type === 'article' ? (
             <div className="nx-content">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex, rehypeSanitize]}>
                 {shareData.content || ''}
               </ReactMarkdown>
             </div>

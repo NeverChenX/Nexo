@@ -38,6 +38,12 @@ export function ExportMenu({ articlePath }: ExportMenuProps) {
     window.print();
   };
 
+  const handleExportPdf = () => {
+    setOpen(false);
+    const url = `/api/export-pdf?path=${encodeURIComponent(articlePath)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -74,6 +80,13 @@ export function ExportMenu({ articlePath }: ExportMenuProps) {
             {t('export.html')}
           </button>
           <div className="my-1" style={{ borderTop: '1px solid var(--c-borSec)' }} />
+          <button
+            className="nx-hoverable w-full text-left px-3 py-1.5 text-sm"
+            style={{ color: 'var(--c-texSec)' }}
+            onClick={handleExportPdf}
+          >
+            {t('export.pdfStyled')}
+          </button>
           <button
             className="nx-hoverable w-full text-left px-3 py-1.5 text-sm"
             style={{ color: 'var(--c-texSec)' }}

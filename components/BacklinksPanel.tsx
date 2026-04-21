@@ -33,16 +33,19 @@ export function BacklinksPanel({ articlePath, onSelect }: BacklinksPanelProps) {
     return () => clearTimeout(timer);
   }, [articlePath]);
 
-  if (!loaded || links.length === 0) return null;
+  if (!loaded) return null;
 
   return (
     <div style={{ marginTop: '24px' }}>
       <div className="flex items-center gap-1.5 mb-2">
         <Link2 className="h-3 w-3" style={{ color: 'var(--c-texTer)' }} />
         <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--c-texTer)' }}>
-          {t('backlinks.title')} ({links.length})
+          {t('backlinks.title')}{links.length > 0 ? ` (${links.length})` : ''}
         </span>
       </div>
+      {links.length === 0 && (
+        <p style={{ fontSize: '12px', color: 'var(--c-texDis)', paddingLeft: '4px' }}>{t('backlinks.none')}</p>
+      )}
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {links.map((link) => (
           <li key={link.path}>

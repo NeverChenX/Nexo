@@ -15,6 +15,16 @@ const zh: Record<string, string> = {
   'common.success': '成功',
   'common.tip': '提示',
   'common.input': '输入',
+  'common.backHome': '返回首页',
+  'common.retry': '重试',
+
+  // 时间（相对）
+  'time.justNow': '刚刚',
+  'time.minutesAgo': '{n} 分钟前',
+  'time.hoursAgo': '{n} 小时前',
+  'time.daysAgo': '{n} 天前',
+  'time.monthsAgo': '{n} 个月前',
+  'time.yearsAgo': '{n} 年前',
 
   // 编辑器页面
   'editor.noDocSelected': '未选择文档',
@@ -65,6 +75,7 @@ const zh: Record<string, string> = {
   'createModal.title': '新建文档',
   'createModal.location': '位置：{path}',
   'createModal.placeholder': '文档名称',
+  'createModal.discardConfirm': '已输入的内容将会丢失，确定要关闭吗？',
 
   // 分享弹窗
   'share.shareArticle': '分享文章',
@@ -75,6 +86,8 @@ const zh: Record<string, string> = {
   'share.linkLabel': '分享链接',
   'share.generateNew': '生成新链接',
   'share.generateFailed': '生成失败',
+  'share.copyLink': '复制链接',
+  'share.copied': '已复制',
 
   // BlockNote 编辑器
   'bn.newSubPage': '新建子页面',
@@ -90,6 +103,61 @@ const zh: Record<string, string> = {
   'ai.explainFailed': '解释失败',
   'ai.requestFailed': '请求失败',
   'ai.explain': 'AI 解释',
+
+  // AI 知识问答
+  'aiAsk.title': 'AI 知识问答',
+  'aiAsk.welcome': '向你的知识库提问',
+  'aiAsk.hint': '我会搜索你的所有文档，找到答案并引用来源',
+  'aiAsk.placeholder': '输入你的问题...',
+  'aiAsk.thinking': '正在搜索和思考...',
+  'aiAsk.you': '你',
+  'aiAsk.ai': 'AI 助手',
+  'aiAsk.requestFailed': '请求失败，请重试',
+
+  // 颜色（文字 + 背景）
+  'color.title': '颜色',
+  'color.text': '文字颜色',
+  'color.background': '背景颜色',
+  'color.name.default': '默认',
+  'color.name.gray': '灰色',
+  'color.name.brown': '棕色',
+  'color.name.red': '红色',
+  'color.name.orange': '橙色',
+  'color.name.yellow': '黄色',
+  'color.name.green': '绿色',
+  'color.name.blue': '蓝色',
+  'color.name.purple': '紫色',
+  'color.name.pink': '粉色',
+
+  // 批注高亮
+  'highlight.title': '高亮',
+  'highlight.yellow': '黄色',
+  'highlight.green': '绿色',
+  'highlight.blue': '蓝色',
+  'highlight.pink': '粉色',
+  'highlight.red': '红色',
+  'highlight.clear': '清除高亮',
+  'highlight.annotate': '添加批注',
+
+  // AI 写作工具箱
+  'aiWrite.title': 'AI 写作助手',
+  'aiWrite.summarize': '总结',
+  'aiWrite.expand': '扩写',
+  'aiWrite.rewrite': '改写',
+  'aiWrite.continue': '续写',
+  'aiWrite.fix_grammar': '修正语法',
+  'aiWrite.translate_zh': '翻译为中文',
+  'aiWrite.translate_en': '翻译为英文',
+  'aiWrite.simplify': '简化',
+  'aiWrite.formal': '正式化',
+  'aiWrite.bullet_points': '转为要点',
+  'aiWrite.processing': '处理中...',
+  'aiWrite.failed': 'AI 处理失败',
+  'aiWrite.requestFailed': '请求失败',
+  'aiWrite.replace': '替换原文',
+  'aiWrite.insertBelow': '插入下方',
+  'aiWrite.copy': '复制',
+  'aiWrite.back': '返回',
 
   // 搜索（Phase 2）
   'search.placeholder': '搜索文档...',
@@ -110,6 +178,42 @@ const zh: Record<string, string> = {
   'stats.words': '{count} 字',
   'stats.readTime': '约 {min} 分钟',
 
+  // 文档权限
+  'perm.title': '权限',
+  'perm.editable': '可编辑',
+  'perm.readonly': '只读',
+  'perm.private': '私密',
+  'perm.readonlyNotice': '此文档为只读模式，无法编辑',
+  'perm.privateNotice': '此文档为私密文档',
+  'perm.changeFailed': '权限修改失败',
+
+  // 页面图标与封面
+  'pageIcon.addIcon': '添加图标',
+  'pageIcon.addCover': '添加封面',
+  'pageIcon.selectEmoji': '选择图标',
+  'pageIcon.removeIcon': '移除',
+  'pageIcon.coverUrlPlaceholder': '输入封面图片 URL...',
+
+  // 文档属性面板
+  'props.title': '属性',
+  'props.addProperty': '添加属性',
+  'props.keyPlaceholder': '属性名称...',
+  'props.valuePlaceholder': '空',
+  'props.status': '状态',
+  'props.priority': '优先级',
+  'props.due': '截止日期',
+  'props.author': '作者',
+  'props.category': '分类',
+  'props.invalidKey': '名称只能用字母/数字/_/-，且以字母或下划线开头',
+  'props.keyExists': '该属性已存在',
+
+  // 文档统计栏
+  'statsBar.words': '{count} 字',
+  'statsBar.chars': '{count} 字符',
+  'statsBar.charsNoSpace': '{count} 字符(不含空格)',
+  'statsBar.paragraphs': '{count} 段',
+  'statsBar.readTime': '阅读约 {min} 分钟',
+
   // 标签（Phase 8）
   'tags.add': '添加标签',
   'tags.placeholder': '输入标签名...',
@@ -124,13 +228,13 @@ const zh: Record<string, string> = {
   'template.blank': '空白文档',
   'template.meetingNotes': '会议纪要',
   'template.techSpec': '技术方案',
-  'template.dailyReport': '日报',
   'template.readingNotes': '读书笔记',
 
   // 导出（Phase 11）
   'export.title': '导出',
   'export.markdown': '导出为 Markdown',
   'export.html': '导出为 HTML',
+  'export.pdfStyled': '导出排版 PDF',
   'export.pdf': '打印为 PDF',
 
   // 回收站（Phase 12）
@@ -141,12 +245,15 @@ const zh: Record<string, string> = {
   'trash.emptyTrash': '清空回收站',
   'trash.deleteTime': '删除于 {time}',
   'trash.confirmEmpty': '确定要清空回收站吗？此操作不可恢复。',
+  'trash.confirmEmptyCount': '确定要永久删除 {count} 项吗？此操作不可恢复。',
 
   // 导入（Phase 13）
   'import.title': '导入',
   'import.selectFiles': '选择 Markdown 文件',
   'import.dragHint': '拖拽文件到此处，或点击选择',
   'import.importing': '导入中...',
+  'import.failed': '导入失败',
+  'import.networkError': '网络错误，请重试',
 
   // 附件（Phase 14）
   'attachment.upload': '上传附件',
@@ -164,6 +271,55 @@ const zh: Record<string, string> = {
   'shortcuts.search': '搜索 / 命令面板',
   'shortcuts.slashMenu': '插入块',
   'shortcuts.help': '快捷键帮助',
+  'shortcuts.close': '关闭弹窗 / 退出',
+  'shortcuts.navUpDown': '上下选择',
+  'shortcuts.confirm': '确认选择',
+  'shortcuts.groupGlobal': '全局',
+  'shortcuts.groupEditor': '编辑器',
+  'shortcuts.groupNav': '导航',
+
+  // 首页
+  'home.welcome': '欢迎回来',
+  'home.subtitle': '从这里快速访问你的知识库',
+  'home.newDoc': '新建文档',
+  'home.totalDocs': '文档总数',
+  'home.totalWords': '总字数',
+  'home.totalTags': '标签数',
+  'home.totalFolders': '文件夹数',
+  'home.recentVisited': '最近访问',
+  'home.recentUpdated': '最近更新',
+  'home.tagCloud': '标签',
+  'home.words': '字',
+  'home.homepage': '首页',
+  'home.activity': '写作活跃度（近 30 天）',
+  'home.less': '少',
+  'home.more': '多',
+  'home.favorites': '收藏文档',
+  'home.favoritesEmpty': '暂无收藏，点击文档右上角 ☆ 收藏',
+  'home.randomDoc': '随便看看',
+
+  // 收藏
+  'favorites.title': '收藏',
+  'favorites.add': '收藏',
+  'favorites.remove': '取消收藏',
+
+  // 知识图谱
+  'graph.title': '知识图谱',
+  'graph.doc': '文档',
+  'graph.folder': '文件夹',
+  'graph.nodeCount': '{count} 个节点',
+  'graph.edgeCount': '{count} 条连接',
+
+  // 收藏分组
+  'favGroup.ungrouped': '未分组',
+  'favGroup.setGroup': '设置分组',
+  'favGroup.newGroup': '新建分组...',
+  'favGroup.groupPlaceholder': '分组名称...',
+  'favGroup.removeGroup': '移出分组',
+
+  // 知识图谱增强
+  'graph.filterByTag': '按标签过滤',
+  'graph.allTags': '全部',
 
   // 语言
   'locale.zh': '中文',

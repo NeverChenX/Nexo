@@ -30,14 +30,17 @@ export function ShareModal({
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pin, setPin] = useState('');
+  const [expiresInDays, setExpiresInDays] = useState<number | 'forever'>('forever');
   const { t } = useI18n();
 
-  // 重置状态当对话框关闭
   useEffect(() => {
     if (!isOpen) {
       setShareToken(null);
       setError(null);
       setCopied(false);
+      setPin('');
+      setExpiresInDays('forever');
     }
   }, [isOpen]);
 
@@ -45,12 +48,14 @@ export function ShareModal({
     setLoading(true);
     setError(null);
     try {
+      const body: Record<string, unknown> = { path, type };
+      if (pin.trim()) body.pin = pin.trim();
+      if (expiresInDays !== 'forever') body.expiresInDays = expiresInDays;
       const res = await fetch('/api/share', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, type }),
+        body: JSON.stringify(body),
       });
-
       const json = await res.json();
       if (json.ok) {
         setShareToken(json.data.token);
@@ -108,14 +113,57 @@ export function ShareModal({
           )}
 
           {!shareToken ? (
-            <Button
-              onClick={generateShareLink}
-              disabled={loading}
-              className="w-full"
-              size="lg"
-            >
-              {loading ? t('share.generating') : t('share.generate')}
-            </Button>
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">访问密码 (可选，4-20 字符)</label>
+                <Input
+                  type="text"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="留空 = 无密码，任何人可访问"
+                  maxLength={20}
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">有效期</label>
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    { value: 1 as const, label: '1 天' },
+                    { value: 7 as const, label: '7 天' },
+                    { value: 30 as const, label: '30 天' },
+                    { value: 'forever' as const, label: '永久' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setExpiresInDays(opt.value)}
+                      className="nx-hoverable"
+                      style={{
+                        fontSize: '13px',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        border: `1px solid ${expiresInDays === opt.value ? 'var(--nx-blue)' : 'var(--c-borPri)'}`,
+                        background: expiresInDays === opt.value ? 'var(--nx-badge-bg)' : 'var(--c-bacPri)',
+                        color: expiresInDays === opt.value ? 'var(--nx-blue)' : 'var(--c-texSec)',
+                        fontWeight: expiresInDays === opt.value ? 500 : 400,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Button
+                onClick={generateShareLink}
+                disabled={loading}
+                className="w-full"
+                size="lg"
+              >
+                {loading ? t('share.generating') : t('share.generate')}
+              </Button>
+            </>
           ) : (
             <>
               <div className="space-y-2">
@@ -131,6 +179,8 @@ export function ShareModal({
                     size="icon"
                     onClick={copyToClipboard}
                     className="flex-shrink-0"
+                    aria-label={copied ? t('share.copied') : t('share.copyLink')}
+                    title={copied ? t('share.copied') : t('share.copyLink')}
                   >
                     {copied ? (
                       <Check className="h-4 w-4 text-green-500" />

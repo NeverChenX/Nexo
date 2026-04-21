@@ -2,24 +2,34 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { ChevronRight, ChevronDown, FileText, FolderOpen, FolderClosed, Pencil, Trash2, X, AlertCircle, Plus } from 'lucide-react';
+import { useModalFocus } from '@/lib/useModalFocus';
+import { ChevronRight, ChevronDown, FileText, FolderOpen, FolderClosed, Pencil, Trash2, X, AlertCircle, Plus, Search, ArchiveRestore, Home, GitFork, Star, Filter } from 'lucide-react';
+import { getFavorites, FavoriteItem } from '@/lib/favorites';
 import { useI18n } from '@/lib/i18n';
 
 interface TreeItem {
   name: string;
   path: string;
+  id?: string;
+  idChain?: string;
   isFolder: boolean;
+  mtime?: number;
   children?: TreeItem[];
 }
 
 interface TreeMenuProps {
   mode?: 'editor' | 'read';
-  onSelectItem: (path: string, isFolder: boolean) => void;
+  onSelectItem: (path: string, isFolder: boolean, idChain?: string) => void;
   onCreateArticle: (parentPath: string) => void;
   onMoveItem?: (oldPath: string, newParentPath: string, isFolder: boolean) => Promise<boolean>;
   selectedPath?: string;
   className?: string;
   refreshKey?: number;
+  onSearchClick?: () => void;
+  onTrashClick?: () => void;
+  onHomeClick?: () => void;
+  onGraphClick?: () => void;
+  favRefreshKey?: number;
 }
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
@@ -30,10 +40,12 @@ type ModalConfig =
   | { type: 'prompt'; message: string; defaultValue: string; onConfirm: (v: string) => void; onCancel: () => void };
 
 function Modal({ config, modalLabels }: { config: ModalConfig; modalLabels: { tip: string; confirm: string; input: string; cancel: string; delete: string; ok: string } }) {
+  useModalFocus(true);
   const [inputValue, setInputValue] = useState(
     config.type === 'prompt' ? config.defaultValue : ''
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (config.type === 'prompt') {
@@ -43,9 +55,34 @@ function Modal({ config, modalLabels }: { config: ModalConfig; modalLabels: { ti
     }
   }, [config.type]);
 
+  // Focus trap：Tab 在 Modal 内循环，不跳到背景编辑器
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusable = root.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    root.addEventListener('keydown', handler);
+    return () => root.removeEventListener('keydown', handler);
+  }, []);
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.15)' }}>
       <div
+        ref={containerRef}
         className="w-[340px] overflow-hidden"
         style={{
           background: 'var(--c-bacPri)',
@@ -142,6 +179,11 @@ export function TreeMenu({
   selectedPath,
   className,
   refreshKey,
+  onSearchClick,
+  onTrashClick,
+  onHomeClick,
+  onGraphClick,
+  favRefreshKey,
 }: TreeMenuProps) {
   const isReadMode = mode === 'read';
   const { t } = useI18n();
@@ -157,6 +199,43 @@ export function TreeMenu({
   });
   const [loading, setLoading] = useState(true);
   const [sortOrders, setSortOrders] = useState<Record<string, string[]>>({});
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [showFilter, setShowFilter] = useState(false);
+
+  // 过滤激活时展开所有有匹配的父节点（递归）
+  useEffect(() => {
+    if (!filterQuery.trim()) return;
+    const q = filterQuery.trim().toLowerCase();
+    const toExpand = new Set<string>();
+    const walk = (items: TreeItem[]) => {
+      for (const it of items) {
+        if (it.children && it.children.length > 0) {
+          // 若任一子孙匹配，展开此节点
+          const childMatch = it.children.some((c) => {
+            const has = (n: TreeItem): boolean =>
+              n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q) ||
+              !!(n.children && n.children.some(has));
+            return has(c);
+          });
+          if (childMatch) toExpand.add(it.path);
+          walk(it.children);
+        }
+      }
+    };
+    walk(tree);
+    if (toExpand.size > 0) {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        toExpand.forEach((p) => next.add(p));
+        return next;
+      });
+    }
+  }, [filterQuery, tree]);
+
+  useEffect(() => {
+    setFavorites(getFavorites());
+  }, [favRefreshKey]);
 
   // Drag state
   const [draggingItem, setDraggingItem] = useState<{ path: string; isFolder: boolean } | null>(null);
@@ -276,14 +355,21 @@ export function TreeMenu({
 
   const applySortOrder = (items: TreeItem[], parentPath: string): TreeItem[] => {
     const order = sortOrders[parentPath];
-    if (!order || order.length === 0) return items;
+    // 有手动排序时：按 sortOrder 优先，未在 order 里的项按 mtime 降序 fallback
+    if (order && order.length > 0) {
+      return [...items].sort((a, b) => {
+        const ai = order.indexOf(a.name);
+        const bi = order.indexOf(b.name);
+        if (ai !== -1 && bi !== -1) return ai - bi;
+        if (ai !== -1) return -1;
+        if (bi !== -1) return 1;
+        return (b.mtime ?? 0) - (a.mtime ?? 0);
+      });
+    }
+    // 无手动排序：文件夹优先 + mtime 降序（新更新的排前面）
     return [...items].sort((a, b) => {
-      const ai = order.indexOf(a.name);
-      const bi = order.indexOf(b.name);
-      if (ai === -1 && bi === -1) return 0;
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
+      if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+      return (b.mtime ?? 0) - (a.mtime ?? 0);
     });
   };
 
@@ -574,8 +660,23 @@ export function TreeMenu({
     );
   };
 
+  // 递归检查项或其任何子节点是否匹配过滤词
+  const filterMatches = (item: TreeItem, q: string): boolean => {
+    const lq = q.toLowerCase();
+    if (item.name.toLowerCase().includes(lq)) return true;
+    if (item.path.toLowerCase().includes(lq)) return true;
+    if (item.children) {
+      for (const c of item.children) if (filterMatches(c, q)) return true;
+    }
+    return false;
+  };
+
   const renderTree = (items: TreeItem[], depth: number = 0, parentPath: string = '') => {
-    const sorted = applySortOrder(items, parentPath);
+    let filtered = items;
+    if (filterQuery.trim()) {
+      filtered = items.filter((item) => filterMatches(item, filterQuery.trim()));
+    }
+    const sorted = applySortOrder(filtered, parentPath);
 
     // Nexo 统一字号和字重
     const getFontSize = () => '14px';
@@ -593,7 +694,7 @@ export function TreeMenu({
           const FolderIcon = isExpanded ? FolderOpen : FolderClosed;
 
           return (
-            <li key={item.path}>
+            <li key={`${item.path}:${item.isFolder ? 'folder' : 'file'}`}>
               <div
                 className={cn(
                   'flex items-center rounded min-w-0 transition-colors',
@@ -603,7 +704,7 @@ export function TreeMenu({
                   paddingLeft: `${depth * 16 + 4}px`,
                   background: isFolderTarget ? 'var(--ca-butHovBac)' : undefined,
                   outline: isFolderTarget ? '1px solid var(--nx-blue)' : undefined,
-                  borderRadius: '6px',
+                  borderRadius: '4px',
                   marginTop: item.isFolder && depth === 0 && index > 0 ? '2px' : undefined,
                   marginLeft: '4px',
                   marginRight: '4px',
@@ -637,8 +738,8 @@ export function TreeMenu({
                     fontWeight: item.isFolder ? getFolderWeight() : 400,
                     color: 'var(--c-texPri)',
                     background: isSelected ? 'var(--ca-sidIteSelBac)' : undefined,
-                    borderRadius: '6px',
-                    minHeight: '30px',
+                    borderRadius: '4px',
+                    minHeight: '28px',
                     paddingTop: '4px',
                     paddingBottom: '4px',
                   }}
@@ -648,7 +749,7 @@ export function TreeMenu({
                   onMouseLeave={(e) => {
                     if (!isSelected) (e.currentTarget as HTMLButtonElement).style.background = '';
                   }}
-                  onClick={() => onSelectItem(item.path, item.isFolder)}
+                  onClick={() => onSelectItem(item.path, item.isFolder, item.idChain)}
                 >
                   {item.isFolder ? (
                     <FolderIcon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--c-icoSec)' }} />
@@ -671,28 +772,122 @@ export function TreeMenu({
 
   if (loading) {
     return (
-      <div className={cn('h-full flex-shrink-0 p-4', className)} style={{ background: 'var(--c-bacSec)', boxShadow: 'inset -1px 0 0 0 var(--c-borSec)' }}>
+      <div className={cn('h-full flex-shrink-0 p-4 flex items-start gap-2', className)} style={{ background: 'var(--c-bacSec)' }}>
+        <span aria-hidden style={{ animation: 'spin 1s linear infinite', display: 'inline-block', color: 'var(--c-texDis)', fontSize: '14px' }}>⟳</span>
         <p className="text-sm" style={{ color: 'var(--c-texDis)' }}>{t('common.loading')}</p>
       </div>
     );
   }
 
   return (
-    <div className={cn('h-full flex-shrink-0 flex flex-col overflow-hidden', className)} style={{ background: 'var(--c-bacSec)', boxShadow: 'inset -1px 0 0 0 var(--c-borSec)' }}>
+    <div className={cn('h-full flex-shrink-0 flex flex-col overflow-hidden', className)} style={{ background: 'var(--c-bacSec)' }}>
       {/* 标题 */}
       <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
-        <h2 className="px-1" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--c-texPri)' }}>Nexo</h2>
+        <h2 className="px-1" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--c-texPri)', letterSpacing: '-0.01em' }}>Nexo</h2>
         {!isReadMode && (
-          <button
-            onClick={() => onCreateArticle('')}
-            title={t('createModal.title')}
-            className="nx-hoverable flex items-center justify-center rounded p-1"
-            style={{ color: 'var(--c-icoSec)' }}
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={() => setShowFilter((v) => !v)}
+              title={showFilter ? '关闭筛选' : '筛选文件树'}
+              className="nx-hoverable flex items-center justify-center rounded p-1"
+              style={{ color: filterQuery ? 'var(--nx-blue)' : 'var(--c-icoSec)' }}
+            >
+              <Filter className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onSearchClick || (() => {})}
+              title={t('common.search') + ' (⌘K)'}
+              className="nx-hoverable flex items-center justify-center rounded p-1"
+              style={{ color: 'var(--c-icoSec)' }}
+            >
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
         )}
       </div>
+
+      {/* 文件树筛选框 */}
+      {!isReadMode && showFilter && (
+        <div className="px-2 py-1.5" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
+          <div className="relative">
+            <Filter className="h-3 w-3 absolute" style={{ left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--c-icoTer)' }} />
+            <input
+              autoFocus
+              type="text"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              placeholder="按名称/路径筛选"
+              style={{
+                width: '100%',
+                padding: '5px 24px 5px 26px',
+                fontSize: '12px',
+                color: 'var(--c-texPri)',
+                background: 'var(--c-bacPri)',
+                border: '1px solid var(--c-borPri)',
+                borderRadius: '4px',
+                outline: 'none',
+              }}
+            />
+            {filterQuery && (
+              <button
+                onClick={() => setFilterQuery('')}
+                className="nx-hoverable absolute"
+                style={{ right: '4px', top: '50%', transform: 'translateY(-50%)', padding: '2px', borderRadius: '3px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--c-icoSec)' }}
+                aria-label="清空"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 首页入口 */}
+      {!isReadMode && onHomeClick && (
+        <div className="px-2 pt-1 space-y-0.5">
+          <button
+            onClick={onHomeClick}
+            className={cn(
+              'nx-hoverable w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm',
+              !selectedPath && 'font-medium',
+            )}
+            style={{
+              color: !selectedPath ? 'var(--c-texPri)' : 'var(--c-texSec)',
+              background: !selectedPath ? 'var(--c-bacTer)' : 'transparent',
+            }}
+          >
+            <Home style={{ width: '15px', height: '15px', color: 'var(--c-icoSec)' }} />
+            {t('home.homepage')}
+          </button>
+        </div>
+      )}
+
+      {/* 收藏文档 */}
+      {!isReadMode && favorites.length > 0 && (
+        <div className="px-2 pb-1" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
+          <div className="flex items-center gap-1 px-1 py-1">
+            <Star style={{ width: '12px', height: '12px', color: 'var(--nx-yellow)', fill: 'var(--nx-yellow)' }} />
+            <span style={{ fontSize: '11px', fontWeight: 500, color: 'var(--c-texDis)' }}>{t('favorites.title')}</span>
+          </div>
+          {favorites.map((fav) => (
+            <button
+              key={fav.path}
+              onClick={() => onSelectItem(fav.path, false, undefined)}
+              className={cn(
+                'nx-hoverable w-full flex items-center gap-2 px-2 py-1 rounded text-sm truncate',
+                selectedPath === fav.path && 'font-medium',
+              )}
+              style={{
+                color: selectedPath === fav.path ? 'var(--c-texPri)' : 'var(--c-texSec)',
+                background: selectedPath === fav.path ? 'var(--c-bacTer)' : 'transparent',
+              }}
+            >
+              <FileText style={{ width: '13px', height: '13px', color: 'var(--c-icoSec)', flexShrink: 0 }} />
+              <span className="truncate">{fav.title || fav.path.split('/').pop()}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 文件树 */}
       <div
@@ -718,14 +913,21 @@ export function TreeMenu({
       </div>
 
       {/* 右键菜单 */}
-      {!isReadMode && contextMenu && (
+      {!isReadMode && contextMenu && (() => {
+        const MENU_W = 180;
+        const MENU_H = 120;
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 1080;
+        const left = Math.min(contextMenu.x, vw - MENU_W - 8);
+        const top = Math.min(contextMenu.y, vh - MENU_H - 8);
+        return (
         <div
           className="fixed z-50 py-1 min-w-[160px]"
           style={{
-            left: contextMenu.x,
-            top: contextMenu.y,
+            left,
+            top,
             background: 'var(--c-bacPri)',
-            borderRadius: '6px',
+            borderRadius: '4px',
             boxShadow: 'var(--c-shaOutMd)',
             border: '1px solid var(--c-borPri)',
           }}
@@ -756,6 +958,35 @@ export function TreeMenu({
             <Trash2 className="h-3.5 w-3.5" />
             {t('common.delete')}
           </button>
+        </div>
+        );
+      })()}
+
+      {/* 底部工具栏 */}
+      {!isReadMode && (
+        <div className="flex items-center gap-1 px-3 py-2" style={{ borderTop: '1px solid var(--c-borSec)' }}>
+          {onGraphClick && (
+            <button
+              onClick={onGraphClick}
+              title={t('graph.title')}
+              className="nx-hoverable flex items-center gap-1.5 text-xs px-2 py-1.5 rounded"
+              style={{ color: 'var(--c-texTer)' }}
+            >
+              <GitFork className="h-3.5 w-3.5" />
+              {t('graph.title')}
+            </button>
+          )}
+          {onTrashClick && (
+            <button
+              onClick={onTrashClick}
+              title={t('trash.title')}
+              className="nx-hoverable flex items-center gap-1.5 text-xs px-2 py-1.5 rounded"
+              style={{ color: 'var(--c-texTer)' }}
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              {t('trash.title')}
+            </button>
+          )}
         </div>
       )}
 
