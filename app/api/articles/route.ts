@@ -8,48 +8,46 @@ import {
   renameArticle,
   moveArticle,
 } from '@/lib/storage';
-import { articlePathToId, findArticlePathById } from '@/lib/article-id';
+import { getOrCreateId, getPathById, getIdChain, updatePath, removePath } from '@/lib/article-id';
 
 // GET: 读取文章内容
 export async function GET(request: NextRequest) {
   try {
     const rawPath = request.nextUrl.searchParams.get('path');
     const articleId = request.nextUrl.searchParams.get('id');
-    let articlePath = rawPath;
+    let articlePath: string | null = null;
 
-    if (!articlePath && articleId) {
-      articlePath = await findArticlePathById(articleId);
+    if (articleId) {
+      articlePath = getPathById(articleId);
+    } else if (rawPath) {
+      articlePath = rawPath;
     }
 
     if (!articlePath) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: '缺少 path 或 id 参数',
-        },
+        { ok: false, error: '缺少 path 或 id 参数' },
         { status: 400 }
       );
     }
 
-    // 检查文章是否存在
     if (!(await isArticle(articlePath))) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: '文章不存在',
-        },
+        { ok: false, error: '文章不存在' },
         { status: 404 }
       );
     }
 
     const content = await readArticle(articlePath);
     const folderPage = await isFolder(articlePath);
+    const id = getOrCreateId(articlePath);
+    const idChain = getIdChain(articlePath);
 
     return NextResponse.json({
       ok: true,
       data: {
         path: articlePath,
-        id: articlePathToId(articlePath),
+        id,
+        idChain,
         content,
         isFolder: folderPage,
       },
@@ -57,10 +55,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('读取文章失败:', error);
     return NextResponse.json(
-      {
-        ok: false,
-        error: '读取文章失败',
-      },
+      { ok: false, error: '读取文章失败' },
       { status: 500 }
     );
   }
@@ -88,9 +83,12 @@ export async function POST(request: NextRequest) {
     }
 
     await writeArticle(articlePath, content);
+    const id = getOrCreateId(articlePath);
+    const idChain = getIdChain(articlePath);
+
     return NextResponse.json({
       ok: true,
-      data: { path: articlePath, id: articlePathToId(articlePath), content },
+      data: { path: articlePath, id, idChain, content },
     });
   } catch (error) {
     console.error('创建文章失败:', error);
@@ -102,52 +100,55 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { path, content } = body;
+    const { path: rawPath, id: rawId, content } = body;
 
-    if (!path || typeof path !== 'string') {
+    let articlePath = rawPath;
+    if (!articlePath && rawId) {
+      articlePath = getPathById(rawId);
+    }
+
+    if (!articlePath || typeof articlePath !== 'string') {
       return NextResponse.json(
-        {
-          ok: false,
-          error: '缺少 path 参数',
-        },
+        { ok: false, error: '缺少 path 或 id 参数' },
         { status: 400 }
       );
     }
 
     if (content === undefined || typeof content !== 'string') {
       return NextResponse.json(
-        {
-          ok: false,
-          error: '缺少 content 参数',
-        },
+        { ok: false, error: '缺少 content 参数' },
         { status: 400 }
       );
     }
 
-    // 检查文章是否存在
-    if (!(await isArticle(path))) {
+    if (!(await isArticle(articlePath))) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: '文章不存在',
-        },
+        { ok: false, error: '文章不存在' },
         { status: 404 }
       );
     }
 
-    await writeArticle(path, content);
+    // 版本快照（写入前保存当前版本作为历史）
+    try {
+      const old = await readArticle(articlePath);
+      if (old && old !== content) {
+        const { saveSnapshot } = await import('@/lib/history');
+        await saveSnapshot(articlePath, old);
+      }
+    } catch { /* 历史失败不阻塞 */ }
+
+    await writeArticle(articlePath, content);
+    const id = getOrCreateId(articlePath);
+    const idChain = getIdChain(articlePath);
 
     return NextResponse.json({
       ok: true,
-      data: { path, id: articlePathToId(path), content },
+      data: { path: articlePath, id, idChain, content },
     });
   } catch (error) {
     console.error('更新文章失败:', error);
     return NextResponse.json(
-      {
-        ok: false,
-        error: '更新文章失败',
-      },
+      { ok: false, error: '更新文章失败' },
       { status: 500 }
     );
   }
@@ -168,22 +169,18 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
-      // 如果 newParentPath 是普通文档，自动提升为父页面
       if (newParentPath) {
         await promoteParentIfNeeded(newParentPath);
       }
 
       const resultPath = await moveArticle(oldPath, newParentPath);
+      updatePath(oldPath, resultPath);
+      const id = getOrCreateId(resultPath);
+      const idChain = getIdChain(resultPath);
 
       return NextResponse.json({
         ok: true,
-        data: {
-          oldPath,
-          oldId: articlePathToId(oldPath),
-          newPath: resultPath,
-          newId: articlePathToId(resultPath),
-          newParentPath,
-        },
+        data: { oldPath, newPath: resultPath, id, idChain, newParentPath },
       });
     }
 
@@ -210,15 +207,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     await renameArticle(oldPath, newPath);
+    updatePath(oldPath, newPath);
+    const id = getOrCreateId(newPath);
+    const idChain = getIdChain(newPath);
 
     return NextResponse.json({
       ok: true,
-      data: {
-        oldPath,
-        oldId: articlePathToId(oldPath),
-        newPath,
-        newId: articlePathToId(newPath),
-      },
+      data: { oldPath, newPath, id, idChain },
     });
   } catch (error) {
     console.error('重命名/移动文章失败:', error);

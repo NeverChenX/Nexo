@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getShareLink } from '@/lib/share';
+import { getShareLink, isExpired, verifyPin } from '@/lib/share';
 import { readArticle, getRecursiveTree } from '@/lib/storage';
 
 interface TreeItem {
@@ -28,6 +28,24 @@ export async function GET(
         },
         { status: 404 }
       );
+    }
+
+    if (isExpired(shareLink)) {
+      return NextResponse.json(
+        { ok: false, error: '分享链接已过期', reason: 'expired' },
+        { status: 410 },
+      );
+    }
+
+    // 若有 PIN 密码：校验 header X-Share-Pin 或 query ?pin=
+    if (shareLink.pinHash) {
+      const pin = request.headers.get('X-Share-Pin') || request.nextUrl.searchParams.get('pin') || undefined;
+      if (!verifyPin(shareLink, pin || undefined)) {
+        return NextResponse.json(
+          { ok: false, error: '需要访问密码', reason: 'need_pin' },
+          { status: 401 },
+        );
+      }
     }
 
     if (shareLink.type === 'article') {

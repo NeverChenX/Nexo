@@ -85,28 +85,6 @@ export const defaultTemplates: Template[] = [
 `,
   },
   {
-    id: 'daily',
-    nameKey: 'template.dailyReport',
-    content: `# {title}
-
-## 今日完成
-
--
-
-## 进行中
-
--
-
-## 遇到的问题
-
--
-
-## 明日计划
-
--
-`,
-  },
-  {
     id: 'reading',
     nameKey: 'template.readingNotes',
     content: `# {title}

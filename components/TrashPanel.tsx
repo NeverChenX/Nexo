@@ -166,7 +166,9 @@ export function TrashPanel({ isOpen, onClose, onRestore }: TrashPanelProps) {
                 <AlertCircle className="h-4 w-4" style={{ color: 'var(--nx-red)' }} />
                 <span className="text-sm" style={{ fontWeight: 500, color: 'var(--c-texPri)' }}>{t('trash.emptyTrash')}</span>
               </div>
-              <p className="text-sm mb-4" style={{ color: 'var(--c-texSec)' }}>{t('trash.confirmEmpty')}</p>
+              <p className="text-sm mb-4" style={{ color: 'var(--c-texSec)' }}>
+                {t('trash.confirmEmptyCount', { count: items.length })}
+              </p>
               <div className="flex gap-2 justify-end">
                 <button onClick={() => setConfirmEmpty(false)} className="nx-hoverable px-3 py-1.5 text-sm rounded-md" style={{ color: 'var(--c-texSec)', background: 'var(--c-bacTer)' }}>
                   {t('common.cancel')}

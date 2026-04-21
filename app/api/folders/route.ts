@@ -9,6 +9,7 @@ import {
   moveFolder,
   promoteParentIfNeeded,
 } from '@/lib/storage';
+import { getOrCreateId, getIdChain, updatePath, ensureAllArticlesHaveIds } from '@/lib/article-id';
 
 // GET: 获取文件夹内容或完整树
 export async function GET(request: NextRequest) {
@@ -17,11 +18,32 @@ export async function GET(request: NextRequest) {
     const includeTree = request.nextUrl.searchParams.get('tree') === 'true';
 
     if (includeTree) {
-      // 返回完整的递归树结构
+      // 返回完整的递归树结构（附带 id 和 idChain）
       const tree = await getRecursiveTree();
+
+      // 收集所有路径，批量确保 ID 存在
+      const allPaths: string[] = [];
+      const collectPaths = (items: any[]) => {
+        for (const item of items) {
+          allPaths.push(item.path);
+          if (item.children?.length) collectPaths(item.children);
+        }
+      };
+      collectPaths(tree);
+      ensureAllArticlesHaveIds(allPaths);
+
+      // 给每个节点附加 id 和 idChain
+      const attachIds = (items: any[]): any[] =>
+        items.map((item: any) => ({
+          ...item,
+          id: getOrCreateId(item.path),
+          idChain: getIdChain(item.path),
+          children: item.children?.length ? attachIds(item.children) : item.children,
+        }));
+
       return NextResponse.json({
         ok: true,
-        data: tree,
+        data: attachIds(tree),
       });
     } else {
       // 返回指定文件夹的内容（含标题和时间）
@@ -109,6 +131,7 @@ export async function PUT(request: NextRequest) {
       }
 
       const resultPath = await moveFolder(oldPath, newParentPath);
+      updatePath(oldPath, resultPath);
       return NextResponse.json({
         ok: true,
         data: { oldPath, newPath: resultPath, newParentPath },
@@ -138,6 +161,7 @@ export async function PUT(request: NextRequest) {
     }
 
     await renameFolder(oldPath, newPath);
+    updatePath(oldPath, newPath);
 
     return NextResponse.json({
       ok: true,

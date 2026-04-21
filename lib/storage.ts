@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { invalidateWikiCache } from '@/lib/wiki-cache';
 
 const WIKI_DATA_DIR = path.join(process.cwd(), 'wiki-data');
 
@@ -20,89 +21,56 @@ async function ensureDir(dirPath: string): Promise<void> {
   await fs.mkdir(dirPath, { recursive: true });
 }
 
-// 获取文件树结构
-export async function getFileTree(
-  dirPath: string = WIKI_DATA_DIR,
-  relativePath: string = ''
-): Promise<Array<{ name: string; path: string; isFolder: boolean }>> {
-  await ensureDir(dirPath);
-
-  const entries = await fs.readdir(dirPath, { withFileTypes: true });
-  const items: Array<{ name: string; path: string; isFolder: boolean }> = [];
-
-  for (const entry of entries) {
-    if (entry.name.startsWith('.')) continue;
-    if (entry.name === '_index.md') continue;
-
-    const fullPath = path.join(dirPath, entry.name);
-    const relativeSafePath = relativePath
-      ? `${relativePath}/${entry.name}`
-      : entry.name;
-
-    if (entry.isDirectory()) {
-      items.push({
-        name: entry.name,
-        path: relativeSafePath,
-        isFolder: true,
-      });
-    } else if (entry.name.endsWith('.md')) {
-      items.push({
-        name: entry.name.replace('.md', ''),
-        path: relativeSafePath.replace('.md', ''),
-        isFolder: false,
-      });
-    }
-  }
-
-  return items.sort((a, b) => {
-    if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+/**
+ * 文件树节点。
+ * 叶子页面 = 单文件 `path.md` → isFolder=false
+ * 父页面   = 目录 `path/` + 可选 `path/_index.md` → isFolder=true
+ */
+export interface TreeItem {
+  name: string;
+  path: string;
+  isFolder: boolean;
+  mtime: number;
+  children?: TreeItem[];
 }
 
-// Use Promise cache to handle concurrent requests and graceful failure
-let _migrationPromise: Promise<void> | null = null;
-
-// 获取递归的文件树（包含子目录）
+// 获取递归的文件树（包含子目录）。
+// - 目录 mtime = max(目录自身 stat, 目录内 _index.md stat, 所有递归子项 mtime)
+// - 规则：同一层级不会出现 `name.md` + `name/` 并存（写入层保证）
 export async function getRecursiveTree(
   dirPath: string = WIKI_DATA_DIR,
   relativePath: string = ''
-): Promise<
-  Array<{ name: string; path: string; isFolder: boolean; children?: Array<any> }>
-> {
-  // Auto-migrate once on first root call; cache the Promise to handle concurrent requests
-  if (dirPath === WIKI_DATA_DIR) {
-    if (!_migrationPromise) {
-      _migrationPromise = migrateToPageModel().catch((err) => {
-        // Migration failed — reset so it can retry next time, but don't block tree loading
-        _migrationPromise = null;
-        console.error('Page model migration failed:', err);
-      });
-    }
-    await _migrationPromise;
-  }
-
+): Promise<TreeItem[]> {
   await ensureDir(dirPath);
 
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
-  const items: Array<{ name: string; path: string; isFolder: boolean; children?: Array<any> }> = [];
+  const items: TreeItem[] = [];
 
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
-    if (entry.name === '_index.md') continue; // hidden: it's the page's own content
+    if (entry.name === '_index.md') continue; // 父页面自身内容，不单独作为节点
 
     const fullPath = path.join(dirPath, entry.name);
     const relativeSafePath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
 
     if (entry.isDirectory()) {
       const children = await getRecursiveTree(fullPath, relativeSafePath);
-      items.push({ name: entry.name, path: relativeSafePath, isFolder: true, children });
+      let mtime = 0;
+      try {
+        mtime = (await fs.stat(fullPath)).mtimeMs;
+      } catch { /* ignore */ }
+      try {
+        const indexMtime = (await fs.stat(path.join(fullPath, '_index.md'))).mtimeMs;
+        if (indexMtime > mtime) mtime = indexMtime;
+      } catch { /* _index.md 可能不存在，如根目录 */ }
+      for (const c of children) if (c.mtime > mtime) mtime = c.mtime;
+      items.push({ name: entry.name, path: relativeSafePath, isFolder: true, mtime, children });
     } else if (entry.name.endsWith('.md')) {
-      items.push({
-        name: entry.name.replace('.md', ''),
-        path: relativeSafePath.replace('.md', ''),
-        isFolder: false,
-      });
+      const docName = entry.name.replace('.md', '');
+      const docPath = relativeSafePath.replace('.md', '');
+      let mtime = 0;
+      try { mtime = (await fs.stat(fullPath)).mtimeMs; } catch { /* ignore */ }
+      items.push({ name: docName, path: docPath, isFolder: false, mtime });
     }
   }
 
@@ -160,6 +128,8 @@ export async function writeArticle(
       await fs.writeFile(parentIndexPath, `# ${dirname}\n`, 'utf-8');
     }
   }
+
+  invalidateWikiCache();
 }
 
 /**
@@ -231,42 +201,11 @@ export async function isFolderPage(itemPath: string): Promise<boolean> {
   }
 }
 
-/**
- * 幂等迁移：确保每个目录都有 _index.md。
- * 现有没有内容的目录会获得 "# dirname" 作为默认内容。
- */
-export async function migrateToPageModel(
-  dirPath: string = WIKI_DATA_DIR,
-  relativePath: string = ''
-): Promise<void> {
-  const entries = await fs.readdir(dirPath, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.name.startsWith('.') || entry.name === '_index.md') continue;
-    if (!entry.isDirectory()) continue;
-
-    const fullPath = path.join(dirPath, entry.name);
-    const indexPath = path.join(fullPath, '_index.md');
-
-    try {
-      await fs.stat(indexPath);
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-      // 为现有文件夹创建默认内容
-      await fs.writeFile(indexPath, `# ${entry.name}\n`, 'utf-8');
-    }
-
-    // 递归进入子目录
-    await migrateToPageModel(
-      fullPath,
-      relativePath ? `${relativePath}/${entry.name}` : entry.name
-    );
-  }
-}
-
 // 删除文章
 export async function deleteArticle(articlePath: string): Promise<void> {
   const filePath = safePath(`${articlePath}.md`);
   await fs.unlink(filePath);
+  invalidateWikiCache();
 }
 
 // 创建文件夹
@@ -279,6 +218,7 @@ export async function createFolder(folderPath: string): Promise<void> {
 export async function deleteFolder(folderPath: string): Promise<void> {
   const dirPath = safePath(folderPath);
   await fs.rm(dirPath, { recursive: true, force: true });
+  invalidateWikiCache();
 }
 
 // 检查文件/文件夹是否存在（同时检查原始路径和 .md 后缀）
@@ -352,6 +292,7 @@ export async function renameArticle(oldPath: string, newPath: string): Promise<v
   const newFile = safePath(`${newPath}.md`);
   await ensureDir(path.dirname(newFile));
   await fs.rename(oldFile, newFile);
+  invalidateWikiCache();
 }
 
 // 移动文件夹到新的父目录
@@ -377,6 +318,7 @@ export async function moveFolder(folderPath: string, newParentPath: string): Pro
   
   await ensureDir(path.dirname(newDir));
   await fs.rename(oldDir, newDir);
+  invalidateWikiCache();
   return newPath;
 }
 
@@ -408,17 +350,8 @@ export async function moveArticle(articlePath: string, newParentPath: string): P
 
   await ensureDir(path.dirname(newFile));
   await fs.rename(oldFile, newFile);
+  invalidateWikiCache();
   return newPath;
-}
-
-// 获取文件夹内容
-export async function getFolderContents(
-  folderPath: string
-): Promise<Array<{ name: string; path: string; isFolder: boolean }>> {
-  const dirPath = folderPath
-    ? safePath(folderPath)
-    : WIKI_DATA_DIR;
-  return getFileTree(dirPath, folderPath);
 }
 
 // 获取文件夹内容（含标题和修改时间）

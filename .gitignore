@@ -8,3 +8,28 @@ share-links.json
 .env.*.local
 .vercel
 public/uploads/
+
+# 编辑器/构建缓存
+tsconfig.tsbuildinfo
+.tsbuildinfo
+test-results/
+frontend/out/
+
+# 本地运行时与日志
+scripts/cron.log
+scripts/*.pid
+
+# Claude 工具本机配置（含绝对路径，不应公开）
+.claude/
+
+# 用户个人内容（不属于产品代码）
+never博客文章/
+萨特-完整哲学体系.md
+萨特-著作观点-补充.md
+README.md.bak
+
+# Python backend
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
+*.pyc

@@ -22,17 +22,18 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [importing, setImporting] = useState(false);
   const [results, setResults] = useState<ImportResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []).filter((f) => f.name.endsWith('.md'));
+    const selected = Array.from(e.target.files || []).filter((f) => /\.(md|pdf|docx?)$/i.test(f.name));
     setFiles(selected);
     setResults([]);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const dropped = Array.from(e.dataTransfer.files).filter((f) => f.name.endsWith('.md'));
+    const dropped = Array.from(e.dataTransfer.files).filter((f) => /\.(md|pdf|docx?)$/i.test(f.name));
     setFiles(dropped);
     setResults([]);
   };
@@ -40,6 +41,7 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
   const handleImport = async () => {
     if (files.length === 0) return;
     setImporting(true);
+    setError(null);
     const fd = new FormData();
     for (const f of files) fd.append('files', f);
     try {
@@ -48,14 +50,20 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
       if (json.ok) {
         setResults(json.data);
         onImported?.();
+      } else {
+        setError(json.error || t('import.failed'));
       }
-    } catch { /* ignore */ }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t('import.networkError');
+      setError(msg);
+    }
     setImporting(false);
   };
 
   const handleClose = () => {
     setFiles([]);
     setResults([]);
+    setError(null);
     onClose();
   };
 
@@ -90,16 +98,26 @@ export function ImportModal({ isOpen, onClose, onImported }: ImportModalProps) {
           >
             <Upload className="h-6 w-6 mx-auto mb-2" style={{ color: 'var(--c-icoSec)' }} />
             <p className="text-sm">{t('import.dragHint')}</p>
-            <p className="text-xs mt-1" style={{ color: 'var(--c-texDis)' }}>.md</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--c-texDis)' }}>.md / .pdf / .docx（大文件自动分章节）</p>
           </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".md"
+            accept=".md,.pdf,.doc,.docx"
             multiple
             className="hidden"
             onChange={handleFileSelect}
           />
+
+          {/* 错误提示 */}
+          {error && (
+            <div className="mt-3 px-3 py-2 rounded text-sm" style={{ background: 'rgba(224,62,62,0.06)', border: '1px solid rgba(224,62,62,0.2)', color: 'var(--nx-red)' }}>
+              <div className="flex items-start gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ marginTop: '2px' }} />
+                <span style={{ wordBreak: 'break-word' }}>{error}</span>
+              </div>
+            </div>
+          )}
 
           {/* 已选文件 */}
           {files.length > 0 && results.length === 0 && (
