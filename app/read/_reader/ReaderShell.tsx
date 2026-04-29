@@ -26,6 +26,7 @@ import { HighlightOverlay } from './annotation/HighlightOverlay';
 import { MarkPopover } from './annotation/MarkPopover';
 import { InlineNoteCard } from './annotation/InlineNoteCard';
 import { NoteComposer } from './annotation/NoteComposer';
+import { CommandPalette } from './cmdk/CommandPalette';
 import { countWords } from '@/lib/reader/reading-time';
 import { makeAnchor, isSameAnchor } from '@/lib/reader/anchor';
 import type { Mark, Anchor } from '@/lib/reader/types';
@@ -57,6 +58,31 @@ function Inner({ ids }: { ids: string[] | undefined }) {
     setEndEl(endRef.current);
     setContentRoot(contentRootRef.current);
   }, [data?.id]);
+
+  // 监听 CommandPalette 选中笔记/想法后的 anchor 跳转事件
+  useEffect(() => {
+    const onGoto = (e: Event): void => {
+      const detail = (e as CustomEvent<{ quote: string }>).detail;
+      if (!detail || !contentRoot) return;
+      const quote = detail.quote;
+      if (!quote) return;
+      // 在正文中查找含 quote 前缀的首个块级元素
+      const blocks = contentRoot.querySelectorAll<HTMLElement>(
+        'p, li, h1, h2, h3, h4, blockquote',
+      );
+      const needle = quote.slice(0, Math.min(30, quote.length));
+      for (const b of blocks) {
+        if (b.textContent?.includes(needle)) {
+          b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          b.classList.add('rd-flash');
+          setTimeout(() => b.classList.remove('rd-flash'), 1500);
+          break;
+        }
+      }
+    };
+    document.addEventListener('reader:goto-anchor', onGoto);
+    return () => document.removeEventListener('reader:goto-anchor', onGoto);
+  }, [contentRoot]);
 
   const { progress, prevEntry, showResumeToast, dismissToast, resumeToTop } =
     useReaderProgress({
@@ -388,6 +414,7 @@ function Inner({ ids }: { ids: string[] | undefined }) {
         onSubmit={composerSubmit}
         onCancel={() => setComposer(null)}
       />
+      <CommandPalette currentArticleId={data?.id} />
     </div>
   );
 }
