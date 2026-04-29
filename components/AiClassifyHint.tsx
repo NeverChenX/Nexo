@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sparkles, X, FolderInput, Tag } from 'lucide-react';
+import { getAiClassifyHintEnabled, onPreferencesChanged, PREF_KEYS } from '@/lib/preferences';
 
 interface AiClassifyHintProps {
   articlePath: string;
@@ -24,8 +25,18 @@ export function AiClassifyHint({ articlePath, content, resetKey, onMove, onApply
   const [loading, setLoading] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [enabled, setEnabled] = useState<boolean>(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAnalyzedLenRef = useRef(0);
+
+  // 偏好开关：默认关；监听设置面板里的实时切换
+  useEffect(() => {
+    setEnabled(getAiClassifyHintEnabled());
+    const off = onPreferencesChanged((key) => {
+      if (key === PREF_KEYS.AI_CLASSIFY_HINT) setEnabled(getAiClassifyHintEnabled());
+    });
+    return off;
+  }, []);
 
   // 文档切换时重置
   useEffect(() => {
@@ -66,6 +77,7 @@ export function AiClassifyHint({ articlePath, content, resetKey, onMove, onApply
 
   // 内容从无到有或大幅增长时触发（首次保存、粘贴大段内容、AI 生成等）
   useEffect(() => {
+    if (!enabled) return;
     if (dismissed || !articlePath) return;
     const len = content.replace(/\s/g, '').length;
     // 至少 300 字才值得分析
@@ -78,8 +90,9 @@ export function AiClassifyHint({ articlePath, content, resetKey, onMove, onApply
       analyze();
     }, 3000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [content, articlePath, analyze, dismissed]);
+  }, [content, articlePath, analyze, dismissed, enabled]);
 
+  if (!enabled) return null;
   if (!visible || dismissed) return null;
   if (suggestedFolders.length === 0 && suggestedTags.length === 0) return null;
 

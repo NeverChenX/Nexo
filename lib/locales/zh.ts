@@ -17,6 +17,7 @@ const zh: Record<string, string> = {
   'common.input': '输入',
   'common.backHome': '返回首页',
   'common.retry': '重试',
+  'common.copied': '已复制',
 
   // 时间（相对）
   'time.justNow': '刚刚',
@@ -46,6 +47,7 @@ const zh: Record<string, string> = {
   // 阅读页面
   'read.selectArticle': '选择一篇文章开始阅读',
   'read.selectFromSidebar': '从左侧目录中选择',
+  'read.copyMarkdown': '复制 Markdown',
   'read.collapseSidebar': '折叠侧栏',
   'read.expandSidebar': '展开侧栏',
   'read.catalog': '目录',
@@ -60,10 +62,14 @@ const zh: Record<string, string> = {
   'tree.catalog': '目录',
   'tree.newSubPage': '新建子页面',
   'tree.newSubFolder': '新建子文件夹',
+  'tree.newMenu': '新建',
+  'tree.newRootPage': '新建页面',
+  'tree.newRootFolder': '新建文件夹',
+  'tree.defaultNewFolderName': '新建文件夹',
   'tree.renameTo': '重命名为:',
   'tree.moveTo': '移动到:',
   'tree.deleteConfirm': '确定删除 "{name}" 吗？',
-  'tree.deleteFolderConfirm': '确定删除文件夹 "{name}" 及其所有内容吗？',
+  'tree.deleteFolderConfirm': '确定删除 "{name}" 吗？子页面也会一并删除。',
   'tree.emptyTree': '暂无文档',
   'tree.renameFailed': '重命名失败',
   'tree.deleteFailed': '删除失败',
@@ -94,6 +100,7 @@ const zh: Record<string, string> = {
   'bn.newSubPageDesc': '创建一个子页面',
   'bn.pageGroup': '页面',
   'bn.unnamedPage': '未命名页面',
+  'bn.defaultNewPageName': '新页面',
   'bn.uploadFailed': '上传失败',
   'bn.parseFailed': '内容解析失败',
 
@@ -158,6 +165,22 @@ const zh: Record<string, string> = {
   'aiWrite.insertBelow': '插入下方',
   'aiWrite.copy': '复制',
   'aiWrite.back': '返回',
+
+  // AI 自定义提问（针对选中内容自由输入 prompt）
+  'aiCustom.title': 'AI 自定义提问',
+  'aiCustom.placeholder': '输入你的要求，例如：用数学模型解释这个内容 / 列出三个反例 / 改写成给小学生看的版本',
+  'aiCustom.submit': '提问',
+  'aiCustom.submitHint': '⌘+Enter 提交',
+  'aiCustom.thinking': 'AI 思考中…',
+  'aiCustom.failed': 'AI 处理失败',
+  'aiCustom.requestFailed': '请求失败',
+  'aiCustom.yourQuestion': '你的问题',
+  'aiCustom.insertBelow': '插入到下一行',
+  'aiCustom.copy': '复制',
+  'aiCustom.reset': '重新提问',
+
+  // 使用者备注
+  'userNote.insert': '插入备注',
 
   // 搜索（Phase 2）
   'search.placeholder': '搜索文档...',
@@ -305,6 +328,7 @@ const zh: Record<string, string> = {
 
   // 知识图谱
   'graph.title': '知识图谱',
+  'graph.toReadMode': '阅读模式',
   'graph.doc': '文档',
   'graph.folder': '文件夹',
   'graph.nodeCount': '{count} 个节点',
@@ -325,6 +349,69 @@ const zh: Record<string, string> = {
   'locale.zh': '中文',
   'locale.en': 'English',
   'locale.switch': '语言',
+
+  // 设置
+  'settings.title': '设置',
+  'settings.tab.llm': 'AI 模型',
+  'settings.saved': '已保存',
+  'settings.llm.desc': '所有 AI 功能（写作、问答、解释、分类）都会使用此配置。密钥仅保存在服务端。',
+  'settings.llm.provider': '服务商',
+  'settings.llm.baseUrl': 'Base URL',
+  'settings.llm.apiKey': 'API Key',
+  'settings.llm.apiKey.envHint': '当前来自 .env.local 的 ARK_API_KEY；在此处修改并保存会改写到 wiki-data/_config/llm.json 并覆盖 env。',
+  'settings.llm.apiKey.fileHint': '保存在 wiki-data/_config/llm.json（仅本机可读）。',
+  'settings.llm.model': '模型 ID',
+  'settings.llm.temperature': '温度（Temperature）',
+  'settings.llm.maxTokens': '最大 Token',
+  'settings.llm.timeoutMs': '超时（毫秒）',
+  'settings.llm.thinking': '深度思考',
+  'settings.llm.thinking.hint': 'seed-1-6 及以上模型建议选 disabled（直答），否则短回答会被思考 token 吃掉。',
+  'settings.llm.test': '测试连通性',
+  'settings.llm.testing': '正在测试…',
+  'settings.llm.testOk': '连通正常（{ms} ms）',
+  'settings.llm.reply': '回复',
+  'settings.ui.section': '界面',
+  'settings.ui.aiClassifyHint': 'AI 分类建议浮条',
+  'settings.ui.aiClassifyHint.desc': '编辑器右下角自动推荐目录和标签。默认关闭，开启后超过 300 字才会触发。',
+
+  // BlockNote 块菜单（Notion 风格 SideMenu）
+  'bn.menu.searchPlaceholder': '搜索动作…',
+  'bn.menu.turnInto': '转换为…',
+  'bn.menu.color': '颜色…',
+  'bn.menu.copyMarkdown': '复制为 Markdown',
+  'bn.menu.copyText': '复制为纯文本',
+  'bn.menu.copyLink': '复制块链接',
+  'bn.menu.toSubpage': '提取为子页面',
+  'bn.menu.askAi': 'Ask AI · 解释这一段',
+  'bn.menu.delete': '删除',
+  'bn.menu.deleteShortcut': 'Del',
+  'bn.menu.back': '返回',
+  'bn.menu.noResults': '未找到匹配项',
+  'bn.menu.lastEdited': '修改于 {time}',
+  'bn.menu.dragHandle': '拖动 / 打开菜单',
+  'bn.menu.addBlock': '插入块（点击）/ AI（Alt+点击）',
+  'bn.menu.linkCopied': '块链接已复制',
+  'bn.menu.mdCopied': 'Markdown 已复制',
+  'bn.menu.textCopied': '纯文本已复制',
+  'bn.menu.subpageCreated': '已提取为子页面',
+  'bn.menu.subpageFailed': '提取子页面失败',
+
+  // 转换为（Turn into）子菜单
+  'bn.turn.title': '转换为',
+  'bn.turn.paragraph': '正文段落',
+  'bn.turn.h1': '一级标题',
+  'bn.turn.h2': '二级标题',
+  'bn.turn.h3': '三级标题',
+  'bn.turn.bulletList': '项目列表',
+  'bn.turn.numberedList': '编号列表',
+  'bn.turn.checkList': '勾选清单',
+  'bn.turn.toggleHeading': '可折叠标题',
+  'bn.turn.quote': '引用块',
+  'bn.turn.code': '代码块',
+
+  // 颜色子菜单
+  'bn.color.text': '文字颜色',
+  'bn.color.background': '背景颜色',
 };
 
 export default zh;

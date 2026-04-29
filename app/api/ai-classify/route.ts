@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRecursiveTree } from '@/lib/storage';
+import { chat, LlmNotConfiguredError } from '@/lib/llm/client';
 
 interface TreeItem {
   name: string;
@@ -59,20 +60,17 @@ ${snippet}
 请以严格 JSON 返回：
 {"folders": ["目录A", "目录B"], "tags": ["标签1", "标签2", "标签3"]}`;
 
-    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL ?? 'http://127.0.0.1:18789';
-    const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN ?? '';
-
-    const res = await fetch(`${gatewayUrl}/v1/responses`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${gatewayToken}` },
-      body: JSON.stringify({ model: 'openclaw/main', input: prompt }),
-      signal: AbortSignal.timeout(40_000),
-    });
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: `AI 服务错误 ${res.status}` }, { status: 502 });
+    let raw = '';
+    try {
+      const r = await chat({ prompt, timeoutMs: 40_000 });
+      raw = r.text;
+    } catch (err) {
+      if (err instanceof LlmNotConfiguredError) {
+        return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
+      }
+      const msg = err instanceof Error ? err.message : 'AI 服务错误';
+      return NextResponse.json({ ok: false, error: msg }, { status: 502 });
     }
-    const json = await res.json();
-    const raw: string = json?.output?.[0]?.content?.[0]?.text ?? json?.output?.[0]?.content ?? '';
     let suggestedFolders: string[] = [];
     let suggestedTags: string[] = [];
     try {

@@ -639,7 +639,9 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
           className="flex items-center justify-between px-4 py-2.5 gap-3"
           style={{ borderBottom: '1px solid var(--c-borSec)' }}
         >
-          <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--c-texPri)' }}>{t('graph.title')}</h2>
+          <div className="flex items-center gap-3" style={{ flexShrink: 0 }}>
+            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--c-texPri)' }}>{t('graph.title')}</h2>
+          </div>
 
           {/* 视图切换 */}
           <div style={{ display: 'flex', gap: '2px', padding: '2px', background: 'var(--c-bacTer)', borderRadius: '6px' }}>

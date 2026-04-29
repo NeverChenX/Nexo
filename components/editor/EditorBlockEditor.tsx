@@ -28,16 +28,20 @@ import {
   CreateLinkButton,
   NestBlockButton,
   UnnestBlockButton,
+  SideMenuController,
 } from '@blocknote/react';
 import { BlockNoteView } from '@blocknote/shadcn';
 import '@blocknote/shadcn/style.css';
+import { zh as bnZh, en as bnEn } from '@blocknote/core/locales';
 import { useI18n } from '@/lib/i18n';
+import { makeNotionSideMenu } from '@/components/editor/NotionSideMenu';
 import { BacklinksPanel } from '@/components/BacklinksPanel';
 import { CommentsPanel } from '@/components/CommentsPanel';
 import { AiWritePanel } from '@/components/AiWritePanel';
+import { AiCustomAskPanel } from '@/components/AiCustomAskPanel';
 import { DocumentPropertiesPanel, type DocumentPropertiesPanelHandle } from '@/components/DocumentPropertiesPanel';
 import { PageIconCover, type PageIconCoverHandle } from '@/components/PageIconCover';
-import { SmilePlus, ImageIcon, Plus, Sparkles, Wand2, Highlighter, X, Palette, AlertCircle } from 'lucide-react';
+import { SmilePlus, ImageIcon, Plus, Sparkles, Wand2, Highlighter, X, Palette, AlertCircle, Copy, Check, MessageCircleQuestion, StickyNote } from 'lucide-react';
 import { Z } from '@/lib/z-index';
 import { parseFrontmatter, serializeFrontmatter, Frontmatter } from '@/lib/frontmatter';
 
@@ -76,12 +80,74 @@ const PageLink = createReactBlockSpec(
   }
 );
 
+// ─────────────── UserNote 自定义 Block（使用者备注） ───────────────
+
+const UserNote = createReactBlockSpec(
+  {
+    type: 'userNote' as const,
+    content: 'inline' as const,
+    propSchema: {},
+  },
+  {
+    render: ({ contentRef }) => {
+      return (
+        <div className="nx-user-note">
+          <div className="nx-user-note-header" contentEditable={false}>
+            <span className="nx-user-note-icon">📝</span>
+            <span className="nx-user-note-label">备注</span>
+          </div>
+          <div
+            className="nx-user-note-body"
+            ref={contentRef as unknown as React.RefObject<HTMLDivElement>}
+          />
+        </div>
+      );
+    },
+  }
+);
+
+// ─────────────── 备注持久化（保存 ↔ 加载 双向变换） ───────────────
+
+const USER_NOTE_PREFIX = '📝 备注：';
+
+// 保存前：userNote → paragraph，把 "📝 备注：" 作为前缀 prepend 到 inline 内容
+function transformUserNotesForSave(blocks: any[]): any[] {
+  return blocks.map((b) => {
+    if (b.type !== 'userNote') return b;
+    const content = Array.isArray(b.content) ? b.content : [];
+    return {
+      ...b,
+      type: 'paragraph',
+      props: {},
+      content: [{ type: 'text', text: USER_NOTE_PREFIX, styles: {} }, ...content],
+    };
+  });
+}
+
+// 加载后：paragraph 以 "📝 备注：" 开头 → userNote，剥掉前缀
+function transformUserNotesAfterLoad(blocks: any[]): any[] {
+  return blocks.map((b) => {
+    if (b.type !== 'paragraph') return b;
+    const content = b.content;
+    if (!Array.isArray(content) || content.length === 0) return b;
+    const first = content[0];
+    if (!first || first.type !== 'text' || typeof first.text !== 'string') return b;
+    if (!first.text.startsWith(USER_NOTE_PREFIX)) return b;
+
+    const remainder = first.text.slice(USER_NOTE_PREFIX.length);
+    const rest = content.slice(1);
+    const newContent = remainder ? [{ ...first, text: remainder }, ...rest] : rest;
+    return { ...b, type: 'userNote', props: {}, content: newContent };
+  });
+}
+
 // ─────────────── Schema ───────────────
 
 const schema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     pageLink: PageLink(),
+    userNote: UserNote(),
   },
   inlineContentSpecs: defaultInlineContentSpecs,
   styleSpecs: defaultStyleSpecs,
@@ -544,12 +610,44 @@ function CustomFormattingToolbar({
   editor,
   onRequestExplain,
   onRequestAiWrite,
+  onRequestAiCustom,
+  onInsertUserNote,
 }: {
   editor: any;
   onRequestExplain: (text: string) => void;
   onRequestAiWrite: (text: string, range: { from: number; to: number } | null) => void;
+  onRequestAiCustom: (text: string, range: { from: number; to: number } | null) => void;
+  onInsertUserNote: () => void;
 }) {
   const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyMarkdown = async () => {
+    try {
+      const sel = editor.getSelection?.();
+      const blocks: unknown[] = sel?.blocks && sel.blocks.length > 0
+        ? sel.blocks
+        : [editor.getTextCursorPosition?.()?.block].filter(Boolean);
+      if (!blocks || blocks.length === 0) return;
+      const md = (await editor.blocksToMarkdownLossy(blocks)) as string;
+      const text = (md || '').trim();
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // swallow — 无可用选区
+    }
+  };
 
   const handleExplain = () => {
     const selected = editor.getSelectedText?.() ?? '';
@@ -564,6 +662,14 @@ function CustomFormattingToolbar({
     const tt = editor._tiptapEditor;
     const range = tt ? { from: tt.state.selection.from, to: tt.state.selection.to } : null;
     onRequestAiWrite(selected, range);
+  };
+
+  const handleAiCustom = () => {
+    const selected = editor.getSelectedText?.() ?? '';
+    if (!selected.trim()) return;
+    const tt = editor._tiptapEditor;
+    const range = tt ? { from: tt.state.selection.from, to: tt.state.selection.to } : null;
+    onRequestAiCustom(selected, range);
   };
 
   const handleToggleHighlight = () => {
@@ -612,9 +718,25 @@ function CustomFormattingToolbar({
       <TBtn title={t('aiWrite.title')} onClick={handleAiWrite}>
         <Wand2 style={{ width: '14px', height: '14px', color: '#2eaadc' }} />
       </TBtn>
+      {/* AI 自定义提问 */}
+      <TBtn title={t('aiCustom.title')} onClick={handleAiCustom}>
+        <MessageCircleQuestion style={{ width: '14px', height: '14px', color: '#ec4899' }} />
+      </TBtn>
+      {/* 使用者备注 */}
+      <TBtn title={t('userNote.insert')} onClick={onInsertUserNote}>
+        <StickyNote style={{ width: '14px', height: '14px', color: '#d97706' }} />
+      </TBtn>
       {/* 高亮标记 */}
       <TBtn title={t('highlight.title')} onClick={handleToggleHighlight}>
         <Highlighter style={{ width: '14px', height: '14px', color: '#dfab01' }} />
+      </TBtn>
+      {/* 复制 Markdown */}
+      <TBtn title={copied ? t('common.copied') : t('read.copyMarkdown')} onClick={handleCopyMarkdown}>
+        {copied ? (
+          <Check style={{ width: '14px', height: '14px', color: '#16a34a' }} />
+        ) : (
+          <Copy style={{ width: '14px', height: '14px', color: 'var(--c-icoSec)' }} />
+        )}
       </TBtn>
     </FormattingToolbar>
   );
@@ -770,27 +892,55 @@ interface EditorBlockEditorProps {
   content: string;
   articlePath: string;
   articleId: string | null;
+  /** 当前页面是否为父页面（目录） */
+  isFolder?: boolean;
   onSaveStateChange?: (state: 'saved' | 'saving' | 'unsaved') => void;
   onCreatePage?: (parentPath: string) => void;
   subPages?: SubPage[];
   onSelectSubPage?: (path: string) => void;
+  /** 本次打开是"刚通过 create 创建"的空页面：进入后聚焦首个 H1；光标离开若仍为空则补默认 */
+  isJustCreated?: boolean;
+  /** 空标题兜底文案（来自 i18n） */
+  defaultTitleFallback?: string;
+  /** 兜底动作完成 or 用户开始输入 / 离开，通知父组件清除 isJustCreated */
+  onJustCreatedConsumed?: () => void;
+  /** 标题→文件名同步触发：editor 改完文件名后通知父组件更新路径状态（不要重载内容） */
+  onPathRenamed?: (oldPath: string, newPath: string) => void;
+}
+
+// 把标题文本净化为合法文件名片段
+function sanitizeTitleToFilename(raw: string): string {
+  return raw
+    .replace(/[<>:"/\\|?*\n\r\t]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100);
 }
 
 export function EditorBlockEditor({
   content,
   articlePath,
   articleId,
+  isFolder = false,
   onSaveStateChange,
   onCreatePage,
   subPages,
   onSelectSubPage,
+  isJustCreated,
+  defaultTitleFallback,
+  onJustCreatedConsumed,
+  onPathRenamed,
 }: EditorBlockEditorProps) {
-  const { t } = useI18n();
+  const { t, locale: i18nLocale } = useI18n();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoadingRef = useRef(false);
   const prevContentRef = useRef(content);
   const prevSubPagesRef = useRef<SubPage[]>([]);
   const articlePathRef = useRef(articlePath);
+  const isFolderRef = useRef(isFolder);
+  // 防并发改名 + 记录最近一次改名结果，避免回环触发
+  const renameInflightRef = useRef(false);
+  const lastRenameAttemptRef = useRef<string>('');
   const [editorReady, setEditorReady] = useState(false);
   const [docProperties, setDocProperties] = useState<Frontmatter>({});
   const docPropertiesRef = useRef<Frontmatter>({});
@@ -799,6 +949,7 @@ export function EditorBlockEditor({
   // AI 面板 state 提升到顶层 —— 工具栏浮层重建不会导致面板丢失
   const [aiPanelText, setAiPanelText] = useState<string | null>(null);
   const [aiWriteCtx, setAiWriteCtx] = useState<{ text: string; range: { from: number; to: number } | null } | null>(null);
+  const [aiCustomCtx, setAiCustomCtx] = useState<{ text: string; range: { from: number; to: number } | null } | null>(null);
 
   // 保存失败提示 toast
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -806,6 +957,21 @@ export function EditorBlockEditor({
     setSaveError(msg);
     window.setTimeout(() => setSaveError(null), 4500);
   }, []);
+
+  // 块菜单成功操作 toast（提取子页/复制/etc）
+  const [infoToast, setInfoToast] = useState<string | null>(null);
+  const showInfoToast = useCallback((msg: string) => {
+    setInfoToast(msg);
+    window.setTimeout(() => setInfoToast(null), 2000);
+  }, []);
+
+  // 用 ref 跟踪"刚创建"标记，避免 loadContent useCallback 依赖爆炸
+  const isJustCreatedRef = useRef<boolean>(!!isJustCreated);
+  useEffect(() => { isJustCreatedRef.current = !!isJustCreated; }, [isJustCreated]);
+  const defaultTitleRef = useRef<string>(defaultTitleFallback || '');
+  useEffect(() => { defaultTitleRef.current = defaultTitleFallback || ''; }, [defaultTitleFallback]);
+  const onJustCreatedConsumedRef = useRef<typeof onJustCreatedConsumed>(onJustCreatedConsumed);
+  useEffect(() => { onJustCreatedConsumedRef.current = onJustCreatedConsumed; }, [onJustCreatedConsumed]);
 
   // 颜色按钮 state 也提升到顶层：
   // BlockNote 在 selection collapse→restore 过程中会 unmount 再 mount
@@ -828,6 +994,12 @@ export function EditorBlockEditor({
     },
     [],
   );
+  const handleRequestAiCustom = useCallback(
+    (text: string, range: { from: number; to: number } | null) => {
+      setAiCustomCtx({ text, range });
+    },
+    [],
+  );
 
   // 解析 frontmatter 属性
   useEffect(() => {
@@ -837,6 +1009,7 @@ export function EditorBlockEditor({
   }, [content]);
 
   useEffect(() => { articlePathRef.current = articlePath; }, [articlePath]);
+  useEffect(() => { isFolderRef.current = isFolder; }, [isFolder]);
 
   // 监听 pageLink 点击事件
   useEffect(() => {
@@ -875,6 +1048,8 @@ export function EditorBlockEditor({
       e.preventDefault();
       e.stopPropagation();
       let docPath = decodeURIComponent(href);
+      // 剥掉 Markdown `<url>` 语法残留的尖括号
+      docPath = docPath.replace(/^</, '').replace(/>$/, '');
       docPath = docPath.replace(/^\//, '').replace(/\.md$/, '');
       // 如果是相对路径，基于当前文档目录解析
       if (!docPath.startsWith('/') && articlePathRef.current.includes('/')) {
@@ -889,6 +1064,48 @@ export function EditorBlockEditor({
     container.addEventListener('click', handler, true);
     return () => container.removeEventListener('click', handler, true);
   }, []);
+
+  // 标题 → 文件名同步：从 markdown 抽取首个 H1，若与当前 basename 不一致则改名
+  const syncTitleToFilename = useCallback(async (markdown: string) => {
+    if (renameInflightRef.current) return;
+    const oldPath = articlePathRef.current;
+    if (!oldPath) return;
+
+    const titleMatch = markdown.match(/^#\s+(.+?)\s*$/m);
+    if (!titleMatch) return;
+    const sanitized = sanitizeTitleToFilename(titleMatch[1]);
+    if (!sanitized) return;
+
+    const oldName = oldPath.split('/').pop() || '';
+    if (sanitized === oldName) return;
+    if (lastRenameAttemptRef.current === sanitized) return;
+
+    const parent = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+    const newPath = parent ? `${parent}/${sanitized}` : sanitized;
+    const url = isFolderRef.current ? '/api/folders' : '/api/articles';
+    const method = isFolderRef.current ? 'PUT' : 'PATCH';
+
+    lastRenameAttemptRef.current = sanitized;
+    renameInflightRef.current = true;
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath, newPath }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        const finalPath = json.data?.newPath || newPath;
+        articlePathRef.current = finalPath;
+        onPathRenamed?.(oldPath, finalPath);
+      }
+      // 失败（重名/非法）静默：保留旧文件名，不打扰用户
+    } catch {
+      // 网络错误也静默
+    } finally {
+      renameInflightRef.current = false;
+    }
+  }, [onPathRenamed]);
 
   const save = useCallback(
     async (markdown: string) => {
@@ -907,6 +1124,8 @@ export function EditorBlockEditor({
         const json = await res.json();
         if (json.ok) {
           onSaveStateChange?.('saved');
+          // 保存成功后异步同步文件名（不阻塞 saved 状态）
+          void syncTitleToFilename(markdown);
         } else {
           onSaveStateChange?.('unsaved');
           showSaveError(`保存失败: ${json.error || '未知错误'}`);
@@ -917,7 +1136,7 @@ export function EditorBlockEditor({
         showSaveError(`保存失败（网络）: ${msg}`);
       }
     },
-    [onSaveStateChange, showSaveError]
+    [onSaveStateChange, showSaveError, syncTitleToFilename]
   );
 
   // 稳定 uploadFile 引用，避免 useCreateBlockNote 重建 editor 实例
@@ -930,10 +1149,82 @@ export function EditorBlockEditor({
     throw new Error('Upload failed');
   }, []);
 
+  // 编辑器初始化时按当前 locale 选一次 dict；后续切换语言需要刷新页面才生效，
+  // 避免编辑器实例频繁重建导致选区/历史丢失。
+  const initialBnDictRef = useRef(i18nLocale === 'en' ? bnEn : bnZh);
+
   const editor = useCreateBlockNote({
     schema,
     uploadFile: uploadFileStable,
+    dictionary: initialBnDictRef.current,
   });
+
+  // 工具栏：插入"使用者备注" block
+  const handleInsertUserNote = useCallback(() => {
+    if (!editor) return;
+    try {
+      const sel = editor.getSelection?.();
+      const selBlocks = sel?.blocks;
+      const anchor = selBlocks && selBlocks.length > 0
+        ? selBlocks[selBlocks.length - 1]
+        : editor.getTextCursorPosition?.()?.block;
+      if (!anchor) return;
+      const inserted = editor.insertBlocks(
+        [{ type: 'userNote' as any, content: [] }],
+        anchor,
+        'after',
+      );
+      const newBlock = Array.isArray(inserted) ? inserted[0] : null;
+      if (newBlock?.id) {
+        const tt = (editor as any)._tiptapEditor;
+        try { tt?.commands?.blur?.(); } catch { /* ignore */ }
+        setTimeout(() => {
+          try {
+            editor.focus();
+            editor.setTextCursorPosition(newBlock.id, 'end');
+          } catch { /* ignore */ }
+        }, 30);
+      }
+    } catch (err) {
+      console.error('插入备注失败:', err);
+    }
+  }, [editor]);
+
+  // 块菜单：把当前块提取为子页面（POST /api/articles 创建文档 + 用 PageLink 替换原块）
+  const handleExtractSubpage = useCallback(
+    async (block: any, blockMarkdown: string) => {
+      const md = (blockMarkdown || '').trim();
+      const firstLine = md.split('\n').find((l) => l.trim()) ?? '';
+      const cleanTitle = firstLine
+        .replace(/^#+\s*/, '')
+        .replace(/^[-*+>`]+\s*/, '')
+        .replace(/[<>:"/\\|?*]/g, '')
+        .trim();
+      const title = (cleanTitle.slice(0, 30) || 'Untitled').replace(/\s+/g, ' ');
+      const slug = title.replace(/\s+/g, '-');
+      const parent = articlePathRef.current;
+      const subPath = parent ? `${parent}/${slug}` : slug;
+      const fileMd = `# ${title}\n\n${md}\n`;
+      const res = await fetch('/api/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: subPath, content: fileMd }),
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'create failed');
+      try {
+        editor.insertBlocks(
+          [{ type: 'pageLink', props: { pageName: title, pagePath: subPath } }],
+          block,
+          'before',
+        );
+        editor.removeBlocks([block]);
+      } catch (err) {
+        console.error('replace block with pageLink failed:', err);
+      }
+    },
+    [editor],
+  );
 
   const handlePropertiesChange = useCallback(
     async (newProps: Frontmatter) => {
@@ -942,7 +1233,7 @@ export function EditorBlockEditor({
       if (!editor || !articlePathRef.current) return;
       onSaveStateChange?.('saving');
       const contentBlocks = editor.document.filter((b: any) => b.type !== 'pageLink');
-      const md = await editor.blocksToMarkdownLossy(contentBlocks);
+      const md = await editor.blocksToMarkdownLossy(transformUserNotesForSave(contentBlocks));
       const fullContent = serializeFrontmatter(newProps, md);
       try {
         const res = await fetch('/api/articles', {
@@ -963,7 +1254,8 @@ export function EditorBlockEditor({
     if (!editor) return;
     isLoadingRef.current = true;
     try {
-      const blocks = await editor.tryParseMarkdownToBlocks(md);
+      const parsed = await editor.tryParseMarkdownToBlocks(md);
+      const blocks = transformUserNotesAfterLoad(parsed);
       const pageLinkBlocks = pages.map((sub) => ({
         type: 'pageLink' as const,
         props: {
@@ -973,6 +1265,38 @@ export function EditorBlockEditor({
       }));
       const allBlocks = [...blocks, ...pageLinkBlocks];
       editor.replaceBlocks(editor.document, allBlocks);
+      // replaceBlocks 会让 ProseMirror 产生一个横跨新内容的选区，
+      // 进而让 FormattingToolbar 在页面加载完就直接挂着。
+      // 分两种情况：
+      // - 刚通过 create 创建的新页面：聚焦首个 H1，方便直接输入标题
+      // - 其他情况：主动折叠选区 + 失焦，避免工具栏误激活
+      try {
+        const tt = (editor as any)._tiptapEditor;
+        if (isJustCreatedRef.current) {
+          // 若空 markdown（如 '# '）被 parser 丢成空文档，主动补一个空 H1
+          let first = editor.document[0];
+          if (!first || first.type !== 'heading') {
+            editor.insertBlocks(
+              [{ type: 'heading', props: { level: 1 }, content: [] }],
+              first ?? undefined,
+              first ? 'before' : 'after',
+            );
+            first = editor.document[0];
+          }
+          if (first && first.type === 'heading') {
+            editor.focus();
+            editor.setTextCursorPosition(first.id, 'end');
+          } else {
+            tt?.commands?.setTextSelection?.(0);
+            tt?.commands?.blur?.();
+          }
+        } else {
+          tt?.commands?.setTextSelection?.(0);
+          tt?.commands?.blur?.();
+        }
+      } catch {
+        /* ignore */
+      }
     } catch (err) {
       console.error('Failed to parse content:', err);
     }
@@ -1015,7 +1339,7 @@ export function EditorBlockEditor({
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       const contentBlocks = editor.document.filter((b: any) => b.type !== 'pageLink');
-      const md = await editor.blocksToMarkdownLossy(contentBlocks);
+      const md = await editor.blocksToMarkdownLossy(transformUserNotesForSave(contentBlocks));
       void save(md);
 
       const pageLinkBlocks = editor.document.filter((b: any) => b.type === 'pageLink');
@@ -1037,6 +1361,51 @@ export function EditorBlockEditor({
       }
     }, 1200);
   }, [editor, save, onSaveStateChange]);
+
+  // 新页面标题兜底：光标离开首个空 H1 时，自动填入默认标题；用户只要输入了
+  // 任意字符，就立刻消费 flag 不再自动兜底，避免打扰后续编辑。
+  useEffect(() => {
+    if (!editor || !isJustCreated) return;
+    const tt = (editor as any)._tiptapEditor;
+    if (!tt) return;
+
+    const getFirstHeadingText = () => {
+      const first = editor.document[0];
+      if (!first || first.type !== 'heading') return { block: null, text: '' };
+      const text = (first.content ?? [])
+        .map((c: any) => (typeof c === 'string' ? c : c?.text ?? ''))
+        .join('')
+        .trim();
+      return { block: first, text };
+    };
+
+    const handleSelection = () => {
+      const { block, text } = getFirstHeadingText();
+      if (!block) {
+        onJustCreatedConsumedRef.current?.();
+        return;
+      }
+      const cursor = editor.getTextCursorPosition?.();
+      const cursorInFirst = cursor?.block?.id === block.id;
+      if (cursorInFirst) return;
+      // 光标已离开首个 H1：空则补默认；非空说明用户已经填过，直接消费 flag
+      if (text === '') {
+        try {
+          editor.updateBlock(block, {
+            type: 'heading',
+            props: { ...(block.props ?? {}), level: 1 },
+            content: [{ type: 'text', text: defaultTitleRef.current || 'Untitled', styles: {} }],
+          });
+        } catch (err) {
+          console.error('auto-fill title failed:', err);
+        }
+      }
+      onJustCreatedConsumedRef.current?.();
+    };
+
+    tt.on('selectionUpdate', handleSelection);
+    return () => { tt.off('selectionUpdate', handleSelection); };
+  }, [editor, isJustCreated]);
 
   useEffect(() => {
     const onKeyDown = async (e: KeyboardEvent) => {
@@ -1117,9 +1486,11 @@ export function EditorBlockEditor({
         editor={editor}
         onRequestExplain={handleRequestExplain}
         onRequestAiWrite={handleRequestAiWrite}
+        onRequestAiCustom={handleRequestAiCustom}
+        onInsertUserNote={handleInsertUserNote}
       />
     ),
-    [editor, handleRequestExplain, handleRequestAiWrite],
+    [editor, handleRequestExplain, handleRequestAiWrite, handleRequestAiCustom, handleInsertUserNote],
   );
 
   // ColorStateCtx 的 value：colorOpen 变化时 memoize 出新对象，
@@ -1127,6 +1498,35 @@ export function EditorBlockEditor({
   const colorCtxValue = useMemo<ColorState>(
     () => ({ open: colorOpen, setOpen: setColorOpen, savedSelectionRef: savedColorSelectionRef }),
     [colorOpen],
+  );
+
+  // Notion 风格 SideMenu：每次 articlePath / 关键回调变化时重建组件类型，
+  // BlockNote 的 SideMenuController 用 React.createElement 渲染，所以
+  // 这里必须 useMemo 稳定引用，否则 sideMenu 会被频繁 unmount。
+  const lastEditedAtText = useMemo(() => {
+    const u = (docProperties as any)?.updatedAt
+      ?? (docProperties as any)?.updated_at
+      ?? (docProperties as any)?.lastEditedAt;
+    if (typeof u === 'string' && u.trim()) return u;
+    try {
+      return new Date().toLocaleString(i18nLocale === 'en' ? 'en-US' : 'zh-CN', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      });
+    } catch {
+      return '';
+    }
+  }, [docProperties, i18nLocale]);
+
+  const NotionSideMenuComp = useMemo(
+    () => makeNotionSideMenu({
+      articlePath,
+      onAskAi: handleRequestExplain,
+      onExtractSubpage: handleExtractSubpage,
+      onToast: showInfoToast,
+      lastEditedAt: lastEditedAtText,
+    }),
+    [articlePath, handleRequestExplain, handleExtractSubpage, showInfoToast, lastEditedAtText],
   );
 
   return (
@@ -1188,11 +1588,13 @@ export function EditorBlockEditor({
             theme="light"
             slashMenu={false}
             formattingToolbar={false}
+            sideMenu={false}
           >
             <SuggestionMenuController
               triggerCharacter="/"
               getItems={getSlashMenuItems}
             />
+            <SideMenuController sideMenu={NotionSideMenuComp} />
             <FormattingToolbarController
               formattingToolbar={renderFormattingToolbar}
               floatingUIOptions={{
@@ -1204,12 +1606,15 @@ export function EditorBlockEditor({
                   outsidePress: (event) => {
                     const target = event.target as HTMLElement | null;
                     if (!target) return true;
-                    // 色板在工具栏内 absolute 定位，但 React 合成事件 target
-                    // 可能指向更深元素；显式允许这些元素
+                    // 只有三类元素算 inside：
+                    // ① 我们自定义的色板 portal
+                    // ② AI 面板 portal
+                    // ③ FormattingToolbar 本身（注意 .bn-formatting-toolbar
+                    //    也带 .bn-toolbar class，所以这一条已覆盖所有
+                    //    合法的工具栏点击，不再兜底 .bn-toolbar —— 否则
+                    //    会把 side menu / link toolbar 等也误判为 inside）
                     if (target.closest('[data-nexo-color-popover]')) return false;
                     if (target.closest('[data-nexo-ai-panel]')) return false;
-                    // 工具栏自身的点击一律视为 inside
-                    if (target.closest('.bn-toolbar')) return false;
                     if (target.closest('.bn-formatting-toolbar')) return false;
                     return true;
                   },
@@ -1261,6 +1666,35 @@ export function EditorBlockEditor({
           <span style={{ wordBreak: 'break-word' }}>{saveError}</span>
         </div>
       )}
+      {/* 块菜单成功提示 toast */}
+      {infoToast && (
+        <div
+          role="status"
+          className="nx-fadein-fast"
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '8px 14px',
+            background: 'rgba(15,15,15,0.92)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: 'var(--c-shaOutLg)',
+            borderRadius: '8px',
+            color: '#fff',
+            fontSize: '13px',
+            zIndex: 400,
+            maxWidth: '480px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            pointerEvents: 'none',
+          }}
+        >
+          <Check size={14} style={{ color: '#10b981', flexShrink: 0 }} />
+          <span style={{ wordBreak: 'break-word' }}>{infoToast}</span>
+        </div>
+      )}
       {/* AI 解释结果面板（顶层渲染，不受工具栏浮层生命周期影响） */}
       {aiPanelText && (
         <AiExplainPanel
@@ -1309,8 +1743,34 @@ export function EditorBlockEditor({
         />
       )}
 
+      {/* AI 自定义提问面板 */}
+      {aiCustomCtx && (
+        <AiCustomAskPanel
+          text={aiCustomCtx.text}
+          onClose={() => setAiCustomCtx(null)}
+          onInsert={(newText) => {
+            if (!editor) return;
+            try {
+              const cursor = editor.getTextCursorPosition?.();
+              if (cursor?.block) {
+                editor.insertBlocks(
+                  [{ type: 'paragraph', content: newText }],
+                  cursor.block,
+                  'after',
+                );
+              } else {
+                const tt = (editor as any)._tiptapEditor;
+                tt?.chain().focus().insertContent(`\n\n${newText}`).run();
+              }
+            } catch (err) {
+              console.error('AI 自定义提问插入失败:', err);
+            }
+          }}
+        />
+      )}
+
       {/* 切换文档时清空浮动 AI 面板，避免解释上一篇文档的选段 */}
-      <AiPanelReset articlePath={articlePath} onReset={() => { setAiPanelText(null); setAiWriteCtx(null); }} />
+      <AiPanelReset articlePath={articlePath} onReset={() => { setAiPanelText(null); setAiWriteCtx(null); setAiCustomCtx(null); }} />
 
       {lightboxSrc && (
         <div className="image-lightbox-overlay" role="dialog" aria-label="Image preview" onClick={() => setLightboxSrc(null)}>

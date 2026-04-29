@@ -13,7 +13,6 @@ import { ExportMenu } from '@/components/ExportMenu';
 import { addRecentDoc } from '@/lib/recent';
 import { computeStats } from '@/lib/doc-stats';
 import { isFavorite, toggleFavorite } from '@/lib/favorites';
-import { DocumentStatsBar } from '@/components/DocumentStatsBar';
 import { AiAskPanel } from '@/components/AiAskPanel';
 import { PermissionBadge } from '@/components/PermissionBadge';
 import { parseFrontmatter, serializeFrontmatter } from '@/lib/frontmatter';
@@ -78,6 +77,10 @@ const KeyboardShortcutsModal = dynamic(
   () => import('@/components/KeyboardShortcutsModal').then((m) => ({ default: m.KeyboardShortcutsModal })),
   { ssr: false },
 );
+const SettingsModal = dynamic(
+  () => import('@/components/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+  { ssr: false },
+);
 const HistoryPanel = dynamic(
   () => import('@/components/HistoryPanel').then((m) => ({ default: m.HistoryPanel })),
   { ssr: false },
@@ -136,6 +139,9 @@ function EditorPageInner() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
+  // 标记"本次刚通过 create 动作创建的新页面"，用于编辑器聚焦标题 +
+  // 离开空标题时自动补默认值；用户切换到其他文章或输入内容后即清除。
+  const [isJustCreated, setIsJustCreated] = useState(false);
 
   // 从服务端拉真实 Inbox 数量（打开 editor 时 + 每次采集后）
   const refreshInboxCount = useCallback(async () => {
@@ -147,6 +153,7 @@ function EditorPageInner() {
   }, []);
   useEffect(() => { void refreshInboxCount(); }, [refreshInboxCount]);
   const [graphOpen, setGraphOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [aiAskOpen, setAiAskOpen] = useState(false);
   const [isFav, setIsFav] = useState(false);
   const [favRefreshKey, setFavRefreshKey] = useState(0);
@@ -164,6 +171,8 @@ function EditorPageInner() {
       setDocPermission('editable');
     }
   }, [content]);
+
+  const { t } = useI18n();
 
   const [permError, setPermError] = useState<string | null>(null);
   const handlePermissionChange = async (perm: 'editable' | 'readonly' | 'private') => {
@@ -201,7 +210,6 @@ function EditorPageInner() {
   const draggingSidebarRef = useRef(false);
   const latestLoadSeqRef = useRef(0);
   const currentArticleIdRef = useRef<string | null>(null);
-  const skipParamsEffectRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -305,17 +313,23 @@ function EditorPageInner() {
   );
 
   // 从 URL 路径中的 ID 链加载文章（仅用于首次加载 /editor/id1/id2/id3）
-  // handleSelectItem 的 pushState 也会触发 params 变化，用 skipParamsEffectRef 跳过
+  // Next.js 14.2 的 useParams 不跟踪 pushState，params.ids 每次重渲染又是新引用，
+  // 所以用 window.location.pathname 作为权威来源，currentArticleIdRef 防重入。
   useEffect(() => {
-    if (skipParamsEffectRef.current) {
-      skipParamsEffectRef.current = false;
-      return;
+    if (typeof window === 'undefined') return;
+    const match = window.location.pathname.match(/^\/editor\/(.+)$/);
+    if (!match) return;
+    const segs = match[1].split('/').filter(Boolean);
+    if (segs.length === 0) return;
+    const lastSeg = segs[segs.length - 1];
+    if (currentArticleIdRef.current === lastSeg) return;
+    // 合法 8-16 位 base36 ID → 按 ID 加载；否则当中文路径，加载成功后会 replaceState 修正 URL
+    if (/^[a-z0-9]{6,16}$/.test(lastSeg)) {
+      void loadArticle({ id: lastSeg });
+    } else {
+      const decodedPath = segs.map((s) => decodeURIComponent(s)).join('/').replace(/\.md$/, '');
+      void loadArticle({ path: decodedPath });
     }
-    const ids = params.ids as string[] | undefined;
-    if (!ids || ids.length === 0) return;
-    const lastId = ids[ids.length - 1];
-    if (currentArticleIdRef.current === lastId) return;
-    void loadArticle({ id: lastId });
   }, [params.ids, loadArticle]);
 
   // 监听浏览器后退/前进
@@ -324,10 +338,14 @@ function EditorPageInner() {
       const pathname = window.location.pathname;
       const match = pathname.match(/^\/editor\/(.+)$/);
       if (match) {
-        const ids = match[1].split('/');
-        const lastId = ids[ids.length - 1];
-        if (lastId && lastId !== currentArticleIdRef.current) {
-          void loadArticle({ id: lastId });
+        const segs = match[1].split('/').filter(Boolean);
+        const lastSeg = segs[segs.length - 1];
+        if (!lastSeg || lastSeg === currentArticleIdRef.current) return;
+        if (/^[a-z0-9]{6,16}$/.test(lastSeg)) {
+          void loadArticle({ id: lastSeg });
+        } else {
+          const decodedPath = segs.map((s) => decodeURIComponent(s)).join('/').replace(/\.md$/, '');
+          void loadArticle({ path: decodedPath });
         }
       } else if (pathname === '/editor') {
         setCurrentPath('');
@@ -342,28 +360,47 @@ function EditorPageInner() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [loadArticle]);
 
-  const handleMoveItem = async (oldPath: string, newParentPath: string, _isFolder: boolean) => {
+  // 统一处理：重命名/移动后若当前路径命中（自身或子孙），跟随重定向到新路径
+  const handlePathChanged = (oldPath: string, newPath: string) => {
+    if (!currentPath) return;
+    let remapped: string | null = null;
     if (currentPath === oldPath) {
-      // 移动后重新加载，让 API 返回新的 idChain
-      const newPath = newParentPath
-        ? `${newParentPath}/${oldPath.split('/').pop()}`
-        : oldPath.split('/').pop() || '';
+      remapped = newPath;
+    } else if (currentPath.startsWith(oldPath + '/')) {
+      remapped = newPath + currentPath.slice(oldPath.length);
+    }
+    if (!remapped) return;
+    setCurrentPath(remapped);
+    if (articleData) setArticleData({ ...articleData, path: remapped });
+    // 重新加载以拿到最新的 idChain 并更新 URL
+    void loadArticle({ path: remapped });
+  };
+
+  // 编辑器内部触发的文件名同步：路径已改、内容未变；不要重载内容（会清掉用户正在打字的状态）
+  const handleEditorRenamed = (oldPath: string, newPath: string) => {
+    if (currentPath === oldPath) {
       setCurrentPath(newPath);
       if (articleData) setArticleData({ ...articleData, path: newPath });
-      void loadArticle({ path: newPath });
     }
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleMoveItem = async (_oldPath: string, _newParentPath: string, _isFolder: boolean) => {
+    // 路径重定向已由 handlePathChanged 统一处理；这里仅刷新树
     setRefreshKey((k) => k + 1);
     return true;
   };
 
   const handleSelectItem = (itemPath: string, _isFolder: boolean, idChain?: string) => {
     if (itemPath === currentPath) return;
+    setIsJustCreated(false);
     setCurrentPath(itemPath);
     // 用 idChain 构建 URL（如果有的话），否则先加载再通过 replaceState 更新
     if (idChain) {
+      const lastId = idChain.split('/').filter(Boolean).pop() || null;
+      // 预先写入 currentArticleIdRef，避免 params.ids useEffect 用 stale 的 URL 重新触发
+      currentArticleIdRef.current = lastId;
       setCurrentIdChain(idChain);
-      // pushState 会触发 params 变化，设置标志跳过 useEffect 中的重复加载
-      skipParamsEffectRef.current = true;
       window.history.pushState(null, '', `/editor/${idChain}`);
     }
     void loadArticle({ path: itemPath });
@@ -397,6 +434,7 @@ function EditorPageInner() {
       setIsCurrentFolder(false);
       setSubPages([]);
       setSaveState('saved');
+      setIsJustCreated(false);
       window.history.pushState(null, '', '/editor');
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
@@ -409,10 +447,57 @@ function EditorPageInner() {
     setCreateModalOpen(true);
   };
 
+  // 斜杠菜单触发：跳过输入名称弹框，直接用默认名创建并跳转
+  const handleQuickCreateSubPage = async (parentPath: string) => {
+    const base = t('bn.defaultNewPageName') || '新页面';
+    const existing = new Set(
+      subPages.map((sp) => sp.name.replace(/\.md$/, ''))
+    );
+    let name = base;
+    let counter = 2;
+    while (existing.has(name)) {
+      name = `${base} ${counter}`;
+      counter += 1;
+    }
+    const articlePath = parentPath ? `${parentPath}/${name}` : name;
+    // 新页面标题默认为空（仅一个空 H1），由编辑器聚焦后等待用户输入
+    const finalContent = `# `;
+    try {
+      const res = await fetch('/api/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: articlePath, content: finalContent }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        console.error('创建文章失败:', json.error);
+        return;
+      }
+      setCurrentPath(articlePath);
+      setIsCurrentFolder(false);
+      setSubPages([]);
+      setContent(finalContent);
+      setArticleData(json.data);
+      setSaveState('saved');
+      setIsJustCreated(true);
+      const newIdChain = json.data.idChain || '';
+      setCurrentIdChain(newIdChain);
+      if (newIdChain) {
+        currentArticleIdRef.current = newIdChain.split('/').filter(Boolean).pop() || null;
+        window.history.pushState(null, '', `/editor/${newIdChain}`);
+      }
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      console.error('创建文章失败:', err);
+    }
+  };
+
   const handleCreateConfirm = async (name: string, templateContent?: string) => {
     setCreateModalOpen(false);
     const articlePath = createModalParent ? `${createModalParent}/${name}` : name;
-    const finalContent = templateContent || `# ${name}`;
+    // 有模板走模板；否则新页面给空 H1，让编辑器聚焦等用户输入
+    const finalContent = templateContent || `# `;
+    const usingTemplate = !!templateContent;
     try {
       const res = await fetch('/api/articles', {
         method: 'POST',
@@ -427,9 +512,12 @@ function EditorPageInner() {
         setContent(finalContent);
         setArticleData(json.data);
         setSaveState('saved');
+        // 只有"未套模板"的新页面需要触发空标题聚焦兜底
+        if (!usingTemplate) setIsJustCreated(true);
         const newIdChain = json.data.idChain || '';
         setCurrentIdChain(newIdChain);
         if (newIdChain) {
+          currentArticleIdRef.current = newIdChain.split('/').filter(Boolean).pop() || null;
           window.history.pushState(null, '', `/editor/${newIdChain}`);
         }
         setRefreshKey((prev) => prev + 1);
@@ -438,8 +526,6 @@ function EditorPageInner() {
       console.error('创建文章失败:', err);
     }
   };
-
-  const { t } = useI18n();
 
   // 全局快捷键
   useEffect(() => {
@@ -476,12 +562,15 @@ function EditorPageInner() {
           key={refreshKey}
           onSelectItem={handleSelectItem}
           onCreateArticle={handleCreateArticle}
+          onQuickCreateArticle={handleQuickCreateSubPage}
           onMoveItem={handleMoveItem}
+          onPathChanged={handlePathChanged}
           selectedPath={currentPath}
           className="h-full flex-1 min-w-0 border-r-0"
           onSearchClick={() => setSearchOpen(true)}
           onTrashClick={() => setTrashOpen(true)}
           onGraphClick={() => setGraphOpen(true)}
+          onSettingsClick={() => setSettingsOpen(true)}
           favRefreshKey={favRefreshKey}
           onHomeClick={() => {
             setCurrentPath('');
@@ -694,13 +783,17 @@ function EditorPageInner() {
                   content={content}
                   articlePath={currentPath}
                   articleId={articleData?.id || null}
+                  isFolder={isCurrentFolder}
                   onSaveStateChange={setSaveState}
-                  onCreatePage={handleCreateArticle}
+                  onCreatePage={handleQuickCreateSubPage}
                   subPages={subPages}
                   onSelectSubPage={(path) => handleSelectItem(path, false)}
+                  isJustCreated={isJustCreated}
+                  defaultTitleFallback={t('bn.defaultNewPageName') || '新页面'}
+                  onJustCreatedConsumed={() => setIsJustCreated(false)}
+                  onPathRenamed={handleEditorRenamed}
                 />
               </div>
-              <DocumentStatsBar content={content} />
             </>
           )
         ) : (
@@ -813,6 +906,10 @@ function EditorPageInner() {
         isOpen={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
       />
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
       {currentPath && (
         <HistoryPanel
           isOpen={historyOpen}
@@ -832,9 +929,11 @@ function EditorPageInner() {
         <SmartLinkSuggestions
           articlePath={currentPath}
           content={content}
-          onInsertLink={(path, title) => {
-            // 把新链接附加到内容末尾（编辑器会加载新内容刷新）
-            const line = `\n\n[${title}](${path})`;
+          onInsertLink={(path, title, idChain) => {
+            // 用绝对路径，避免渲染成相对路径后被 /editor/ 前缀解析为 /editor/中文
+            // 优先 idChain（稳定，不随重命名失效）；缺失时退回 /<path> 由 catch-all 路由解析
+            const href = idChain ? `/${idChain}` : `/${path.split('/').map(encodeURIComponent).join('/')}`;
+            const line = `\n\n[${title}](${href})`;
             const newContent = content + line;
             setContent(newContent);
             fetch('/api/articles', {

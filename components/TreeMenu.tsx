@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useModalFocus } from '@/lib/useModalFocus';
-import { ChevronRight, ChevronDown, FileText, FolderOpen, FolderClosed, Pencil, Trash2, X, AlertCircle, Plus, Search, ArchiveRestore, Home, GitFork, Star, Filter } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, Pencil, Trash2, X, AlertCircle, Plus, Search, ArchiveRestore, Home, GitFork, Star, BookOpen, Settings } from 'lucide-react';
 import { getFavorites, FavoriteItem } from '@/lib/favorites';
 import { useI18n } from '@/lib/i18n';
 
@@ -21,7 +21,10 @@ interface TreeMenuProps {
   mode?: 'editor' | 'read';
   onSelectItem: (path: string, isFolder: boolean, idChain?: string) => void;
   onCreateArticle: (parentPath: string) => void;
+  onQuickCreateArticle?: (parentPath: string) => void;
   onMoveItem?: (oldPath: string, newParentPath: string, isFolder: boolean) => Promise<boolean>;
+  /** 当树中某个路径发生前缀变更（重命名或移动）时触发 */
+  onPathChanged?: (oldPath: string, newPath: string) => void;
   selectedPath?: string;
   className?: string;
   refreshKey?: number;
@@ -29,6 +32,7 @@ interface TreeMenuProps {
   onTrashClick?: () => void;
   onHomeClick?: () => void;
   onGraphClick?: () => void;
+  onSettingsClick?: () => void;
   favRefreshKey?: number;
 }
 
@@ -175,7 +179,9 @@ export function TreeMenu({
   mode = 'editor',
   onSelectItem,
   onCreateArticle,
+  onQuickCreateArticle,
   onMoveItem,
+  onPathChanged,
   selectedPath,
   className,
   refreshKey,
@@ -183,6 +189,7 @@ export function TreeMenu({
   onTrashClick,
   onHomeClick,
   onGraphClick,
+  onSettingsClick,
   favRefreshKey,
 }: TreeMenuProps) {
   const isReadMode = mode === 'read';
@@ -200,39 +207,6 @@ export function TreeMenu({
   const [loading, setLoading] = useState(true);
   const [sortOrders, setSortOrders] = useState<Record<string, string[]>>({});
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const [filterQuery, setFilterQuery] = useState('');
-  const [showFilter, setShowFilter] = useState(false);
-
-  // 过滤激活时展开所有有匹配的父节点（递归）
-  useEffect(() => {
-    if (!filterQuery.trim()) return;
-    const q = filterQuery.trim().toLowerCase();
-    const toExpand = new Set<string>();
-    const walk = (items: TreeItem[]) => {
-      for (const it of items) {
-        if (it.children && it.children.length > 0) {
-          // 若任一子孙匹配，展开此节点
-          const childMatch = it.children.some((c) => {
-            const has = (n: TreeItem): boolean =>
-              n.name.toLowerCase().includes(q) || n.path.toLowerCase().includes(q) ||
-              !!(n.children && n.children.some(has));
-            return has(c);
-          });
-          if (childMatch) toExpand.add(it.path);
-          walk(it.children);
-        }
-      }
-    };
-    walk(tree);
-    if (toExpand.size > 0) {
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        toExpand.forEach((p) => next.add(p));
-        return next;
-      });
-    }
-  }, [filterQuery, tree]);
-
   useEffect(() => {
     setFavorites(getFavorites());
   }, [favRefreshKey]);
@@ -420,7 +394,8 @@ export function TreeMenu({
     let newFolder: string | null = null;
     let newPos: DropPosition | null = null;
 
-    if (ratio > 0.25 && ratio < 0.75 && item.isFolder) {
+    if (ratio > 0.25 && ratio < 0.75) {
+      // 拖到任意页面"中间"= 变成它的子页（leaf 会在后端自动 promote 为父页）
       newFolder = item.path;
     } else if (ratio <= 0.5) {
       newPos = { parentPath, index };
@@ -500,6 +475,10 @@ export function TreeMenu({
       if (targetFolderPath) {
         setExpanded((prev) => new Set([...prev, targetFolderPath]));
       }
+      // 计算新路径并通知父组件路径变更（前缀替换）
+      const movedName = sourcePath.split('/').pop() || sourcePath;
+      const newPath = targetFolderPath ? `${targetFolderPath}/${movedName}` : movedName;
+      if (onPathChanged) onPathChanged(sourcePath, newPath);
       if (onMoveItem) await onMoveItem(sourcePath, targetFolderPath, isFolder);
 
       // If insertIndex provided, also update sort order
@@ -605,6 +584,9 @@ export function TreeMenu({
         await saveSortOrder(parentPath, newOrder);
       }
 
+      // 通知父组件：路径前缀已变更（当前打开的文章若在此路径下需要跟随更新）
+      if (onPathChanged) onPathChanged(oldPath, newPath);
+
       fetchTree();
     } catch (error) {
       await showAlert(t('tree.renameFailed') + ': ' + (error instanceof Error ? error.message : ''));
@@ -645,7 +627,7 @@ export function TreeMenu({
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const close = () => setContextMenu(null);
+    const close = () => { setContextMenu(null); };
     window.addEventListener('click', close);
     return () => window.removeEventListener('click', close);
   }, []);
@@ -660,41 +642,21 @@ export function TreeMenu({
     );
   };
 
-  // 递归检查项或其任何子节点是否匹配过滤词
-  const filterMatches = (item: TreeItem, q: string): boolean => {
-    const lq = q.toLowerCase();
-    if (item.name.toLowerCase().includes(lq)) return true;
-    if (item.path.toLowerCase().includes(lq)) return true;
-    if (item.children) {
-      for (const c of item.children) if (filterMatches(c, q)) return true;
-    }
-    return false;
-  };
-
   const renderTree = (items: TreeItem[], depth: number = 0, parentPath: string = '') => {
-    let filtered = items;
-    if (filterQuery.trim()) {
-      filtered = items.filter((item) => filterMatches(item, filterQuery.trim()));
-    }
-    const sorted = applySortOrder(filtered, parentPath);
-
-    // Nexo 统一字号和字重
-    const getFontSize = () => '14px';
-    const getFolderWeight = () => 400;
+    const sorted = applySortOrder(items, parentPath);
 
     return (
       <ul className="space-y-0 list-none p-0 m-0">
         {renderDropLine(parentPath, 0)}
         {sorted.map((item, index) => {
-          const hasChildren = item.isFolder && item.children && item.children.length > 0;
+          const hasChildren = !!(item.children && item.children.length > 0);
           const isExpanded = expanded.has(item.path);
           const isFolderTarget = folderDropTarget === item.path;
           const isDragging = draggingItem?.path === item.path;
           const isSelected = selectedPath === item.path;
-          const FolderIcon = isExpanded ? FolderOpen : FolderClosed;
 
           return (
-            <li key={`${item.path}:${item.isFolder ? 'folder' : 'file'}`}>
+            <li key={item.path}>
               <div
                 className={cn(
                   'flex items-center rounded min-w-0 transition-colors',
@@ -705,7 +667,6 @@ export function TreeMenu({
                   background: isFolderTarget ? 'var(--ca-butHovBac)' : undefined,
                   outline: isFolderTarget ? '1px solid var(--nx-blue)' : undefined,
                   borderRadius: '4px',
-                  marginTop: item.isFolder && depth === 0 && index > 0 ? '2px' : undefined,
                   marginLeft: '4px',
                   marginRight: '4px',
                 }}
@@ -720,7 +681,7 @@ export function TreeMenu({
                   setContextMenu({ path: item.path, isFolder: item.isFolder, x: e.clientX, y: e.clientY });
                 }}
               >
-                {item.isFolder ? (
+                {hasChildren ? (
                   <span
                     className="w-4 h-4 flex-shrink-0 flex items-center justify-center cursor-pointer"
                     style={{ color: 'var(--c-icoSec)' }}
@@ -734,8 +695,8 @@ export function TreeMenu({
                 <button
                   className={`flex-1 flex items-center gap-2 rounded px-2 text-left min-w-0 transition-colors ${isReadMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
                   style={{
-                    fontSize: getFontSize(),
-                    fontWeight: item.isFolder ? getFolderWeight() : 400,
+                    fontSize: '14px',
+                    fontWeight: 400,
                     color: 'var(--c-texPri)',
                     background: isSelected ? 'var(--ca-sidIteSelBac)' : undefined,
                     borderRadius: '4px',
@@ -751,11 +712,7 @@ export function TreeMenu({
                   }}
                   onClick={() => onSelectItem(item.path, item.isFolder, item.idChain)}
                 >
-                  {item.isFolder ? (
-                    <FolderIcon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--c-icoSec)' }} />
-                  ) : (
-                    <FileText className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--c-icoSec)' }} />
-                  )}
+                  <FileText className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--c-icoSec)' }} />
                   <span className="truncate">{item.name}</span>
                 </button>
               </div>
@@ -787,12 +744,17 @@ export function TreeMenu({
         {!isReadMode && (
           <div className="flex items-center gap-0.5">
             <button
-              onClick={() => setShowFilter((v) => !v)}
-              title={showFilter ? '关闭筛选' : '筛选文件树'}
+              onClick={() => {
+                if (typeof window === 'undefined') return;
+                const m = window.location.pathname.match(/^\/editor(\/.*)?$/);
+                const target = m && m[1] ? `/read${m[1]}` : '/read';
+                window.location.href = target;
+              }}
+              title={t('graph.toReadMode')}
               className="nx-hoverable flex items-center justify-center rounded p-1"
-              style={{ color: filterQuery ? 'var(--nx-blue)' : 'var(--c-icoSec)' }}
+              style={{ color: 'var(--c-icoSec)' }}
             >
-              <Filter className="h-4 w-4" />
+              <BookOpen className="h-4 w-4" />
             </button>
             <button
               onClick={onSearchClick || (() => {})}
@@ -802,45 +764,21 @@ export function TreeMenu({
             >
               <Search className="h-4 w-4" />
             </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onQuickCreateArticle) onQuickCreateArticle('');
+                else onCreateArticle('');
+              }}
+              title={t('tree.newRootPage')}
+              className="nx-hoverable flex items-center justify-center rounded p-1"
+              style={{ color: 'var(--c-icoSec)' }}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>
-
-      {/* 文件树筛选框 */}
-      {!isReadMode && showFilter && (
-        <div className="px-2 py-1.5" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
-          <div className="relative">
-            <Filter className="h-3 w-3 absolute" style={{ left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--c-icoTer)' }} />
-            <input
-              autoFocus
-              type="text"
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="按名称/路径筛选"
-              style={{
-                width: '100%',
-                padding: '5px 24px 5px 26px',
-                fontSize: '12px',
-                color: 'var(--c-texPri)',
-                background: 'var(--c-bacPri)',
-                border: '1px solid var(--c-borPri)',
-                borderRadius: '4px',
-                outline: 'none',
-              }}
-            />
-            {filterQuery && (
-              <button
-                onClick={() => setFilterQuery('')}
-                className="nx-hoverable absolute"
-                style={{ right: '4px', top: '50%', transform: 'translateY(-50%)', padding: '2px', borderRadius: '3px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--c-icoSec)' }}
-                aria-label="清空"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* 首页入口 */}
       {!isReadMode && onHomeClick && (
@@ -985,6 +923,17 @@ export function TreeMenu({
             >
               <ArchiveRestore className="h-3.5 w-3.5" />
               {t('trash.title')}
+            </button>
+          )}
+          {onSettingsClick && (
+            <button
+              onClick={onSettingsClick}
+              title={t('settings.title')}
+              className="nx-hoverable ml-auto flex items-center justify-center text-xs px-2 py-1.5 rounded"
+              style={{ color: 'var(--c-texTer)' }}
+              aria-label={t('settings.title')}
+            >
+              <Settings className="h-3.5 w-3.5" />
             </button>
           )}
         </div>

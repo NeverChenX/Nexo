@@ -5,6 +5,7 @@ import { Link2, X, ArrowRightFromLine } from 'lucide-react';
 
 interface Match {
   path: string;
+  idChain?: string;
   title: string;
   wordCount: number;
   score: number;
@@ -15,7 +16,7 @@ interface SmartLinkSuggestionsProps {
   articlePath: string;
   content: string;
   /** 插入链接到编辑器（父组件实际操作） */
-  onInsertLink: (path: string, title: string) => void;
+  onInsertLink: (path: string, title: string, idChain?: string) => void;
 }
 
 /**
@@ -26,15 +27,15 @@ interface SmartLinkSuggestionsProps {
  */
 export function SmartLinkSuggestions({ articlePath, content, onInsertLink }: SmartLinkSuggestionsProps) {
   const [matches, setMatches] = useState<Match[]>([]);
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(true);
   const [hidden, setHidden] = useState(false);
   const lastLenRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 文档切换时重置
+  // 文档切换时重置（默认折叠）
   useEffect(() => {
     setHidden(false);
-    setMinimized(false);
+    setMinimized(true);
     setMatches([]);
     lastLenRef.current = 0;
   }, [articlePath]);
@@ -74,7 +75,7 @@ export function SmartLinkSuggestions({ articlePath, content, onInsertLink }: Sma
         bottom: '16px',
         left: '50%',
         transform: 'translateX(-50%)',
-        maxWidth: '620px',
+        maxWidth: '870px',
         width: 'calc(100% - 48px)',
         background: 'var(--c-bacPri)',
         border: '1px solid var(--c-borPri)',
@@ -115,7 +116,7 @@ export function SmartLinkSuggestions({ articlePath, content, onInsertLink }: Sma
           {matches.map((m) => (
             <button
               key={m.path}
-              onClick={() => onInsertLink(m.path, m.title)}
+              onClick={() => onInsertLink(m.path, m.title, m.idChain)}
               title={`插入 [[${m.path}]] · 匹配: ${m.matched.slice(0, 3).join(', ')}`}
               className="nx-hoverable inline-flex items-center gap-1"
               style={{

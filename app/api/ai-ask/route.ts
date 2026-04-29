@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { chat, LlmNotConfiguredError } from '@/lib/llm/client';
 
 const WIKI_DATA_DIR = path.join(process.cwd(), 'wiki-data');
 
@@ -98,26 +99,7 @@ ${historyBlock}
 请基于以上文档内容 + 历史对话回答：`;
 
     // 3. 调用 AI
-    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL ?? 'http://127.0.0.1:18789';
-    const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN ?? '';
-
-    const res = await fetch(`${gatewayUrl}/v1/responses`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${gatewayToken}`,
-      },
-      body: JSON.stringify({ model: 'openclaw/main', input: prompt }),
-      signal: AbortSignal.timeout(60_000),
-    });
-
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: `AI 服务响应错误: ${res.status}` }, { status: 502 });
-    }
-
-    const json = await res.json();
-    const answer: string =
-      json?.output?.[0]?.content?.[0]?.text ?? json?.output?.[0]?.content ?? '';
+    const { text: answer } = await chat({ prompt, timeoutMs: 60_000 });
 
     return NextResponse.json({
       ok: true,
@@ -127,6 +109,9 @@ ${historyBlock}
       },
     });
   } catch (error: unknown) {
+    if (error instanceof LlmNotConfiguredError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    }
     const message = error instanceof Error ? error.message : '未知错误';
     return NextResponse.json({ ok: false, error: `知识问答失败: ${message}` }, { status: 500 });
   }

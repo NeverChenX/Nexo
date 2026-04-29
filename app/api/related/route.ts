@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllDocs } from '@/lib/wiki-cache';
+import { getIdChain } from '@/lib/article-id';
 
 /**
  * POST /api/related
@@ -83,7 +84,14 @@ export async function POST(req: NextRequest) {
         // 按长度归一化，避免长文档占便宜
         const lenNorm = Math.log(1 + d.wordCount / 100);
         const finalScore = score / (1 + lenNorm * 0.5);
-        return { path: d.path, title: d.title, wordCount: d.wordCount, score: finalScore, matched };
+        return {
+          path: d.path,
+          idChain: getIdChain(d.path),
+          title: d.title,
+          wordCount: d.wordCount,
+          score: finalScore,
+          matched,
+        };
       })
       .filter((m) => m.score > 0)
       .sort((a, b) => b.score - a.score)

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { chat, LlmNotConfiguredError } from '@/lib/llm/client';
 
 const ACTION_PROMPTS: Record<string, string> = {
   summarize: '请用简洁的几句话总结以下内容，保留核心要点：\n\n{text}',
@@ -29,33 +30,12 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = ACTION_PROMPTS[action].replace('{text}', text);
-    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL ?? 'http://127.0.0.1:18789';
-    const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN ?? '';
-
-    const res = await fetch(`${gatewayUrl}/v1/responses`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${gatewayToken}`,
-      },
-      body: JSON.stringify({ model: 'openclaw/main', input: prompt }),
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    if (!res.ok) {
-      return NextResponse.json({ ok: false, error: `AI 服务响应错误: ${res.status}` }, { status: 502 });
-    }
-
-    const json = await res.json();
-    const result: string =
-      json?.output?.[0]?.content?.[0]?.text ?? json?.output?.[0]?.content ?? '';
-
-    if (!result) {
-      return NextResponse.json({ ok: false, error: 'AI 未返回结果' }, { status: 502 });
-    }
-
+    const { text: result } = await chat({ prompt, timeoutMs: 30_000 });
     return NextResponse.json({ ok: true, data: { result } });
   } catch (error: unknown) {
+    if (error instanceof LlmNotConfiguredError) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    }
     const message = error instanceof Error ? error.message : '未知错误';
     return NextResponse.json({ ok: false, error: `AI 调用失败: ${message}` }, { status: 500 });
   }

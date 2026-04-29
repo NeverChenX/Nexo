@@ -73,29 +73,33 @@ export function getIdByPath(articlePath: string): string | null {
   return reg.pathToId[articlePath] ?? null;
 }
 
-/** 文章移动/重命名时更新映射，保持 ID 不变 */
+/** 文章/文件夹移动或重命名时更新映射，保持 ID 不变；支持纯目录（自身无 ID）的子路径批量更新 */
 export function updatePath(oldPath: string, newPath: string): void {
   const reg = loadRegistry();
-  const id = reg.pathToId[oldPath];
-  if (!id) return;
+  let changed = false;
 
-  delete reg.pathToId[oldPath];
-  reg.pathToId[newPath] = id;
-  reg.idToPath[id] = newPath;
-  saveRegistry();
+  // 1) 若自身有 ID 映射则更新（叶子文章、父页面）
+  const selfId = reg.pathToId[oldPath];
+  if (selfId) {
+    delete reg.pathToId[oldPath];
+    reg.pathToId[newPath] = selfId;
+    reg.idToPath[selfId] = newPath;
+    changed = true;
+  }
 
-  // 同时更新子文章路径（如果是文件夹移动）
+  // 2) 遍历更新所有后代路径（纯目录文件夹也会命中）
   const prefix = oldPath + '/';
-  const entries = Object.entries(reg.pathToId);
-  for (const [p, pid] of entries) {
+  for (const [p, pid] of Object.entries(reg.pathToId)) {
     if (p.startsWith(prefix)) {
       const newChildPath = newPath + '/' + p.slice(prefix.length);
       delete reg.pathToId[p];
       reg.pathToId[newChildPath] = pid;
       reg.idToPath[pid] = newChildPath;
+      changed = true;
     }
   }
-  saveRegistry();
+
+  if (changed) saveRegistry();
 }
 
 /** 删除文章时清理 ID 映射 */

@@ -48,6 +48,13 @@ export async function getRecursiveTree(
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
   const items: TreeItem[] = [];
 
+  // 同层冲突防护：若同层存在同名目录与 name.md，则目录优先，跳过叶子 .md
+  // 以避免 tree 里出现 path 相同的两个节点（选择/渲染都会冲突）。
+  const dirNames = new Set<string>();
+  for (const e of entries) {
+    if (e.isDirectory() && !e.name.startsWith('.')) dirNames.add(e.name);
+  }
+
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
     if (entry.name === '_index.md') continue; // 父页面自身内容，不单独作为节点
@@ -69,6 +76,12 @@ export async function getRecursiveTree(
       items.push({ name: entry.name, path: relativeSafePath, isFolder: true, mtime, children });
     } else if (entry.name.endsWith('.md')) {
       const docName = entry.name.replace('.md', '');
+      if (dirNames.has(docName)) {
+        console.warn(
+          `[wiki] tree 冲突：同层存在 "${docName}.md" 与 "${docName}/"，已忽略叶子 .md；请手动合并或删除。位置: ${relativePath || '/'}`
+        );
+        continue;
+      }
       const docPath = relativeSafePath.replace('.md', '');
       let mtime = 0;
       try { mtime = (await fs.stat(fullPath)).mtimeMs; } catch { /* ignore */ }
@@ -273,6 +286,7 @@ export async function renameFolder(oldPath: string, newPath: string): Promise<vo
   const newDir = safePath(newPath);
   await ensureDir(path.dirname(newDir));
   await fs.rename(oldDir, newDir);
+  invalidateWikiCache();
 }
 
 // 重命名文章（支持叶子页面和父页面）

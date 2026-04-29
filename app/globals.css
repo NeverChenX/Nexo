@@ -907,6 +907,105 @@ a:focus:not(:focus-visible) {
   margin: 0 2px !important;
 }
 
+/* ====== shadcn DropdownMenu / ContextMenu / Popover / Tooltip 兜底 ======
+   项目 tailwind.config.js 没有注册 shadcn 语义色（bg-popover / bg-accent /
+   border 等），所以 shadcn 内部用的这些 class 全部编译不出样式 —— 表格 handle
+   菜单、子菜单、颜色子菜单、上下文菜单会整个透明。
+   统一用 data-slot 属性选择器兜底，以后新增的 shadcn popover 类组件也会命中。 */
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="context-menu-content"],
+[data-slot="context-menu-sub-content"],
+[data-slot="select-content"],
+[data-slot="popover-content"],
+[data-slot="menubar-content"],
+[data-slot="menubar-sub-content"] {
+  background: var(--c-bacPri) !important;
+  color: var(--c-texPri) !important;
+  border: 1px solid var(--c-borPri) !important;
+  border-radius: var(--nx-radius-std) !important;
+  box-shadow: var(--c-shaOutMd), 0 0 0 1px rgba(0, 0, 0, 0.06) !important;
+  padding: 4px !important;
+  z-index: 9999 !important;
+}
+
+[data-slot="tooltip-content"] {
+  background: var(--c-bacSec) !important;
+  color: var(--c-texSec) !important;
+  border: 1px solid var(--c-borPri) !important;
+  border-radius: var(--nx-radius-micro) !important;
+  box-shadow: var(--c-shaOutMd) !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  z-index: 9999 !important;
+}
+
+[data-slot="dropdown-menu-item"],
+[data-slot="dropdown-menu-sub-trigger"],
+[data-slot="dropdown-menu-checkbox-item"],
+[data-slot="dropdown-menu-radio-item"],
+[data-slot="context-menu-item"],
+[data-slot="context-menu-sub-trigger"],
+[data-slot="menubar-item"],
+[data-slot="menubar-sub-trigger"] {
+  padding: 6px 8px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  color: var(--c-texPri) !important;
+  cursor: pointer !important;
+  outline: none !important;
+}
+
+[data-slot="dropdown-menu-item"]:hover,
+[data-slot="dropdown-menu-item"][data-highlighted],
+[data-slot="dropdown-menu-item"]:focus,
+[data-slot="dropdown-menu-sub-trigger"]:hover,
+[data-slot="dropdown-menu-sub-trigger"][data-highlighted],
+[data-slot="dropdown-menu-sub-trigger"][data-state="open"],
+[data-slot="dropdown-menu-checkbox-item"]:hover,
+[data-slot="dropdown-menu-checkbox-item"][data-highlighted],
+[data-slot="dropdown-menu-radio-item"]:hover,
+[data-slot="dropdown-menu-radio-item"][data-highlighted],
+[data-slot="context-menu-item"]:hover,
+[data-slot="context-menu-item"][data-highlighted],
+[data-slot="context-menu-sub-trigger"]:hover,
+[data-slot="context-menu-sub-trigger"][data-highlighted],
+[data-slot="menubar-item"]:hover,
+[data-slot="menubar-item"][data-highlighted] {
+  background: var(--ca-butHovBac) !important;
+  color: var(--c-texPri) !important;
+}
+
+/* 危险操作项（如删除行/列）保留红色语义 */
+[data-slot="dropdown-menu-item"][data-variant="destructive"],
+[data-slot="context-menu-item"][data-variant="destructive"] {
+  color: var(--nx-red) !important;
+}
+
+[data-slot="dropdown-menu-item"][data-variant="destructive"]:hover,
+[data-slot="dropdown-menu-item"][data-variant="destructive"][data-highlighted],
+[data-slot="context-menu-item"][data-variant="destructive"]:hover,
+[data-slot="context-menu-item"][data-variant="destructive"][data-highlighted] {
+  background: rgba(224, 62, 62, 0.12) !important;
+  color: var(--nx-red) !important;
+}
+
+[data-slot="dropdown-menu-separator"],
+[data-slot="context-menu-separator"],
+[data-slot="menubar-separator"] {
+  height: 1px !important;
+  background: var(--c-borSec) !important;
+  margin: 4px 0 !important;
+}
+
+[data-slot="dropdown-menu-label"],
+[data-slot="context-menu-label"] {
+  padding: 6px 8px 4px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--c-texTer) !important;
+}
+
 /* ====== Notion 风格组件 ====== */
 
 /* Pill Badge */
@@ -991,4 +1090,208 @@ a:focus:not(:focus-visible) {
 /* Warm Section Background */
 .nx-section-warm {
   background: var(--c-bacWarm);
+}
+
+/* ====== 代码块 / 引用块 / 行内代码 — Notion 风格统一 ====== */
+
+/* — 行内代码 — 编辑器 + 阅读页统一 — */
+.bn-editor code,
+.nx-content code:not(pre code) {
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'PT Mono',
+    'Liberation Mono', Courier, monospace !important;
+  font-size: 0.86em !important;
+  line-height: inherit !important;
+  padding: 0.16em 0.42em !important;
+  margin: 0 0.05em !important;
+  border-radius: 4px !important;
+  background: rgba(135, 131, 120, 0.18) !important;
+  color: #d8442b !important;
+  letter-spacing: 0 !important;
+  border: none !important;
+  white-space: break-spaces !important;
+}
+
+/* — 引用块 (quote) — 编辑器 + 阅读页统一 — */
+.bn-editor blockquote,
+.bn-editor [data-content-type="quote"],
+.nx-content blockquote {
+  position: relative !important;
+  border: none !important;
+  border-left: 3px solid var(--c-texPri) !important;
+  border-radius: 0 !important;
+  padding: 4px 0 4px 14px !important;
+  margin: 10px 0 !important;
+  color: var(--c-texPri) !important;
+  font-style: normal !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 16px !important;
+  line-height: 1.65 !important;
+}
+
+.bn-editor blockquote::before,
+.bn-editor [data-content-type="quote"]::before,
+.nx-content blockquote::before {
+  content: none !important;
+}
+
+.bn-editor blockquote p,
+.bn-editor [data-content-type="quote"] p,
+.nx-content blockquote p {
+  color: inherit !important;
+  margin: 0 !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: 0 !important;
+}
+
+/* — 代码块 (codeBlock) — 编辑器 + 阅读页统一 — */
+.bn-editor [data-content-type="codeBlock"],
+.bn-editor pre,
+.nx-content pre {
+  background: var(--cd-codBloBac) !important;
+  border: 1px solid rgba(15, 15, 15, 0.06) !important;
+  border-radius: 6px !important;
+  padding: 14px 16px !important;
+  margin: 12px 0 !important;
+  overflow-x: auto !important;
+  tab-size: 2 !important;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, 'PT Mono',
+    'Liberation Mono', Courier, monospace !important;
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  letter-spacing: 0 !important;
+  color: var(--c-texPri) !important;
+  box-shadow: none !important;
+  position: relative;
+}
+
+/* 代码块内的 code 元素：去掉行内代码的小气泡样式 */
+.bn-editor [data-content-type="codeBlock"] code,
+.bn-editor pre code,
+.nx-content pre code {
+  background: transparent !important;
+  color: inherit !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  white-space: pre !important;
+  letter-spacing: 0 !important;
+  line-height: 1.55 !important;
+}
+
+/* 代码块滚动条 — 浅色细线，不喧宾夺主 */
+.bn-editor [data-content-type="codeBlock"]::-webkit-scrollbar,
+.bn-editor pre::-webkit-scrollbar,
+.nx-content pre::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.bn-editor [data-content-type="codeBlock"]::-webkit-scrollbar-thumb,
+.bn-editor pre::-webkit-scrollbar-thumb,
+.nx-content pre::-webkit-scrollbar-thumb {
+  background: rgba(55, 53, 47, 0.16);
+  border-radius: 4px;
+}
+.bn-editor [data-content-type="codeBlock"]::-webkit-scrollbar-thumb:hover,
+.bn-editor pre::-webkit-scrollbar-thumb:hover,
+.nx-content pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(55, 53, 47, 0.28);
+}
+
+/* BlockNote 0.47 的 codeBlock 内部语言切换器（顶部右上角） */
+.bn-editor [data-content-type="codeBlock"] .bn-language-dropdown,
+.bn-editor [data-content-type="codeBlock"] [data-language] {
+  font-family: var(--bn-font-family) !important;
+  font-size: 11px !important;
+  color: var(--c-texTer) !important;
+  background: transparent !important;
+}
+
+/* 暗色主题下代码块 */
+@media (prefers-color-scheme: dark) {
+  .bn-editor code,
+  .nx-content code:not(pre code) {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #ff8a80 !important;
+  }
+  .bn-editor [data-content-type="codeBlock"],
+  .bn-editor pre,
+  .nx-content pre {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+}
+
+/* ====== Notion 风格 SideMenu 容器 — 给我们自绘的按钮收紧间距 ====== */
+
+.bn-side-menu {
+  gap: 0 !important;
+}
+.bn-side-menu .bn-button {
+  width: 22px !important;
+  height: 22px !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 4px !important;
+  color: var(--c-icoSec) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: grab;
+  transition: background 0.12s ease;
+}
+.bn-side-menu .bn-button:hover {
+  background: var(--ca-butHovBac) !important;
+  color: var(--c-icoPri) !important;
+}
+.bn-side-menu .bn-button svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* ====== 使用者备注（userNote 自定义 block） ====== */
+
+.nx-user-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 10px 14px;
+  margin: 4px 0;
+  background: rgba(255, 224, 130, 0.18);
+  border-left: 3px solid rgba(217, 119, 6, 0.65);
+  border-radius: 4px;
+  position: relative;
+}
+.nx-user-note-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(140, 80, 0, 0.85);
+  user-select: none;
+  pointer-events: none;
+}
+.nx-user-note-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+.nx-user-note-label {
+  text-transform: uppercase;
+}
+.nx-user-note-body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--c-texPri);
+  outline: none;
+}
+.nx-user-note-body:empty::before {
+  content: '在此输入你的备注…';
+  color: rgba(140, 80, 0, 0.45);
+  pointer-events: none;
 }

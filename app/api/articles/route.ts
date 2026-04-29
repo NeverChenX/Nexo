@@ -30,15 +30,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!(await isArticle(articlePath))) {
+    const isArt = await isArticle(articlePath);
+    const folderPage = await isFolder(articlePath);
+
+    if (!isArt && !folderPage) {
       return NextResponse.json(
         { ok: false, error: '文章不存在' },
         { status: 404 }
       );
     }
 
-    const content = await readArticle(articlePath);
-    const folderPage = await isFolder(articlePath);
+    // 纯目录（非父页面、无 _index.md）也允许返回，让前端渲染文件夹视图
+    const content = isArt ? await readArticle(articlePath) : '';
     const id = getOrCreateId(articlePath);
     const idChain = getIdChain(articlePath);
 
