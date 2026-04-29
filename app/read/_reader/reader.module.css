@@ -224,3 +224,25 @@
   color: #d4d4d4;
   overflow-x: auto;
 }
+
+/* ---- 列表 / kbd / KaTeX 细节 ---- */
+.column ul, .column ol { padding-left: 1.5em; margin: 12px 0; }
+.column li { margin: 4px 0; }
+.column ul li::marker { color: var(--rd-accent); }
+.column ol li::marker { color: var(--rd-accent); }
+.column input[type="checkbox"] {
+  accent-color: var(--rd-accent);
+  margin-right: 6px;
+}
+.column kbd {
+  background: var(--rd-bg-elev);
+  border: 1px solid var(--rd-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: var(--rd-font-mono);
+  font-size: 0.85em;
+  color: var(--rd-text-strong);
+}
+.column :global(.katex) { font-size: 1.05em; }
+.column :global(.katex-display) { margin: 18px 0; }
