@@ -163,3 +163,64 @@
   .column[data-width="medium"]  { max-width: 100% !important; }
   .column[data-width="wide"]    { max-width: 100% !important; }
 }
+
+/* ---- DarkCodeBlock (scoped under .column to satisfy CSS Module pure-selector) ---- */
+.column :global(.rd-codeblock) {
+  position: relative;
+  margin: 16px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #1e1e1e; /* dark-plus 底色 */
+  border: 1px solid var(--rd-border);
+}
+.column :global(.rd-codeblock__bar) {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  z-index: 1;
+}
+.column :global(.rd-codeblock__lang) {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: lowercase;
+  color: #888;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: var(--rd-font-mono);
+}
+.column :global(.rd-codeblock__copy) {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #333;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
+  color: #c9c7c2;
+  cursor: pointer;
+  padding: 0;
+}
+.column :global(.rd-codeblock__copy:hover) { background: rgba(255, 255, 255, 0.08); }
+.column :global(.rd-codeblock__shiki pre) {
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  background: transparent !important;
+  font-family: var(--rd-font-mono) !important;
+  font-size: 13px !important;
+  line-height: 1.7 !important;
+  overflow-x: auto;
+}
+.column :global(.rd-codeblock__pre) {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  color: #d4d4d4;
+  overflow-x: auto;
+}
