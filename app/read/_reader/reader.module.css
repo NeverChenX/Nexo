@@ -836,3 +836,58 @@
   outline: 1px dashed color-mix(in srgb, var(--mc) 60%, transparent);
   outline-offset: 1px;
 }
+
+/* ---- Mark popover ---- */
+.shell :global(.rd-mark-pop__catcher) {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+}
+.shell :global(.rd-mark-pop) {
+  position: fixed;
+  z-index: 66;
+  background: var(--rd-bg-elev);
+  border: 1px solid var(--rd-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  width: 220px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-size: 11px;
+  color: var(--rd-text);
+}
+.shell :global(.rd-mark-pop__meta) {
+  color: var(--rd-text-dim);
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+.shell :global(.rd-mark-pop__note) {
+  background: var(--rd-bg);
+  border-left: 2px solid var(--rd-accent);
+  border-radius: 0 4px 4px 0;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  color: var(--rd-text-muted);
+  line-height: 1.6;
+  font-size: 11px;
+}
+.shell :global(.rd-mark-pop__actions) {
+  display: flex;
+  gap: 6px;
+}
+.shell :global(.rd-mark-pop__actions button) {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--rd-border);
+  color: var(--rd-text);
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+}
+.shell :global(.rd-mark-pop__actions button:hover) {
+  background: rgba(255, 255, 255, 0.05);
+}
+.shell :global(.rd-mark-pop__danger) {
+  color: #f87171 !important;
+}
