@@ -1171,6 +1171,50 @@
   font-size: 9px;
   color: var(--rd-text-dim);
 }
+
+/* Thoughts tab (blue accent) */
+.shell :global(.rd-thought-list) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shell :global(.rd-thought-row) {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rd-border);
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--rd-text);
+  font: inherit;
+}
+.shell :global(.rd-thought-row:hover) {
+  background: rgba(255, 255, 255, 0.04);
+}
+.shell :global(.rd-thought-row__quote) {
+  border-left: 2px solid var(--rd-link);
+  padding: 2px 8px;
+  margin: 0 0 6px;
+  color: var(--rd-text-muted);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.shell :global(.rd-thought-row__text) {
+  font-size: 12px;
+  color: var(--rd-text-strong);
+  margin: 0 0 4px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.shell :global(.rd-thought-row__meta) {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--rd-text-dim);
+}
 @media (max-width: 767px) {
   .shell :global(.rd-lib__tabs) {
     -webkit-overflow-scrolling: touch;
