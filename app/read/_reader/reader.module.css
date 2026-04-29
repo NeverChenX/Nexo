@@ -499,3 +499,45 @@
   border-left: 2px solid var(--rd-link);
   background: rgba(122, 162, 247, 0.08);
 }
+
+/* ---- Left/Right drawer chrome ---- */
+.shell :global(.rd-drawer__tabs) {
+  display: flex;
+  border-bottom: 1px solid var(--rd-border);
+  flex-shrink: 0;
+}
+.shell :global(.rd-drawer__tab) {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--rd-text-muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.shell :global(.rd-drawer__tab--active) {
+  color: var(--rd-text-strong);
+  border-bottom-color: var(--rd-accent);
+}
+.shell :global(.rd-drawer__meta) {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rd-border);
+  font-size: 11px;
+  color: var(--rd-text-dim);
+  display: flex;
+  gap: 6px;
+}
+.shell :global(.rd-drawer__backlinks) {
+  border-top: 1px solid var(--rd-border);
+  padding: 8px 0 14px;
+}
+.shell :global(.rd-drawer__section-title) {
+  display: block;
+  padding: 6px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--rd-text-dim);
+}
