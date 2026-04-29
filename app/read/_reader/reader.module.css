@@ -1047,6 +1047,52 @@
   font-size: 12px;
   text-align: center;
 }
+.shell :global(.rd-card-grid) {
+  list-style: none;
+  margin: 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.shell :global(.rd-card-grid li) {
+  margin: 0;
+}
+.shell :global(.rd-card) {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--rd-bg-elev);
+  border: 1px solid var(--rd-border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: var(--rd-text);
+  cursor: pointer;
+  font: inherit;
+}
+.shell :global(.rd-card:hover) {
+  border-color: var(--rd-link);
+}
+.shell :global(.rd-card__path) {
+  font-size: 9px;
+  color: var(--rd-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+}
+.shell :global(.rd-card__title) {
+  font-size: 13px;
+  color: var(--rd-text-strong);
+  font-weight: 600;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.shell :global(.rd-card__meta) {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--rd-text-dim);
+}
 @media (max-width: 767px) {
   .shell :global(.rd-lib__tabs) {
     -webkit-overflow-scrolling: touch;
