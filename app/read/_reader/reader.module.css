@@ -699,3 +699,120 @@
   }
   .shell :global(.rd-bottombar__pos) { display: none; }
 }
+
+/* ---- Selection toolbar ---- */
+.shell :global(.rd-seltoolbar) {
+  position: fixed;
+  z-index: 70;
+  background: var(--rd-bg-elev);
+  border: 1px solid var(--rd-border);
+  border-radius: 8px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+.shell :global(.rd-seltoolbar__btn) {
+  background: transparent;
+  border: 1px solid var(--rd-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--rd-text);
+  cursor: pointer;
+  font: inherit;
+}
+.shell :global(.rd-seltoolbar__btn:hover) {
+  background: rgba(255, 255, 255, 0.06);
+}
+.shell :global(.rd-seltoolbar__btn--mark) {
+  font-weight: 600;
+  border-color: transparent !important;
+}
+.shell :global(.rd-palette) {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px 6px;
+}
+.shell :global(.rd-palette__dot) {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.shell :global(.rd-palette__dot:hover) {
+  border-color: var(--rd-text-strong);
+}
+
+/* ---- Note composer modal ---- */
+.shell :global(.rd-composer__overlay) {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: rd-fade 150ms ease;
+}
+.shell :global(.rd-composer) {
+  background: var(--rd-bg-elev);
+  border: 1px solid var(--rd-border);
+  border-radius: 8px;
+  padding: 14px;
+  width: min(420px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+.shell :global(.rd-composer__title) {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--rd-text-dim);
+  text-transform: uppercase;
+}
+.shell :global(.rd-composer textarea) {
+  width: 100%;
+  background: var(--rd-bg);
+  border: 1px solid var(--rd-border);
+  border-radius: 4px;
+  color: var(--rd-text);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.shell :global(.rd-composer textarea:focus) {
+  border-color: var(--rd-link);
+  outline: none;
+}
+.shell :global(.rd-composer__actions) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.shell :global(.rd-composer__actions button) {
+  background: transparent;
+  border: 1px solid var(--rd-border);
+  color: var(--rd-text);
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.shell :global(.rd-composer__actions button:hover) {
+  background: rgba(255, 255, 255, 0.06);
+}
+.shell :global(.rd-composer__primary) {
+  background: var(--rd-link) !important;
+  border-color: var(--rd-link) !important;
+  color: #fff !important;
+}
+.shell :global(.rd-composer__primary:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
