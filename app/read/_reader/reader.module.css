@@ -477,3 +477,25 @@
   font-size: 10px;
   color: var(--rd-text-dim);
 }
+
+/* ---- Outline tab ---- */
+.shell :global(.rd-outline) { list-style: none; padding: 0; margin: 0; }
+.shell :global(.rd-outline__row) {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--rd-text-muted);
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  font: inherit;
+}
+.shell :global(.rd-outline__row:hover) { color: var(--rd-text-strong); }
+.shell :global(.rd-outline__row--active) {
+  color: var(--rd-text-strong);
+  border-left: 2px solid var(--rd-link);
+  background: rgba(122, 162, 247, 0.08);
+}
