@@ -413,3 +413,41 @@
   .shell :global(.rd-drawer) { width: 100% !important; }
   .shell :global(.rd-drawer__overlay) { display: none; } /* full-screen sheet */
 }
+
+/* ---- Tree tab ---- */
+.shell :global(.rd-tree__search) {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rd-border);
+}
+.shell :global(.rd-tree__search input) {
+  width: 100%;
+  background: var(--rd-bg);
+  border: 1px solid var(--rd-border);
+  border-radius: 4px;
+  color: var(--rd-text);
+  font-size: 11px;
+  padding: 4px 8px;
+  outline: none;
+}
+.shell :global(.rd-tree__search input:focus) { border-color: var(--rd-link); }
+.shell :global(.rd-tree__row) {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--rd-text);
+  padding: 5px 12px 5px 8px;
+  font-size: 12px;
+  font: inherit;
+}
+.shell :global(.rd-tree__row:hover) { background: rgba(255, 255, 255, 0.05); }
+.shell :global(.rd-tree__folder) { color: var(--rd-text-muted); }
+.shell :global(.rd-tree__file--active) {
+  background: rgba(122, 162, 247, 0.12);
+  color: var(--rd-text-strong);
+  border-left: 2px solid var(--rd-link);
+}
