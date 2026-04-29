@@ -246,3 +246,47 @@
 }
 .column :global(.katex) { font-size: 1.05em; }
 .column :global(.katex-display) { margin: 18px 0; }
+
+/* ---- ReaderEndCard (chapter end with prev/next + 完) ---- */
+.column :global(.rd-endcard) {
+  margin-top: 64px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+.column :global(.rd-endcard__divider) {
+  height: 1px;
+  background: var(--rd-border);
+  margin: 0 0 22px;
+}
+.column :global(.rd-endcard__row) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+}
+.column :global(.rd-endcard__link) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--rd-text-dim);
+  font: inherit;
+}
+.column :global(.rd-endcard__link:hover) { color: var(--rd-link); }
+.column :global(.rd-endcard__link--prev) { text-align: left; }
+.column :global(.rd-endcard__link--next) { text-align: right; color: var(--rd-link); }
+.column :global(.rd-endcard__label) { font-size: 11px; color: var(--rd-text-dim); }
+.column :global(.rd-endcard__title) { color: var(--rd-text-strong); }
+.column :global(.rd-endcard__placeholder) { width: 1px; }
+.column :global(.rd-endcard__finis) {
+  margin-top: 18px;
+  font-size: 11px;
+  letter-spacing: 6px;
+  color: var(--rd-text-dim);
+}
+@media (max-width: 767px) {
+  .column :global(.rd-endcard__row) { flex-direction: column; gap: 12px; }
+}
