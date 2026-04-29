@@ -66,14 +66,14 @@
   overflow-x: hidden;
 }
 
-.shell[data-font="serif"] { font-family: var(--rd-font-family-serif); }
-
-:root {
+.shell {
   --rd-font-family-sans: system-ui, -apple-system, "PingFang SC", "Noto Sans SC",
                          "Source Han Sans SC", sans-serif;
   --rd-font-family-serif: "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
   --rd-font-mono: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
 }
+
+.shell[data-font="serif"] { font-family: var(--rd-font-family-serif); }
 
 /* ---- 正文容器宽度三档 ---- */
 .column { margin: 0 auto; padding: 60px 24px 120px; }
