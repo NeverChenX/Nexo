@@ -451,3 +451,29 @@
   color: var(--rd-text-strong);
   border-left: 2px solid var(--rd-link);
 }
+
+/* ---- Recent tab ---- */
+.shell :global(.rd-recent__row) {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rd-border);
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--rd-text);
+  font: inherit;
+}
+.shell :global(.rd-recent__row:hover) { background: rgba(255, 255, 255, 0.04); }
+.shell :global(.rd-recent__title) {
+  font-size: 13px;
+  color: var(--rd-text-strong);
+  margin-bottom: 4px;
+}
+.shell :global(.rd-recent__meta) {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--rd-text-dim);
+}
