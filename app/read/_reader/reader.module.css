@@ -1269,6 +1269,44 @@
 .shell :global(.rd-history__pct--done) {
   color: #a3e635;
 }
+
+/* Heatmap */
+.shell :global(.rd-heatmap) {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.shell :global(.rd-heatmap__summary) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--rd-text-muted);
+}
+.shell :global(.rd-heatmap__summary b) {
+  color: var(--rd-text-strong);
+  font-weight: 600;
+}
+.shell :global(.rd-heatmap__svg) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.shell :global(.rd-heatmap__legend) {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 9px;
+  color: var(--rd-text-dim);
+}
+.shell :global(.rd-heatmap__legend span:not(:first-child):not(:last-child)) {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
 @media (max-width: 767px) {
   .shell :global(.rd-lib__tabs) {
     -webkit-overflow-scrolling: touch;
