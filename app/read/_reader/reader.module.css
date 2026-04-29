@@ -1307,6 +1307,25 @@
   border-radius: 2px;
   display: inline-block;
 }
+
+/* Stats list */
+.shell :global(.rd-stats-list) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shell :global(.rd-stats-list li) {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--rd-border);
+  font-size: 12px;
+  color: var(--rd-text);
+}
+.shell :global(.rd-stats-list b) {
+  color: var(--rd-text-strong);
+  font-weight: 600;
+}
 @media (max-width: 767px) {
   .shell :global(.rd-lib__tabs) {
     -webkit-overflow-scrolling: touch;
