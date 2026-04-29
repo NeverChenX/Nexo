@@ -1628,3 +1628,64 @@
     border-radius: 12px 12px 0 0;
   }
 }
+
+/* ================== Skeleton (loading) ================== */
+.shell :global(.rd-skel) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 0;
+}
+.shell :global(.rd-skel__head) {
+  height: 24px;
+  width: 50%;
+  background: var(--rd-bg-elev);
+  border-radius: 4px;
+  animation: rd-skel-pulse 1.4s ease-in-out infinite;
+}
+.shell :global(.rd-skel__line) {
+  height: 14px;
+  background: var(--rd-bg-elev);
+  border-radius: 3px;
+  animation: rd-skel-pulse 1.4s ease-in-out infinite;
+}
+.shell :global(.rd-skel__line--80) { width: 80%; }
+.shell :global(.rd-skel__line--85) { width: 85%; }
+.shell :global(.rd-skel__line--90) { width: 90%; }
+.shell :global(.rd-skel__line--92) { width: 92%; }
+.shell :global(.rd-skel__line--95) { width: 95%; }
+.shell :global(.rd-skel__code) {
+  height: 90px;
+  background: var(--rd-bg-elev);
+  border-radius: 6px;
+  margin: 8px 0;
+  animation: rd-skel-pulse 1.4s ease-in-out infinite;
+}
+@keyframes rd-skel-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* ================== State (error / empty with actions) ================== */
+.shell :global(.rd-state) {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--rd-text);
+}
+.shell :global(.rd-state button) {
+  background: transparent;
+  border: 1px solid var(--rd-border);
+  color: var(--rd-text);
+  padding: 4px 14px;
+  margin: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+.shell :global(.rd-state button:hover) {
+  background: rgba(255, 255, 255, 0.05);
+}
+.shell :global(.rd-state--error p) {
+  color: #f87171;
+  margin-bottom: 12px;
+}

@@ -16,6 +16,7 @@ import { useSelection } from './hooks/useSelection';
 import { useReadingHeartbeat } from './hooks/useReadingHeartbeat';
 import { ReaderContent } from './ReaderContent';
 import { ReaderEndCard } from './ReaderEndCard';
+import { ReaderSkeleton } from './ReaderSkeleton';
 import { ReaderProgressToast } from './ReaderProgressToast';
 import { ReaderTopBar } from './ReaderTopBar';
 import { ReaderBottomBar } from './ReaderBottomBar';
@@ -304,27 +305,16 @@ function Inner({ ids }: { ids: string[] | undefined }) {
           data-width={prefs.width}
           data-indent={prefs.indent ? 'true' : 'false'}
         >
-          {loading && (
-            <div
-              style={{
-                color: 'var(--rd-text-dim)',
-                fontSize: 14,
-                padding: '40px 0',
-              }}
-            >
-              加载中…
-            </div>
-          )}
+          {loading && <ReaderSkeleton />}
           {!loading && error && (
-            <div
-              style={{
-                color: '#f87171',
-                fontSize: 14,
-                padding: '40px 0',
-                textAlign: 'center',
-              }}
-            >
-              {error}
+            <div className="rd-state rd-state--error">
+              <p>{error}</p>
+              <button type="button" onClick={() => location.reload()}>
+                重试
+              </button>
+              <button type="button" onClick={() => router.push('/read')}>
+                回阅读首页
+              </button>
             </div>
           )}
           {!loading && !data && !error && (
