@@ -816,3 +816,23 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ---- Highlight mark span ---- */
+.shell :global(.rd-mark) {
+  background: linear-gradient(
+    transparent 60%,
+    color-mix(in srgb, var(--mc, transparent) 40%, transparent) 60%
+  );
+  cursor: pointer;
+  transition: background 200ms;
+}
+.shell :global(.rd-mark:hover) {
+  background: linear-gradient(
+    transparent 50%,
+    color-mix(in srgb, var(--mc, transparent) 55%, transparent) 50%
+  );
+}
+.shell :global(.rd-mark[data-drifted="1"]) {
+  outline: 1px dashed color-mix(in srgb, var(--mc) 60%, transparent);
+  outline-offset: 1px;
+}
