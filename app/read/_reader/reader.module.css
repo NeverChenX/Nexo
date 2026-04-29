@@ -75,6 +75,13 @@
 
 .shell[data-font="serif"] { font-family: var(--rd-font-family-serif); }
 
+/* ---- 滚动容器（取代 window 滚动，使 IntersectionObserver / 进度可控） ---- */
+.scroller {
+  height: 100vh;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
 /* ---- 正文容器宽度三档 ---- */
 .column { margin: 0 auto; padding: 60px 24px 120px; }
 .column[data-width="narrow"]  { max-width: 580px; }
