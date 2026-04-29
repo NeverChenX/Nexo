@@ -10,6 +10,9 @@ import { useChromeToggle } from './hooks/useChromeToggle';
 import { useReaderHotkeys } from './hooks/useReaderHotkeys';
 import { useReaderGestures } from './hooks/useReaderGestures';
 import { useChapterNav } from './hooks/useChapterNav';
+import { useAnnotations } from './hooks/useAnnotations';
+import { useFavorite } from './hooks/useFavorite';
+import { useSelection } from './hooks/useSelection';
 import { ReaderContent } from './ReaderContent';
 import { ReaderEndCard } from './ReaderEndCard';
 import { ReaderProgressToast } from './ReaderProgressToast';
@@ -17,8 +20,23 @@ import { ReaderTopBar } from './ReaderTopBar';
 import { ReaderBottomBar } from './ReaderBottomBar';
 import { LeftDrawer } from './drawers/LeftDrawer';
 import { RightDrawer } from './drawers/RightDrawer';
+import { SelectionToolbar } from './annotation/SelectionToolbar';
+import { HighlightOverlay } from './annotation/HighlightOverlay';
+import { MarkPopover } from './annotation/MarkPopover';
+import { InlineNoteCard } from './annotation/InlineNoteCard';
+import { NoteComposer } from './annotation/NoteComposer';
 import { countWords } from '@/lib/reader/reading-time';
+import { makeAnchor, isSameAnchor } from '@/lib/reader/anchor';
+import type { Mark, Anchor } from '@/lib/reader/types';
+import type { MarkColor } from '@/lib/reader/prefs';
 import styles from './reader.module.css';
+
+interface ComposerState {
+  kind: 'note' | 'thought';
+  anchor: Anchor;
+  existingId?: string;
+  initial?: string;
+}
 
 function Inner({ ids }: { ids: string[] | undefined }) {
   const { prefs } = useReaderPrefs();
@@ -28,20 +46,24 @@ function Inner({ ids }: { ids: string[] | undefined }) {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const contentRootRef = useRef<HTMLElement>(null);
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const [endEl, setEndEl] = useState<HTMLDivElement | null>(null);
+  const [contentRoot, setContentRoot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     setScrollEl(scrollRef.current);
     setEndEl(endRef.current);
+    setContentRoot(contentRootRef.current);
   }, [data?.id]);
 
-  const { progress, prevEntry, showResumeToast, dismissToast, resumeToTop } = useReaderProgress({
-    articleId: data?.id ?? null,
-    articleReady: !loading && !!data,
-    scrollEl,
-    endSentinel: endEl,
-  });
+  const { progress, prevEntry, showResumeToast, dismissToast, resumeToTop } =
+    useReaderProgress({
+      articleId: data?.id ?? null,
+      articleReady: !loading && !!data,
+      scrollEl,
+      endSentinel: endEl,
+    });
   useChromeToggle(scrollEl);
   useReaderGestures(scrollEl);
 
@@ -49,6 +71,124 @@ function Inner({ ids }: { ids: string[] | undefined }) {
   const totalWords = useMemo(
     () => (data ? countWords(data.content, { stripCode: true }) : 0),
     [data],
+  );
+
+  // Annotations + favorite
+  const {
+    marks,
+    notes,
+    thoughts,
+    addMark,
+    changeMarkColor,
+    removeMark,
+    addNote,
+    editNote,
+    removeNote,
+    addThought,
+    editThought,
+    removeThought,
+  } = useAnnotations(data?.id ?? null);
+  const { isFavorite } = useFavorite(data?.id ?? null);
+
+  const { info: selInfo, clear: clearSel } = useSelection({
+    contentRoot,
+    source: data?.content ?? '',
+    enabled: !!data,
+  });
+
+  const [composer, setComposer] = useState<ComposerState | null>(null);
+  const [pop, setPop] = useState<{ mark: Mark; rect: DOMRect } | null>(null);
+
+  const onMark = useCallback(
+    (color: MarkColor) => {
+      if (!selInfo || !data) return;
+      const anchor = makeAnchor(
+        data.content,
+        selInfo.startOffset,
+        selInfo.endOffset,
+      );
+      void addMark(anchor, color);
+      clearSel();
+    },
+    [selInfo, data, addMark, clearSel],
+  );
+
+  const onNote = useCallback(() => {
+    if (!selInfo || !data) return;
+    const anchor = makeAnchor(
+      data.content,
+      selInfo.startOffset,
+      selInfo.endOffset,
+    );
+    setComposer({ kind: 'note', anchor });
+    clearSel();
+  }, [selInfo, data, clearSel]);
+
+  const onThought = useCallback(() => {
+    if (!selInfo || !data) return;
+    const anchor = makeAnchor(
+      data.content,
+      selInfo.startOffset,
+      selInfo.endOffset,
+    );
+    setComposer({ kind: 'thought', anchor });
+    clearSel();
+  }, [selInfo, data, clearSel]);
+
+  const onCopySelection = useCallback(() => {
+    if (!selInfo) return;
+    void navigator.clipboard.writeText(selInfo.text);
+    clearSel();
+  }, [selInfo, clearSel]);
+
+  const onShare = useCallback(() => {
+    if (!selInfo || !data) return;
+    const url = `${location.origin}/read/${data.idChain}`;
+    void navigator.clipboard.writeText(
+      `> ${selInfo.text}\n\n— 来自《${data.path.split('/').pop()}》${url}`,
+    );
+    clearSel();
+  }, [selInfo, data, clearSel]);
+
+  const composerSubmit = useCallback(
+    async (text: string) => {
+      if (!composer) return;
+      if (composer.existingId) {
+        if (composer.kind === 'note')
+          await editNote(composer.existingId, text);
+        else await editThought(composer.existingId, text);
+      } else {
+        if (composer.kind === 'note') await addNote(composer.anchor, text);
+        else await addThought(composer.anchor, text);
+      }
+      setComposer(null);
+    },
+    [composer, addNote, editNote, addThought, editThought],
+  );
+
+  const onInlineEdit = useCallback(
+    (kind: 'note' | 'thought', id: string) => {
+      const item =
+        kind === 'note'
+          ? notes.find((n) => n.id === id)
+          : thoughts.find((t) => t.id === id);
+      if (!item) return;
+      setComposer({
+        kind,
+        anchor: item.anchor,
+        existingId: id,
+        initial: item.text,
+      });
+    },
+    [notes, thoughts],
+  );
+
+  const onInlineDelete = useCallback(
+    (kind: 'note' | 'thought', id: string) => {
+      if (kind === 'note') void removeNote(id);
+      else void removeThought(id);
+    },
+    [removeNote, removeThought],
   );
 
   const onChapterJump = useCallback(
@@ -64,7 +204,8 @@ function Inner({ ids }: { ids: string[] | undefined }) {
     [scrollEl],
   );
   const jumpEnd = useCallback(
-    () => scrollEl?.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' }),
+    () =>
+      scrollEl?.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' }),
     [scrollEl],
   );
   const resumeToLast = useCallback(() => {
@@ -82,6 +223,9 @@ function Inner({ ids }: { ids: string[] | undefined }) {
   });
 
   const segments = data ? data.path.split('/').filter(Boolean) : [];
+  const popNote = pop
+    ? notes.find((n) => isSameAnchor(n.anchor, pop.mark.anchor))
+    : undefined;
 
   return (
     <div
@@ -103,7 +247,7 @@ function Inner({ ids }: { ids: string[] | undefined }) {
         pathSegments={segments}
         progress={progress}
         totalWords={totalWords}
-        isFavorite={false /* phase 6 wires real state */}
+        isFavorite={isFavorite}
         onCrumbClick={() => {}}
         onToggleFavorite={() =>
           document.dispatchEvent(new CustomEvent('reader:toggle-favorite'))
@@ -126,12 +270,19 @@ function Inner({ ids }: { ids: string[] | undefined }) {
 
       <div ref={scrollRef} className={styles.scroller}>
         <main
+          ref={contentRootRef}
           className={`${styles.column} rd-content-root`}
           data-width={prefs.width}
           data-indent={prefs.indent ? 'true' : 'false'}
         >
           {loading && (
-            <div style={{ color: 'var(--rd-text-dim)', fontSize: 14, padding: '40px 0' }}>
+            <div
+              style={{
+                color: 'var(--rd-text-dim)',
+                fontSize: 14,
+                padding: '40px 0',
+              }}
+            >
               加载中…
             </div>
           )}
@@ -174,6 +325,67 @@ function Inner({ ids }: { ids: string[] | undefined }) {
           <div ref={endRef} aria-hidden style={{ height: 1 }} />
         </main>
       </div>
+
+      {!loading && data && (
+        <>
+          <HighlightOverlay
+            contentRoot={contentRoot}
+            source={data.content}
+            marks={marks}
+            onClickMark={(m, r) => setPop({ mark: m, rect: r })}
+          />
+          <InlineNoteCard
+            contentRoot={contentRoot}
+            notes={notes}
+            thoughts={thoughts}
+            visibility={prefs.noteVisibility}
+            onEdit={onInlineEdit}
+            onDelete={onInlineDelete}
+          />
+        </>
+      )}
+
+      <SelectionToolbar
+        rect={selInfo?.rect ?? null}
+        onMark={onMark}
+        onNote={onNote}
+        onThought={onThought}
+        onCopy={onCopySelection}
+        onShare={onShare}
+      />
+      {pop && (
+        <MarkPopover
+          mark={pop.mark}
+          rect={pop.rect}
+          note={popNote}
+          onClose={() => setPop(null)}
+          onChangeColor={(c) => {
+            void changeMarkColor(pop.mark.id, c);
+            setPop(null);
+          }}
+          onEditNote={() => {
+            const existing = popNote;
+            setComposer({
+              kind: 'note',
+              anchor: pop.mark.anchor,
+              existingId: existing?.id,
+              initial: existing?.text,
+            });
+            setPop(null);
+          }}
+          onDelete={() => {
+            void removeMark(pop.mark.id);
+            setPop(null);
+          }}
+        />
+      )}
+      <NoteComposer
+        open={!!composer}
+        initialText={composer?.initial}
+        title={composer?.kind === 'note' ? '写一段笔记' : '写一段想法'}
+        onSubmit={composerSubmit}
+        onCancel={() => setComposer(null)}
+      />
     </div>
   );
 }
