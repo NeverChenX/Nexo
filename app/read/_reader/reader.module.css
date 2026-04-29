@@ -1445,3 +1445,19 @@
     border-radius: 0;
   }
 }
+
+/* Flash highlight when jumping to note/thought anchor */
+.shell :global(.rd-flash) {
+  animation: rd-flash 1.5s ease;
+}
+@keyframes rd-flash {
+  0% {
+    background: rgba(122, 162, 247, 0);
+  }
+  20% {
+    background: rgba(122, 162, 247, 0.18);
+  }
+  100% {
+    background: rgba(122, 162, 247, 0);
+  }
+}
