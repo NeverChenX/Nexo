@@ -1215,6 +1215,60 @@
   font-size: 9px;
   color: var(--rd-text-dim);
 }
+
+/* History tab */
+.shell :global(.rd-history) {
+  padding: 0;
+}
+.shell :global(.rd-history section) {
+  margin-bottom: 14px;
+}
+.shell :global(.rd-history__day) {
+  font-size: 10px;
+  color: var(--rd-text-dim);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 8px 14px 4px;
+  margin: 0;
+  font-weight: normal;
+  border-bottom: 1px dashed var(--rd-border);
+}
+.shell :global(.rd-history ul) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shell :global(.rd-history__row) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--rd-text);
+  gap: 8px;
+}
+.shell :global(.rd-history__row:hover) {
+  background: rgba(255, 255, 255, 0.04);
+}
+.shell :global(.rd-history__title) {
+  font-size: 12px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.shell :global(.rd-history__pct) {
+  font-size: 10px;
+  color: var(--rd-text-dim);
+  flex-shrink: 0;
+}
+.shell :global(.rd-history__pct--done) {
+  color: #a3e635;
+}
 @media (max-width: 767px) {
   .shell :global(.rd-lib__tabs) {
     -webkit-overflow-scrolling: touch;
