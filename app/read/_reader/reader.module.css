@@ -1093,6 +1093,84 @@
   font-size: 10px;
   color: var(--rd-text-dim);
 }
+
+/* Notes tab */
+.shell :global(.rd-lib__subtabs) {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--rd-border);
+}
+.shell :global(.rd-lib__subtabs button) {
+  background: transparent;
+  border: 1px solid var(--rd-border);
+  color: var(--rd-text-muted);
+  font: inherit;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.shell :global(.rd-lib__subtabs button.active) {
+  border-color: var(--rd-link);
+  color: var(--rd-text-strong);
+}
+.shell :global(.rd-note-list) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shell :global(.rd-note-list__items) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shell :global(.rd-note-list__group) {
+  font-size: 10px;
+  color: var(--rd-text-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 8px 14px 4px;
+  margin: 0;
+  font-weight: normal;
+}
+.shell :global(.rd-note-row) {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rd-border);
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--rd-text);
+  font: inherit;
+}
+.shell :global(.rd-note-row:hover) {
+  background: rgba(255, 255, 255, 0.04);
+}
+.shell :global(.rd-note-row__quote) {
+  border-left: 2px solid var(--rd-accent);
+  padding: 2px 8px;
+  margin: 0 0 6px;
+  color: var(--rd-text-muted);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.shell :global(.rd-note-row__text) {
+  font-size: 12px;
+  color: var(--rd-text-strong);
+  margin: 0 0 4px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.shell :global(.rd-note-row__meta) {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--rd-text-dim);
+}
 @media (max-width: 767px) {
   .shell :global(.rd-lib__tabs) {
     -webkit-overflow-scrolling: touch;
