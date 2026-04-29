@@ -5,6 +5,7 @@ import { useReaderPrefs } from '../hooks/useReaderPrefs';
 import { Drawer } from './Drawer';
 import { TreeTab } from './TreeTab';
 import { RecentTab } from './RecentTab';
+import { LibraryView } from '../library/LibraryView';
 
 interface Props {
   currentArticleId: string | undefined;
@@ -40,9 +41,12 @@ export function LeftDrawer({ currentArticleId, onSelect }: Props) {
           <TreeTab currentArticleId={currentArticleId} onSelect={onSelect} />
         )}
         {ui.leftTab === 'library' && (
-          <p style={{ padding: '20px 12px', color: 'var(--rd-text-dim)', fontSize: 12 }}>
-            书房功能将在 phase 7 实装。
-          </p>
+          <LibraryView
+            onSelectArticle={(idChain) => {
+              onSelect(idChain);
+              ui.closeLeft();
+            }}
+          />
         )}
         {ui.leftTab === 'recent' && <RecentTab onSelect={onSelect} />}
       </div>

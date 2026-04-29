@@ -13,6 +13,7 @@ import { useChapterNav } from './hooks/useChapterNav';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useFavorite } from './hooks/useFavorite';
 import { useSelection } from './hooks/useSelection';
+import { useReadingHeartbeat } from './hooks/useReadingHeartbeat';
 import { ReaderContent } from './ReaderContent';
 import { ReaderEndCard } from './ReaderEndCard';
 import { ReaderProgressToast } from './ReaderProgressToast';
@@ -66,6 +67,7 @@ function Inner({ ids }: { ids: string[] | undefined }) {
     });
   useChromeToggle(scrollEl);
   useReaderGestures(scrollEl);
+  useReadingHeartbeat(data?.id ?? null);
 
   const { prev, next } = useChapterNav(data?.id);
   const totalWords = useMemo(
