@@ -1,14 +1,23 @@
 'use client';
 
+import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useReaderPrefs } from './hooks/useReaderPrefs';
+import { useArticle } from './hooks/useArticle';
+import { ReaderContent } from './ReaderContent';
 import styles from './reader.module.css';
 
 export function ReaderShell({ ids }: { ids: string[] | undefined }) {
-  const { prefs, hydrated } = useReaderPrefs();
+  const { prefs } = useReaderPrefs();
+  const { data, loading, error } = useArticle(ids);
+  const router = useRouter();
 
-  if (!hydrated) {
-    // 防止服务端/客户端首屏闪烁，先用默认 charcoal
-  }
+  const onInternalLink = useCallback(
+    (path: string) => {
+      router.push(`/read/${encodeURIComponent(path)}`);
+    },
+    [router],
+  );
 
   return (
     <div
@@ -24,20 +33,29 @@ export function ReaderShell({ ids }: { ids: string[] | undefined }) {
         data-width={prefs.width}
         data-indent={prefs.indent ? 'true' : 'false'}
       >
-        <h1>Reader Skeleton</h1>
-        <p>
-          这是一个占位空壳。后续 phase 会接入 Markdown 渲染、抽屉、附加层等功能。
-          当前 ids = <code>{JSON.stringify(ids)}</code>。
-        </p>
-        <p>
-          这是第二段，用来验证段落首行缩进 ({prefs.indent ? '开' : '关'})、
-          字号 ({prefs.fontSize}px) 与行距 ({prefs.lineHeight}) 是否正确生效。
-        </p>
-        <blockquote>引用样式：左侧铜金细线 + 浅米色字。</blockquote>
-        <hr />
-        <p>
-          上方分隔线应渲染为居中三个 <code>·</code> 而非横线。
-        </p>
+        {loading && (
+          <div style={{ color: 'var(--rd-text-dim)', fontSize: 14, padding: '40px 0' }}>
+            加载中…
+          </div>
+        )}
+        {!loading && error && (
+          <div style={{ color: '#f87171', fontSize: 14, padding: '40px 0', textAlign: 'center' }}>
+            {error}
+          </div>
+        )}
+        {!loading && !data && !error && (
+          <div style={{ color: 'var(--rd-text-dim)', textAlign: 'center', padding: '80px 0' }}>
+            <p style={{ fontSize: 16, marginBottom: 8 }}>请选择一篇文章</p>
+            <p style={{ fontSize: 13 }}>从左抽屉文章树进入（下一阶段实装）</p>
+          </div>
+        )}
+        {!loading && data && (
+          <ReaderContent
+            content={data.content}
+            currentPath={data.path}
+            onInternalLink={onInternalLink}
+          />
+        )}
       </main>
     </div>
   );
