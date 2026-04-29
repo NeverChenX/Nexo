@@ -8,7 +8,10 @@
     "restart": "./scripts/restart.sh",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@blocknote/core": "^0.47.3",
@@ -47,6 +50,9 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/uuid": "^9.0.0",
-    "shadcn": "^4.1.2"
+    "@vitest/ui": "^1.6.1",
+    "jsdom": "^24.1.3",
+    "shadcn": "^4.1.2",
+    "vitest": "^1.6.1"
   }
 }
