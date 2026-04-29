@@ -1461,3 +1461,170 @@
     background: rgba(122, 162, 247, 0);
   }
 }
+
+/* ================== Settings Sheet ================== */
+.shell :global(.rd-settings__overlay) {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: rd-fade 150ms ease;
+}
+.shell :global(.rd-settings) {
+  background: var(--rd-bg-elev);
+  border: 1px solid var(--rd-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  width: min(360px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--rd-text);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+.shell :global(.rd-settings__head) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--rd-text-dim);
+  margin-bottom: 4px;
+}
+.shell :global(.rd-settings__head button) {
+  background: transparent;
+  border: none;
+  color: var(--rd-text-dim);
+  cursor: pointer;
+  font-size: 13px;
+}
+.shell :global(.rd-settings__row) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.shell :global(.rd-settings__label) {
+  color: var(--rd-text);
+}
+.shell :global(.rd-settings__group) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.shell :global(.rd-settings__group button) {
+  background: var(--rd-bg);
+  border: 1px solid var(--rd-border);
+  color: var(--rd-text);
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.shell :global(.rd-settings__group button:hover) {
+  border-color: var(--rd-link);
+}
+.shell :global(.rd-settings__value) {
+  display: inline-block;
+  width: 36px;
+  text-align: center;
+  color: var(--rd-text-strong);
+}
+.shell :global(.rd-settings__seg) {
+  display: inline-flex;
+  border: 1px solid var(--rd-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.shell :global(.rd-settings__seg button) {
+  background: transparent;
+  border: none;
+  color: var(--rd-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  border-right: 1px solid var(--rd-border);
+}
+.shell :global(.rd-settings__seg button:last-child) {
+  border-right: none;
+}
+.shell :global(.rd-settings__seg button[aria-pressed="true"]) {
+  background: rgba(122, 162, 247, 0.18);
+  color: var(--rd-text-strong);
+}
+.shell :global(.rd-settings__themes) {
+  display: inline-flex;
+  gap: 6px;
+}
+.shell :global(.rd-settings__swatch) {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.shell :global(.rd-settings__swatch--oled) {
+  background: #000;
+}
+.shell :global(.rd-settings__swatch--charcoal) {
+  background: #0f0f10;
+}
+.shell :global(.rd-settings__swatch--ink) {
+  background: #15110d;
+}
+.shell :global(.rd-settings__swatch[aria-pressed="true"]) {
+  border-color: var(--rd-link);
+}
+.shell :global(.rd-settings__toggle) {
+  background: var(--rd-bg);
+  border: 1px solid var(--rd-border);
+  color: var(--rd-text);
+  padding: 2px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.shell :global(.rd-settings__toggle[aria-pressed="true"]) {
+  background: rgba(122, 162, 247, 0.18);
+  border-color: var(--rd-link);
+  color: var(--rd-text-strong);
+}
+.shell :global(.rd-settings__divider) {
+  height: 1px;
+  background: var(--rd-border);
+  margin: 4px 0;
+}
+.shell :global(.rd-settings__foot) {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+.shell :global(.rd-settings__reset) {
+  background: transparent;
+  border: none;
+  color: var(--rd-text-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.shell :global(.rd-settings__reset:hover) {
+  color: var(--rd-text);
+}
+
+@media (max-width: 767px) {
+  .shell :global(.rd-settings__overlay) {
+    align-items: flex-end;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .shell :global(.rd-settings) {
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+  }
+}

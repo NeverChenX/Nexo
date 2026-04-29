@@ -27,6 +27,7 @@ import { MarkPopover } from './annotation/MarkPopover';
 import { InlineNoteCard } from './annotation/InlineNoteCard';
 import { NoteComposer } from './annotation/NoteComposer';
 import { CommandPalette } from './cmdk/CommandPalette';
+import { SettingsSheet } from './settings/SettingsSheet';
 import { countWords } from '@/lib/reader/reading-time';
 import { makeAnchor, isSameAnchor } from '@/lib/reader/anchor';
 import type { Mark, Anchor } from '@/lib/reader/types';
@@ -415,6 +416,7 @@ function Inner({ ids }: { ids: string[] | undefined }) {
         onCancel={() => setComposer(null)}
       />
       <CommandPalette currentArticleId={data?.id} />
+      <SettingsSheet />
     </div>
   );
 }
