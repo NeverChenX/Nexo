@@ -8,6 +8,7 @@ import {
   BookOpenText,
   BarChart3,
   Download,
+  type LucideIcon,
 } from 'lucide-react';
 import { FavoritesTab } from './FavoritesTab';
 import { NotesTab } from './NotesTab';
@@ -24,7 +25,7 @@ interface Props {
 const TABS: ReadonlyArray<{
   id: LibTab;
   label: string;
-  Icon: React.ComponentType<{ size?: number }>;
+  Icon: LucideIcon;
 }> = [
   { id: 'favorites', label: '收藏', Icon: Star },
   { id: 'notes', label: '笔记', Icon: NotebookText },
