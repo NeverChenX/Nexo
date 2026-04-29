@@ -541,3 +541,93 @@
   letter-spacing: 2px;
   color: var(--rd-text-dim);
 }
+
+/* ---- Top bar ---- */
+.shell :global(.rd-topbar) {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: var(--rd-bg-bar);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rd-border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  z-index: 40;
+  color: var(--rd-text);
+  font-size: 12px;
+  transition: opacity 200ms, transform 200ms;
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+.shell :global(.rd-topbar--visible) {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.shell :global(.rd-topbar__icon) {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--rd-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.shell :global(.rd-topbar__icon:hover) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--rd-text);
+}
+.shell :global(.rd-topbar__icon--star) { color: var(--rd-accent); }
+.shell :global(.rd-topbar__crumbs) {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.shell :global(.rd-topbar__crumb) {
+  background: transparent;
+  border: none;
+  color: var(--rd-text-dim);
+  cursor: pointer;
+  font: inherit;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+.shell :global(.rd-topbar__crumb:hover) {
+  color: var(--rd-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+.shell :global(.rd-topbar__crumb-current) {
+  color: var(--rd-text-strong);
+  padding: 2px 4px;
+}
+.shell :global(.rd-topbar__crumb-sep) {
+  color: var(--rd-border);
+  padding: 0 2px;
+}
+.shell :global(.rd-topbar__progress) {
+  font-size: 10px;
+  color: var(--rd-text-dim);
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+@media (max-width: 767px) {
+  .shell :global(.rd-topbar) { height: 44px; }
+  .shell :global(.rd-topbar__progress) { display: none; }
+  .shell :global(.rd-topbar__crumbs) { font-size: 12px; }
+  /* Mobile only show last 2 segments */
+  .shell :global(.rd-topbar__crumbs > span:nth-last-child(n+3)) { display: none; }
+}
