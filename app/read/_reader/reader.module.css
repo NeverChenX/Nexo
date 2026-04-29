@@ -891,3 +891,93 @@
 .shell :global(.rd-mark-pop__danger) {
   color: #f87171 !important;
 }
+
+/* ---- Inline note/thought card (portal host inside .column) ---- */
+.column :global(.rd-inline-host) {
+  display: block;
+}
+.column :global(.rd-inline-card) {
+  margin: 8px 0 12px 28px;
+  background: var(--rd-bg-elev);
+  border-left: 2px solid;
+  border-radius: 0 4px 4px 0;
+  padding: 8px 12px;
+  font-size: calc(var(--rd-font-size) * 0.85);
+  line-height: 1.65;
+}
+.column :global(.rd-inline-card--note) {
+  border-left-color: var(--rd-accent);
+}
+.column :global(.rd-inline-card--thought) {
+  border-left-color: var(--rd-link);
+}
+.column :global(.rd-inline-card__head) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 0.85em;
+}
+.column :global(.rd-inline-card__label) {
+  font-weight: 600;
+}
+.column :global(.rd-inline-card--note .rd-inline-card__label) {
+  color: var(--rd-accent);
+}
+.column :global(.rd-inline-card--thought .rd-inline-card__label) {
+  color: var(--rd-link);
+}
+.column :global(.rd-inline-card__date) {
+  color: var(--rd-text-dim);
+  margin-left: auto;
+  font-size: 0.85em;
+}
+.column :global(.rd-inline-card__collapse) {
+  background: transparent;
+  border: none;
+  color: var(--rd-text-dim);
+  cursor: pointer;
+  font-size: 12px;
+}
+.column :global(.rd-inline-card__text) {
+  color: var(--rd-text-muted);
+  text-indent: 0;
+}
+.column :global(.rd-inline-card__actions) {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.column :global(.rd-inline-card__actions button) {
+  background: transparent;
+  border: 1px solid var(--rd-border);
+  color: var(--rd-text-muted);
+  font-size: 0.85em;
+  padding: 1px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font: inherit;
+}
+.column :global(.rd-inline-card__actions button:hover) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--rd-text);
+}
+.column :global(.rd-inline-card__danger) {
+  color: #f87171 !important;
+}
+
+.column :global(.rd-inline-dot) {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin: 4px 0 4px 28px;
+  border: none;
+  cursor: pointer;
+}
+.column :global(.rd-inline-dot--note) {
+  background: var(--rd-accent);
+}
+.column :global(.rd-inline-dot--thought) {
+  background: var(--rd-link);
+}
