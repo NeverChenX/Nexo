@@ -43,6 +43,17 @@ function isBrowser(): boolean {
   return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
 }
 
+function getPrehydrationPrefs(): Partial<ReaderPrefs> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const pre = (window as unknown as Record<string, unknown>).__RD_PREFS__;
+    if (pre && typeof pre === 'object') return pre as Partial<ReaderPrefs>;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 function sanitize(p: Partial<ReaderPrefs>): ReaderPrefs {
   const merged: ReaderPrefs = { ...DEFAULT_PREFS, ...p };
   merged.fontSize = clamp(merged.fontSize, FONT_SIZE_RANGE[0], FONT_SIZE_RANGE[1]);
@@ -52,6 +63,9 @@ function sanitize(p: Partial<ReaderPrefs>): ReaderPrefs {
 
 export function loadPrefs(): ReaderPrefs {
   if (!isBrowser()) return DEFAULT_PREFS;
+  // 优先使用 pre-hydration script 注入的值，避免 hydration mismatch
+  const pre = getPrehydrationPrefs();
+  if (pre) return sanitize(pre);
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PREFS;

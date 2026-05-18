@@ -433,9 +433,29 @@ export async function getFolderContentsDetailed(
     }
   }
 
+  // 读取 .order.json 并应用手动排序（与 TreeMenu 行为一致）
+  let manualOrder: string[] | undefined;
+  try {
+    const orderRaw = await fs.readFile(
+      path.join(WIKI_DATA_DIR, '.order.json'),
+      'utf-8'
+    );
+    const orders = JSON.parse(orderRaw) as Record<string, string[]>;
+    const arr = orders[folderPath];
+    if (Array.isArray(arr) && arr.length > 0) manualOrder = arr;
+  } catch {
+    /* .order.json 不存在或损坏，走 mtime 兜底 */
+  }
+
   return items.sort((a, b) => {
+    if (manualOrder) {
+      const ai = manualOrder.indexOf(a.name);
+      const bi = manualOrder.indexOf(b.name);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+    }
     if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
-    // 按修改时间倒序
     return (b.updatedAt || '').localeCompare(a.updatedAt || '');
   });
 }

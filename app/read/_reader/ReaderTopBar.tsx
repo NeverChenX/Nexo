@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu, Star, Settings as SettingsIcon, AlignRight, Command } from 'lucide-react';
+import { Menu, Star, Settings as SettingsIcon, AlignRight, Command, Pencil } from 'lucide-react';
 import { useReaderUI } from './ReaderUIContext';
 import { estimateMinutes } from '@/lib/reader/reading-time';
 
@@ -10,6 +10,7 @@ interface Props {
   progress: number; // 0..1
   totalWords: number;
   isFavorite: boolean;
+  editHref?: string; // /editor/<idChain>，没有就不渲染按钮
   onCrumbClick: (depth: number) => void;
   onToggleFavorite: () => void;
 }
@@ -20,6 +21,7 @@ export function ReaderTopBar({
   progress,
   totalWords,
   isFavorite,
+  editHref,
   onCrumbClick,
   onToggleFavorite,
 }: Props) {
@@ -56,6 +58,17 @@ export function ReaderTopBar({
       <div className="rd-topbar__progress">
         {pct}% · 还剩 {minsRemaining} 分钟
       </div>
+      {editHref && (
+        <button
+          type="button"
+          className="rd-topbar__icon"
+          onClick={() => { window.location.href = editHref; }}
+          aria-label="切换到编辑模式"
+          title="切换到编辑模式"
+        >
+          <Pencil size={16} />
+        </button>
+      )}
       <button
         type="button"
         className={`rd-topbar__icon ${isFavorite ? 'rd-topbar__icon--star' : ''}`}

@@ -58,10 +58,12 @@ export function useReaderProgress({
   // 2) Restore scroll once article is ready
   useEffect(() => {
     if (!articleReady || resumedRef.current) return;
-    if (!scrollEl || !prevEntry) {
+    // 无历史记录时直接标记完成；scrollEl 尚未挂载时则等待下一次 effect
+    if (!prevEntry) {
       resumedRef.current = true;
       return;
     }
+    if (!scrollEl) return;
     const { lastReadProgress, scrollPos } = prevEntry;
     if (lastReadProgress >= 0.05 && lastReadProgress < 0.95) {
       requestAnimationFrame(() => {

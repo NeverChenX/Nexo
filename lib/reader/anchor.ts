@@ -1,11 +1,15 @@
 import Fuse from 'fuse.js';
 
 export const PADDING = 15;
+export const RENDERED_PAD = 30;
 
 export interface Anchor {
   startOffset: number;
   endOffset: number;
   quote: string;
+  selected?: string;
+  prefix?: string;
+  suffix?: string;
 }
 
 export interface ResolvedAnchor {
@@ -14,13 +18,26 @@ export interface ResolvedAnchor {
   drifted: boolean;
 }
 
-export function makeAnchor(source: string, start: number, end: number): Anchor {
+export interface RenderedContext {
+  prefix: string;
+  selected: string;
+  suffix: string;
+}
+
+export function makeAnchor(
+  source: string,
+  start: number,
+  end: number,
+  rendered?: RenderedContext,
+): Anchor {
   const lo = Math.max(0, start - PADDING);
   const hi = Math.min(source.length, end + PADDING);
+  const fallbackSelected = rendered?.selected ?? source.slice(start, end);
   return {
     startOffset: start,
     endOffset: end,
-    quote: source.slice(lo, hi),
+    quote: source.slice(lo, hi) || fallbackSelected,
+    ...(rendered ? rendered : {}),
   };
 }
 
@@ -99,5 +116,50 @@ export function resolveAnchor(
 }
 
 export function isSameAnchor(a: Anchor, b: Anchor): boolean {
+  if (a.selected && b.selected) {
+    return (
+      a.selected === b.selected &&
+      (a.prefix ?? '') === (b.prefix ?? '') &&
+      (a.suffix ?? '') === (b.suffix ?? '')
+    );
+  }
   return a.startOffset === b.startOffset && a.endOffset === b.endOffset;
+}
+
+/**
+ * Resolve an anchor against the rendered DOM text (root.innerText). This is
+ * used when anchor.selected is set, which is robust to inline markdown
+ * formatting because it operates on rendered plain text.
+ */
+export function findRenderedRange(
+  rootInnerText: string,
+  anchor: Anchor,
+): { start: number; end: number } | null {
+  const sel = anchor.selected;
+  if (!sel) return null;
+  const prefix = anchor.prefix ?? '';
+  const suffix = anchor.suffix ?? '';
+
+  // 1. Exact prefix+selected+suffix
+  if (prefix || suffix) {
+    const needle = prefix + sel + suffix;
+    const i = rootInnerText.indexOf(needle);
+    if (i >= 0) return { start: i + prefix.length, end: i + prefix.length + sel.length };
+  }
+  // 2. prefix+selected
+  if (prefix) {
+    const needle = prefix + sel;
+    const i = rootInnerText.indexOf(needle);
+    if (i >= 0) return { start: i + prefix.length, end: i + prefix.length + sel.length };
+  }
+  // 3. selected+suffix
+  if (suffix) {
+    const needle = sel + suffix;
+    const i = rootInnerText.indexOf(needle);
+    if (i >= 0) return { start: i, end: i + sel.length };
+  }
+  // 4. selected alone
+  const i = rootInnerText.indexOf(sel);
+  if (i >= 0) return { start: i, end: i + sel.length };
+  return null;
 }

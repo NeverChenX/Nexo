@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -79,7 +79,7 @@ export interface ReaderContentProps {
   onInternalLink: (path: string) => void;
 }
 
-export function ReaderContent({ content, currentPath, onInternalLink }: ReaderContentProps) {
+function ReaderContentImpl({ content, currentPath, onInternalLink }: ReaderContentProps) {
   const remarkPlugins = useMemo(() => [remarkGfm, remarkMath], []);
   const rehypePlugins = useMemo(
     () =>
@@ -152,3 +152,9 @@ export function ReaderContent({ content, currentPath, onInternalLink }: ReaderCo
     </ReactMarkdown>
   );
 }
+
+// Critical: memoize so scroll/progress state changes in the reader shell do
+// NOT re-render ReactMarkdown. Re-running ReactMarkdown blows away the
+// `rd-mark` spans we manually inject via surroundContents in HighlightOverlay,
+// causing the highlight to disappear/re-appear on every scroll tick.
+export const ReaderContent = memo(ReaderContentImpl);

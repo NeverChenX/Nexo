@@ -30,6 +30,7 @@ import { NoteComposer } from './annotation/NoteComposer';
 import { CommandPalette } from './cmdk/CommandPalette';
 import { SettingsSheet } from './settings/SettingsSheet';
 import { countWords } from '@/lib/reader/reading-time';
+import { parseFrontmatter } from '@/lib/frontmatter';
 import { makeAnchor, isSameAnchor } from '@/lib/reader/anchor';
 import type { Mark, Anchor } from '@/lib/reader/types';
 import type { MarkColor } from '@/lib/reader/prefs';
@@ -60,6 +61,51 @@ function Inner({ ids }: { ids: string[] | undefined }) {
     setEndEl(endRef.current);
     setContentRoot(contentRootRef.current);
   }, [data?.id]);
+
+  // 文件夹页（_index.md 内容除了 H1 外为空）→ 自动跳到第一篇子文章。
+  // 避免显示空白正文 + EndCard 的"— 完 —"误导。
+  const autoJumpedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data || !data.isFolder) return;
+    if (autoJumpedRef.current === data.id) return; // 同一篇文件夹只尝试一次
+    const { body } = parseFrontmatter(data.content);
+    // 去掉首个 # 标题行后剩余正文
+    const remaining = body
+      .replace(/^\s*#\s+[^\n]*\n?/, '')
+      .trim();
+    if (remaining.length > 0) return; // 文件夹有"父页面"实际内容，不跳
+    autoJumpedRef.current = data.id;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/folders?path=${encodeURIComponent(data.path)}`,
+        );
+        const json = await res.json();
+        if (cancelled || !json.ok || !Array.isArray(json.data)) return;
+        // getFolderContentsDetailed 已按 .order.json 排好序；找第一篇非文件夹
+        const firstDoc = (json.data as Array<{
+          path: string;
+          isFolder: boolean;
+        }>).find((it) => !it.isFolder);
+        if (!firstDoc) return;
+        // 拿 idChain 再跳，URL 才能保持稳定 ID 格式
+        const detailRes = await fetch(
+          `/api/articles?path=${encodeURIComponent(firstDoc.path)}`,
+        );
+        const detailJson = await detailRes.json();
+        if (cancelled || !detailJson.ok) return;
+        const childChain = detailJson.data.idChain as string | undefined;
+        if (!childChain) return;
+        router.replace(`/read/${childChain}`);
+      } catch {
+        /* swallow — 跳转失败就让用户看到原本的空文件夹页 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [data, router]);
 
   // 监听 CommandPalette 选中笔记/想法后的 anchor 跳转事件
   useEffect(() => {
@@ -126,57 +172,79 @@ function Inner({ ids }: { ids: string[] | undefined }) {
     enabled: !!data,
   });
 
+  // 保留最后一次非空选区。某些设备 / 浏览器在用户点击工具栏按钮的
+  // 触摸/点击事件链里会先触发 selectionchange 把 selInfo 清掉，
+  // 等 onClick 回调真正执行时已是 null。这里用 ref 兜底，
+  // 工具栏按钮回调里优先用 selInfo，没有就回退到 ref。
+  const lastSelInfoRef = useRef(selInfo);
+  useEffect(() => {
+    if (selInfo) lastSelInfoRef.current = selInfo;
+  }, [selInfo]);
+
   const [composer, setComposer] = useState<ComposerState | null>(null);
   const [pop, setPop] = useState<{ mark: Mark; rect: DOMRect } | null>(null);
 
   const onMark = useCallback(
     (color: MarkColor) => {
-      if (!selInfo || !data) return;
+      const info = selInfo ?? lastSelInfoRef.current;
+      if (!info || !data) return;
       const anchor = makeAnchor(
         data.content,
-        selInfo.startOffset,
-        selInfo.endOffset,
+        info.startOffset,
+        info.endOffset,
+        { prefix: info.prefix, selected: info.text, suffix: info.suffix },
       );
       void addMark(anchor, color);
+      lastSelInfoRef.current = null;
       clearSel();
     },
     [selInfo, data, addMark, clearSel],
   );
 
   const onNote = useCallback(() => {
-    if (!selInfo || !data) return;
+    const info = selInfo ?? lastSelInfoRef.current;
+    if (!info || !data) return;
     const anchor = makeAnchor(
       data.content,
-      selInfo.startOffset,
-      selInfo.endOffset,
+      info.startOffset,
+      info.endOffset,
+      { prefix: info.prefix, selected: info.text, suffix: info.suffix },
     );
     setComposer({ kind: 'note', anchor });
+    lastSelInfoRef.current = null;
     clearSel();
   }, [selInfo, data, clearSel]);
 
   const onThought = useCallback(() => {
-    if (!selInfo || !data) return;
+    const info = selInfo ?? lastSelInfoRef.current;
+    if (!info || !data) return;
     const anchor = makeAnchor(
       data.content,
-      selInfo.startOffset,
-      selInfo.endOffset,
+      info.startOffset,
+      info.endOffset,
+      { prefix: info.prefix, selected: info.text, suffix: info.suffix },
     );
     setComposer({ kind: 'thought', anchor });
+    lastSelInfoRef.current = null;
     clearSel();
   }, [selInfo, data, clearSel]);
 
   const onCopySelection = useCallback(() => {
-    if (!selInfo) return;
-    void navigator.clipboard.writeText(selInfo.text);
+    const info = selInfo ?? lastSelInfoRef.current;
+    if (!info) return;
+    void navigator.clipboard.writeText(info.text);
+    lastSelInfoRef.current = null;
     clearSel();
   }, [selInfo, clearSel]);
 
   const onShare = useCallback(() => {
-    if (!selInfo || !data) return;
+    const info = selInfo ?? lastSelInfoRef.current;
+    if (!info || !data) return;
     const url = `${location.origin}/read/${data.idChain}`;
     void navigator.clipboard.writeText(
-      `> ${selInfo.text}\n\n— 来自《${data.path.split('/').pop()}》${url}`,
+      `> ${info.text}\n\n— 来自《${data.path.split('/').pop()}》${url}`,
     );
+    lastSelInfoRef.current = null;
     clearSel();
   }, [selInfo, data, clearSel]);
 
@@ -265,6 +333,7 @@ function Inner({ ids }: { ids: string[] | undefined }) {
         ['--rd-font-size' as never]: `${prefs.fontSize}px`,
         ['--rd-line-height' as never]: prefs.lineHeight,
       }}
+      suppressHydrationWarning
     >
       <ReaderProgressToast
         progress={prevEntry?.lastReadProgress ?? 0}
@@ -278,6 +347,7 @@ function Inner({ ids }: { ids: string[] | undefined }) {
         progress={progress}
         totalWords={totalWords}
         isFavorite={isFavorite}
+        editHref={data?.idChain ? `/editor/${data.idChain}` : undefined}
         onCrumbClick={() => {}}
         onToggleFavorite={() =>
           document.dispatchEvent(new CustomEvent('reader:toggle-favorite'))

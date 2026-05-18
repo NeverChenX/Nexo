@@ -97,3 +97,11 @@ export function createFavoriteGroup(name: string, paths: string[]): FavoriteItem
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   return items;
 }
+
+/** 按现存路径集合裁剪收藏（拿到服务端真实清单后调用，清理脏数据） */
+export function pruneFavorites(existingPaths: Set<string>): FavoriteItem[] {
+  if (typeof window === 'undefined') return [];
+  const items = getFavorites().filter((f) => existingPaths.has(f.path));
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  return items;
+}

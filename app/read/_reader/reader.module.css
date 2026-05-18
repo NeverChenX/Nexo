@@ -62,7 +62,10 @@
   font-family: var(--rd-font-family-sans);
   font-size: var(--rd-font-size);
   line-height: var(--rd-line-height);
-  transition: background 200ms ease, color 200ms ease;
+  /* No transition on the shell-level tokens — running a 200ms transition on
+     the very first paint (when prefs land) creates a visible "shake" as the
+     theme/font swap from default → user-chosen. User-initiated changes from
+     the settings sheet are still instant which is fine. */
   overflow-x: hidden;
 }
 
@@ -827,20 +830,19 @@
   cursor: not-allowed;
 }
 
-/* ---- Highlight mark span ---- */
+/* ---- Highlight mark span (underline only) ---- */
 .shell :global(.rd-mark) {
-  background: linear-gradient(
-    transparent 60%,
-    color-mix(in srgb, var(--mc, transparent) 40%, transparent) 60%
-  );
+  background: transparent;
   cursor: pointer;
-  transition: background 200ms;
+  text-decoration: underline;
+  text-decoration-color: var(--mc, currentColor);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  text-decoration-skip-ink: none;
+  transition: text-decoration-color 200ms, text-decoration-thickness 200ms;
 }
 .shell :global(.rd-mark:hover) {
-  background: linear-gradient(
-    transparent 50%,
-    color-mix(in srgb, var(--mc, transparent) 55%, transparent) 50%
-  );
+  text-decoration-thickness: 3px;
 }
 .shell :global(.rd-mark[data-drifted="1"]) {
   outline: 1px dashed color-mix(in srgb, var(--mc) 60%, transparent);
@@ -1220,6 +1222,66 @@
   white-space: pre-wrap;
 }
 .shell :global(.rd-thought-row__meta) {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--rd-text-dim);
+}
+
+/* Marks tab */
+.shell :global(.rd-mark-list) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shell :global(.rd-mark-list__items) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shell :global(.rd-mark-list__group) {
+  font-size: 10px;
+  color: var(--rd-text-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 8px 14px 4px;
+  margin: 0;
+  font-weight: normal;
+}
+.shell :global(.rd-mark-row) {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rd-border);
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--rd-text);
+  font: inherit;
+}
+.shell :global(.rd-mark-row:hover) {
+  background: rgba(255, 255, 255, 0.04);
+}
+.shell :global(.rd-mark-row__badge) {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+.shell :global(.rd-mark-row__quote) {
+  border-left: 2px solid var(--rd-mark-yellow);
+  padding: 2px 8px;
+  margin: 0 0 6px;
+  color: var(--rd-text-muted);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.shell :global(.rd-mark-row__meta) {
   display: flex;
   justify-content: space-between;
   font-size: 9px;

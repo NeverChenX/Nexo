@@ -19,6 +19,12 @@ frontend/out/
 scripts/cron.log
 scripts/*.pid
 
+# 本地临时调试目录（截图、医学影像、临时脚本，私人材料）
+.tmp/
+
+# 安全审计报告（含未修漏洞细节，public repo 禁止公开）
+docs/audits/
+
 # Claude 工具本机配置（含绝对路径，不应公开）
 .claude/
 

@@ -37,6 +37,7 @@ import { useI18n } from '@/lib/i18n';
 import { makeNotionSideMenu } from '@/components/editor/NotionSideMenu';
 import { BacklinksPanel } from '@/components/BacklinksPanel';
 import { CommentsPanel } from '@/components/CommentsPanel';
+import { EditorRightDrawer } from '@/components/editor/EditorRightDrawer';
 import { AiWritePanel } from '@/components/AiWritePanel';
 import { AiCustomAskPanel } from '@/components/AiCustomAskPanel';
 import { DocumentPropertiesPanel, type DocumentPropertiesPanelHandle } from '@/components/DocumentPropertiesPanel';
@@ -750,10 +751,11 @@ interface TocEntry {
   text: string;
 }
 
-function EditorTOC({ editor }: { editor: any }) {
+export function EditorTOC({ editor }: { editor: any }) {
   const [items, setItems] = useState<TocEntry[]>([]);
   const [activeId, setActiveId] = useState<string>('');
   const scanRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemRefs = useRef<Map<string, HTMLLIElement>>(new Map());
   const { t } = useI18n();
 
   const extractHeadings = useCallback(() => {
@@ -819,6 +821,13 @@ function EditorTOC({ editor }: { editor: any }) {
     [editor]
   );
 
+  useEffect(() => {
+    if (!activeId) return;
+    const li = itemRefs.current.get(activeId);
+    if (!li) return;
+    li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [activeId]);
+
   if (items.length === 0) return null;
 
   return (
@@ -838,7 +847,13 @@ function EditorTOC({ editor }: { editor: any }) {
         {items.map((item) => {
           const isActive = activeId === item.id;
           return (
-            <li key={item.id}>
+            <li
+              key={item.id}
+              ref={(el) => {
+                if (el) itemRefs.current.set(item.id, el);
+                else itemRefs.current.delete(item.id);
+              }}
+            >
               <button
                 onClick={(e) => { e.stopPropagation(); handleClick(item.id); }}
                 style={{
@@ -936,6 +951,7 @@ export function EditorBlockEditor({
   const isLoadingRef = useRef(false);
   const prevContentRef = useRef(content);
   const prevSubPagesRef = useRef<SubPage[]>([]);
+  const prevPageLinkOrderRef = useRef<string[]>([]);
   const articlePathRef = useRef(articlePath);
   const isFolderRef = useRef(isFolder);
   // 防并发改名 + 记录最近一次改名结果，避免回环触发
@@ -1265,6 +1281,10 @@ export function EditorBlockEditor({
       }));
       const allBlocks = [...blocks, ...pageLinkBlocks];
       editor.replaceBlocks(editor.document, allBlocks);
+      prevPageLinkOrderRef.current = pageLinkBlocks.map((b) => {
+        const p = b.props.pagePath;
+        return p.split('/').pop() || p;
+      });
       // replaceBlocks 会让 ProseMirror 产生一个横跨新内容的选区，
       // 进而让 FormattingToolbar 在页面加载完就直接挂着。
       // 分两种情况：
@@ -1348,15 +1368,21 @@ export function EditorBlockEditor({
           const p = b.props.pagePath as string;
           return p.split('/').pop() || p;
         });
-        const parentPath = articlePathRef.current;
-        try {
-          await fetch('/api/sort-order', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ parentPath, order }),
-          });
-        } catch {
-          // ignore
+        const prev = prevPageLinkOrderRef.current;
+        const orderChanged =
+          order.length !== prev.length || order.some((n, i) => n !== prev[i]);
+        if (orderChanged) {
+          const parentPath = articlePathRef.current;
+          try {
+            await fetch('/api/sort-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ parentPath, order }),
+            });
+            prevPageLinkOrderRef.current = order;
+          } catch {
+            // ignore
+          }
         }
       }
     }, 1200);
@@ -1625,7 +1651,16 @@ export function EditorBlockEditor({
           </ColorStateCtx.Provider>
         </div>
         <aside className="nx-layout-toc">
-          <div className="sticky" style={{ top: '40px' }}>
+          <div
+            className="sticky nx-layout-toc-inner"
+            style={{
+              top: '40px',
+              maxHeight: 'calc(100vh - 56px)',
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+              paddingRight: '4px',
+            }}
+          >
             <EditorTOC editor={editor} />
             <BacklinksPanel
               articlePath={articlePath}
@@ -1784,6 +1819,9 @@ export function EditorBlockEditor({
           <img src={lightboxSrc} alt="" />
         </div>
       )}
+
+      {/* 窄屏（≤1279px，含 iPad 横屏 1024）TOC 浮按钮 + 抽屉 */}
+      <EditorRightDrawer editor={editor} articlePath={articlePath} />
     </div>
   );
 }

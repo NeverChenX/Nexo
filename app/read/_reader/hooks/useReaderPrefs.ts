@@ -15,10 +15,17 @@ export function useReaderPrefs(): {
   reset: () => void;
   hydrated: boolean;
 } {
-  const [prefs, setPrefs] = useState<ReaderPrefs>(DEFAULT_PREFS);
+  // Lazy initialiser reads `window.__RD_PREFS__` (set by the inline
+  // prehydration script in app/layout.tsx) so the very first client render
+  // already has the user's theme/font/size — no flash.
+  const [prefs, setPrefs] = useState<ReaderPrefs>(() => {
+    if (typeof window === 'undefined') return DEFAULT_PREFS;
+    return loadPrefs();
+  });
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // Re-read in case localStorage changed between init and mount.
     setPrefs(loadPrefs());
     setHydrated(true);
   }, []);

@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function DarkImageLightbox({ src, alt }: { src?: string; alt?: string }) {
   const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    // 若图片已被浏览器缓存（complete = true），立即标记 loaded，避免占位闪烁
+    if (imgRef.current && imgRef.current.complete) {
+      setLoaded(true);
+    }
+  }, [src]);
 
   useEffect(() => {
     if (!open) return;
@@ -22,12 +31,33 @@ export function DarkImageLightbox({ src, alt }: { src?: string; alt?: string }) 
   if (!src) return null;
   return (
     <>
-      <img
-        src={src}
-        alt={alt || ''}
-        onClick={() => setOpen(true)}
-        style={{ borderRadius: 4, cursor: 'zoom-in', maxWidth: '100%' }}
-      />
+      <div
+        style={{
+          position: 'relative',
+          minHeight: loaded ? undefined : 160,
+          background: loaded ? undefined : 'rgba(255,255,255,0.04)',
+          borderRadius: 4,
+          transition: 'background 200ms ease, min-height 200ms ease',
+        }}
+      >
+        <img
+          ref={imgRef}
+          src={src}
+          alt={alt || ''}
+          loading="lazy"
+          decoding="async"
+          onClick={() => setOpen(true)}
+          onLoad={() => setLoaded(true)}
+          style={{
+            display: 'block',
+            borderRadius: 4,
+            cursor: 'zoom-in',
+            maxWidth: '100%',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 300ms ease',
+          }}
+        />
+      </div>
       {open && (
         <div
           role="dialog"

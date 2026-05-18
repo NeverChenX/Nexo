@@ -8,6 +8,7 @@ import {
   BookOpenText,
   BarChart3,
   Download,
+  Highlighter,
   type LucideIcon,
 } from 'lucide-react';
 import { FavoritesTab } from './FavoritesTab';
@@ -15,8 +16,9 @@ import { NotesTab } from './NotesTab';
 import { ThoughtsTab } from './ThoughtsTab';
 import { HistoryTab } from './HistoryTab';
 import { StatsTab } from './StatsTab';
+import { MarksTab } from './MarksTab';
 
-type LibTab = 'favorites' | 'notes' | 'thoughts' | 'history' | 'stats';
+type LibTab = 'favorites' | 'marks' | 'notes' | 'thoughts' | 'history' | 'stats';
 
 interface Props {
   onSelectArticle: (idChain: string) => void;
@@ -28,6 +30,7 @@ const TABS: ReadonlyArray<{
   Icon: LucideIcon;
 }> = [
   { id: 'favorites', label: '收藏', Icon: Star },
+  { id: 'marks', label: '划线', Icon: Highlighter },
   { id: 'notes', label: '笔记', Icon: NotebookText },
   { id: 'thoughts', label: '想法', Icon: MessageCircle },
   { id: 'history', label: '历史', Icon: BookOpenText },
@@ -69,6 +72,7 @@ export function LibraryView({ onSelectArticle }: Props) {
       </div>
       <div className="rd-lib__body">
         {tab === 'favorites' && <FavoritesTab onSelect={onSelectArticle} />}
+        {tab === 'marks' && <MarksTab onSelect={onSelectArticle} />}
         {tab === 'notes' && <NotesTab onSelect={onSelectArticle} />}
         {tab === 'thoughts' && <ThoughtsTab onSelect={onSelectArticle} />}
         {tab === 'history' && <HistoryTab onSelect={onSelectArticle} />}

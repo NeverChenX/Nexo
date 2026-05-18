@@ -38,6 +38,8 @@ export async function GET() {
         totalTags: tagSet.size,
         totalFolders: folderSet.size,
         recentlyUpdated,
+        // 用于首页清理 localStorage 里指向已删除文档的 recent/favorites
+        allPaths: docs.map((d) => d.path),
       },
     });
   } catch (error) {

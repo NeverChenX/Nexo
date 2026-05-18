@@ -65,6 +65,11 @@ export function SelectionToolbar({
       role="toolbar"
       aria-label="选区操作"
       data-rd-no-toggle="true"
+      // 阻止 mousedown 默认行为：默认情况下点击工具栏会把选区折叠掉，
+      // 紧接着 selectionchange → useSelection.compute → setInfo(null)，
+      // 等真正 onClick 触发时 selInfo 已是 null，onMark 就直接 return 不画线。
+      // preventDefault 后选区保留，整个高亮链路才能正常完成。
+      onMouseDown={(e) => e.preventDefault()}
     >
       {paletteOpen ? (
         <ColorPalette onPick={onPickColor} />

@@ -5,14 +5,14 @@ import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { TreeMenu } from '@/components/TreeMenu';
 import { CreateArticleModal } from '@/components/CreateArticleModal';
-import { Trash2, Share2, FileText, X, AlertCircle, Upload, ArchiveRestore, Star, Clock, Inbox } from 'lucide-react';
+import { Trash2, Share2, FileText, X, AlertCircle, Upload, ArchiveRestore, Star, Clock, Inbox, BookOpen } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { BreadcrumbDropdown } from '@/components/BreadcrumbDropdown';
 import { ExportMenu } from '@/components/ExportMenu';
-import { addRecentDoc } from '@/lib/recent';
+import { addRecentDoc, removeRecentDoc } from '@/lib/recent';
 import { computeStats } from '@/lib/doc-stats';
-import { isFavorite, toggleFavorite } from '@/lib/favorites';
+import { isFavorite, toggleFavorite, removeFavorite } from '@/lib/favorites';
 import { AiAskPanel } from '@/components/AiAskPanel';
 import { PermissionBadge } from '@/components/PermissionBadge';
 import { parseFrontmatter, serializeFrontmatter } from '@/lib/frontmatter';
@@ -414,20 +414,25 @@ function EditorPageInner() {
   const handleDeleteConfirm = async () => {
     setDeleteConfirm(false);
     if (!currentPath) return;
+    const deletedPath = currentPath;
     try {
       // 先尝试软删除（移到回收站），回退到硬删除
       const trashRes = await fetch('/api/trash-move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: currentPath, isFolder: isCurrentFolder }),
+        body: JSON.stringify({ path: deletedPath, isFolder: isCurrentFolder }),
       });
       const trashJson = await trashRes.json();
       if (!trashJson.ok) {
         // 回退到硬删除
-        const res = await fetch(`/api/articles/${encodeURIComponent(currentPath)}`, { method: 'DELETE' });
+        const res = await fetch(`/api/articles/${encodeURIComponent(deletedPath)}`, { method: 'DELETE' });
         const json = await res.json();
         if (!json.ok) return;
       }
+      // 同步清掉 localStorage 里的 recent + favorites，避免首页继续展示
+      removeRecentDoc(deletedPath);
+      removeFavorite(deletedPath);
+      setFavRefreshKey((k) => k + 1);
       setCurrentPath('');
       setContent('');
       setArticleData(null);
@@ -676,6 +681,19 @@ function EditorPageInner() {
                 permission={docPermission}
                 onChange={handlePermissionChange}
               />
+            )}
+            {currentPath && currentIdChain && (
+              <button
+                onClick={() => {
+                  window.location.href = `/read/${currentIdChain}`;
+                }}
+                title="切换到阅读模式"
+                aria-label="切换到阅读模式"
+                className="nx-hoverable flex items-center gap-1 text-sm px-2 py-1 rounded"
+                style={{ color: 'var(--c-texSec)' }}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+              </button>
             )}
             {currentPath && <ExportMenu articlePath={currentPath} />}
             {currentPath && (

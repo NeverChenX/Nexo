@@ -21,13 +21,18 @@ interface Props {
 
 function findAnchorParagraph(
   root: HTMLElement,
-  quote: string,
+  anchor: { quote: string; selected?: string },
 ): HTMLElement | null {
-  if (!quote || quote.length === 0) return null;
+  // Prefer the rendered selected text — it's plain text from the DOM and
+  // therefore matches paragraph.textContent reliably even when the source
+  // contains inline markdown formatting.
+  const probeSrc = anchor.selected || anchor.quote;
+  if (!probeSrc) return null;
+  const probe = probeSrc.slice(0, Math.min(20, probeSrc.length));
+  if (!probe) return null;
   const paragraphs = root.querySelectorAll<HTMLElement>(
     'p, li, blockquote, h1, h2, h3, h4',
   );
-  const probe = quote.slice(0, Math.min(20, quote.length));
   for (const p of paragraphs) {
     if (p.textContent && p.textContent.includes(probe)) {
       return p;
@@ -67,7 +72,7 @@ export function InlineNoteCard({
 
     const newCards: Card[] = [];
     for (const it of items) {
-      const para = findAnchorParagraph(contentRoot, it.data.anchor.quote);
+      const para = findAnchorParagraph(contentRoot, it.data.anchor);
       if (!para) continue;
       const host = document.createElement('div');
       host.className = `rd-inline-host rd-inline-host--${it.kind}`;

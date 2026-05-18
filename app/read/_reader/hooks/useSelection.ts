@@ -2,11 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 
+const RENDERED_PAD = 30;
+
 export interface SelectionInfo {
   text: string;
-  startOffset: number; // 在 markdown source 里的字符 offset
+  startOffset: number; // 在 markdown source 里的字符 offset（可能为 0 表示降级）
   endOffset: number;
   rect: DOMRect; // 选区可见区的位置（fixed）
+  prefix: string; // 选区前 30 字（rendered plain text）
+  suffix: string; // 选区后 30 字（rendered plain text）
 }
 
 interface Options {
@@ -80,21 +84,42 @@ export function useSelection({ contentRoot, source, enabled }: Options) {
       setInfo(null);
       return;
     }
-    const offsets = rangeToSourceOffset(range, contentRoot, source);
-    if (!offsets) {
-      setInfo(null);
-      return;
-    }
     const rect = range.getBoundingClientRect();
     if (rect.width < 1 && rect.height < 1) {
       setInfo(null);
       return;
     }
+
+    // Source-offset mapping (best-effort; may fail for selections crossing
+    // markdown formatting boundaries). When it fails we still proceed and
+    // store rendered prefix/suffix for robust DOM-side matching.
+    const offsets = rangeToSourceOffset(range, contentRoot, source);
+    const text = sel.toString();
+
+    // Capture rendered plain-text context for robust anchor resolution.
+    let prefix = '';
+    let suffix = '';
+    try {
+      const before = document.createRange();
+      before.selectNodeContents(contentRoot);
+      before.setEnd(range.startContainer, range.startOffset);
+      prefix = before.toString().slice(-RENDERED_PAD);
+
+      const after = document.createRange();
+      after.selectNodeContents(contentRoot);
+      after.setStart(range.endContainer, range.endOffset);
+      suffix = after.toString().slice(0, RENDERED_PAD);
+    } catch {
+      // ignore; use empty context
+    }
+
     setInfo({
-      text: sel.toString(),
-      startOffset: offsets.start,
-      endOffset: offsets.end,
+      text,
+      startOffset: offsets?.start ?? 0,
+      endOffset: offsets?.end ?? 0,
       rect,
+      prefix,
+      suffix,
     });
   }, [enabled, contentRoot, source]);
 

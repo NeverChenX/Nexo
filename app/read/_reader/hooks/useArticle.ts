@@ -7,6 +7,7 @@ export interface ArticleData {
   path: string;
   id: string;
   idChain: string;
+  isFolder?: boolean;
 }
 
 export interface UseArticleResult {
@@ -18,9 +19,15 @@ export interface UseArticleResult {
 
 export function useArticle(ids: string[] | undefined): UseArticleResult {
   const [data, setData] = useState<ArticleData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => !!ids && ids.length > 0);
   const [error, setError] = useState<string | null>(null);
   const seqRef = useRef(0);
+
+  // Stabilise dep — `ids` array reference may change every render of the page,
+  // but the actual route segments are what matter. Without this, `load` is
+  // recreated each render and the effect refires, causing repeated fetches
+  // and the visible flicker on entry.
+  const idsKey = ids && ids.length > 0 ? ids.join('/') : '';
 
   const fetchByQuery = useCallback(async (query: string) => {
     const seq = ++seqRef.current;
@@ -50,18 +57,20 @@ export function useArticle(ids: string[] | undefined): UseArticleResult {
   }, []);
 
   const load = useCallback(() => {
-    if (!ids || ids.length === 0) {
+    if (!idsKey) {
       setData(null);
+      setLoading(false);
       return;
     }
-    const last = ids[ids.length - 1];
+    const segs = idsKey.split('/');
+    const last = segs[segs.length - 1];
     if (/^[a-z0-9]{6,16}$/.test(last)) {
       void fetchByQuery(`id=${encodeURIComponent(last)}`);
     } else {
-      const decoded = ids.map((s) => decodeURIComponent(s)).join('/').replace(/\.md$/, '');
+      const decoded = segs.map((s) => decodeURIComponent(s)).join('/').replace(/\.md$/, '');
       void fetchByQuery(`path=${encodeURIComponent(decoded)}`);
     }
-  }, [ids, fetchByQuery]);
+  }, [idsKey, fetchByQuery]);
 
   useEffect(load, [load]);
 

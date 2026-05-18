@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FileText, Search, Plus, Star, BarChart3 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { getRecentDocs, RecentItem } from '@/lib/recent';
-import { getFavorites, getFavoritesByGroup, FavoriteItem } from '@/lib/favorites';
+import { getRecentDocs, pruneRecentDocs, RecentItem } from '@/lib/recent';
+import { getFavorites, getFavoritesByGroup, pruneFavorites, FavoriteItem } from '@/lib/favorites';
 
 interface HomeStats {
   totalDocs: number;
@@ -17,6 +17,7 @@ interface HomeStats {
     wordCount: number;
     updatedAt: string;
   }[];
+  allPaths?: string[];
 }
 
 interface HomePageProps {
@@ -110,13 +111,21 @@ export function HomePage({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 先用 localStorage 的全量数据出第一帧，避免白屏
     setRecentDocs(getRecentDocs().slice(0, 10));
     setFavorites(getFavorites().slice(0, 8));
 
     fetch('/api/home-stats')
       .then((r) => r.json())
       .then((res) => {
-        if (res.ok) setStats(res.data);
+        if (!res.ok) return;
+        setStats(res.data);
+        // 服务端给了真实文档清单 → 裁掉 localStorage 里指向已删除文件的脏条目
+        if (Array.isArray(res.data.allPaths)) {
+          const existing = new Set<string>(res.data.allPaths);
+          setRecentDocs(pruneRecentDocs(existing).slice(0, 10));
+          setFavorites(pruneFavorites(existing).slice(0, 8));
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));

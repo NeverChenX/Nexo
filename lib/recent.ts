@@ -28,3 +28,19 @@ export function addRecentDoc(path: string, title: string, idChain?: string) {
   if (items.length > MAX_ITEMS) items.length = MAX_ITEMS;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
+
+/** 删除单条最近访问记录（文档被删除/重命名后调用） */
+export function removeRecentDoc(path: string): RecentItem[] {
+  if (typeof window === 'undefined') return [];
+  const items = getRecentDocs().filter((i) => i.path !== path);
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  return items;
+}
+
+/** 按现存路径集合裁剪 recent（拿到服务端真实清单后调用，清理脏数据） */
+export function pruneRecentDocs(existingPaths: Set<string>): RecentItem[] {
+  if (typeof window === 'undefined') return [];
+  const items = getRecentDocs().filter((i) => existingPaths.has(i.path));
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  return items;
+}
