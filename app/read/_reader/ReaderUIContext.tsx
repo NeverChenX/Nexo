@@ -72,12 +72,17 @@ export function ReaderUIProvider({ children }: { children: ReactNode }) {
     openRight,
     closeRight: () => setRightOpen(false),
     toggleRight: () => (rightOpen ? setRightOpen(false) : openRight()),
+    // H5: priority pop instead of "wipe everything". ESC should peel one
+    // layer at a time so the user keeps their place. Order matches the
+    // visual stacking (cmdk on top, then settings, then drawers, then the
+    // top chrome). If nothing is open, fall through to hiding chrome.
     closeAll: () => {
-      setChromeVisible(false);
-      setLeftOpen(false);
-      setRightOpen(false);
-      setCmdkOpen(false);
-      setSettingsOpen(false);
+      if (cmdkOpen) { setCmdkOpen(false); return; }
+      if (settingsOpen) { setSettingsOpen(false); return; }
+      if (leftOpen) { setLeftOpen(false); return; }
+      if (rightOpen) { setRightOpen(false); return; }
+      if (chromeVisible) { setChromeVisible(false); return; }
+      // Already at minimum-noise — nothing else to dismiss.
     },
     openCmdk: () => setCmdkOpen(true),
     closeCmdk: () => setCmdkOpen(false),

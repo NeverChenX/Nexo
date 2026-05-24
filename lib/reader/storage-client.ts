@@ -129,8 +129,16 @@ export async function listHistory(): Promise<HistoryEntry[]> {
 export async function getHistoryEntry(
   articleId: string,
 ): Promise<HistoryEntry | null> {
-  const all = await listHistory();
-  return all.find((e) => e.articleId === articleId) || null;
+  // H1: O(1) lookup via dedicated endpoint. Falls back to scanning the full
+  // list if the per-id endpoint isn't deployed yet (rolling restart safety).
+  try {
+    return await api<HistoryEntry | null>(
+      `/api/reader/history/${encodeURIComponent(articleId)}`,
+    );
+  } catch {
+    const all = await listHistory();
+    return all.find((e) => e.articleId === articleId) || null;
+  }
 }
 export async function upsertHistoryEntry(
   articleId: string,
