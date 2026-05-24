@@ -130,6 +130,7 @@ ENDOFPROMPT
 
 # 用管道传入 prompt，比 -p 参数更稳定
 /home/Neverchen/.npm-global/bin/claude \
+  --model claude-sonnet-4-6 \
   --dangerously-skip-permissions \
   -p "$(cat $PROMPT_FILE)" \
   >> "$LOG_FILE" 2>&1
