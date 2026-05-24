@@ -62,6 +62,17 @@ export function AiAskPanel({ isOpen, onClose, onNavigate }: AiAskPanelProps) {
     if (isOpen) setConversations(loadConversations());
   }, [isOpen]);
 
+  // H14: keep React state in sync when another tab edits the same key.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === HISTORY_KEY) {
+        setConversations(loadConversations());
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const handleScroll = () => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -89,13 +100,19 @@ export function AiAskPanel({ isOpen, onClose, onNavigate }: AiAskPanelProps) {
     };
     setConversations((prev) => {
       const filtered = prev.filter((c) => c.id !== id);
-      const next = [conv, ...filtered];
+      // H14: cap React state at the same 30 used by saveConversations so the
+      // in-memory list can't grow unboundedly the longer the panel is open.
+      const next = [conv, ...filtered].slice(0, 30);
       saveConversations(next);
       return next;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
+  // H6: abort the previous in-flight request when the user fires a new one.
+  // Was: multiple concurrent /api/ai-ask requests kept burning tokens server-
+  // side even though the UI only rendered the last result.
+  const inFlightRef = useRef<AbortController | null>(null);
   const handleAsk = useCallback(async () => {
     const question = input.trim();
     if (!question || loading) return;
@@ -103,6 +120,12 @@ export function AiAskPanel({ isOpen, onClose, onNavigate }: AiAskPanelProps) {
     const newMessages: Message[] = [...messages, { role: 'user', content: question }];
     setMessages(newMessages);
     setLoading(true);
+
+    if (inFlightRef.current) {
+      try { inFlightRef.current.abort(); } catch { /* ignore */ }
+    }
+    const ctrl = new AbortController();
+    inFlightRef.current = ctrl;
 
     try {
       const res = await fetch('/api/ai-ask', {
@@ -112,6 +135,7 @@ export function AiAskPanel({ isOpen, onClose, onNavigate }: AiAskPanelProps) {
           question,
           history: messages.map((m) => ({ role: m.role, content: m.content })),
         }),
+        signal: ctrl.signal,
       });
       const json = await res.json();
       if (json.ok) {
@@ -123,9 +147,13 @@ export function AiAskPanel({ isOpen, onClose, onNavigate }: AiAskPanelProps) {
       } else {
         setMessages((prev) => [...prev, { role: 'assistant', content: `${t('common.error')}: ${json.error}` }]);
       }
-    } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: t('aiAsk.requestFailed') }]);
+    } catch (e) {
+      // Aborted -> the next handleAsk owns the UI; don't surface a fake error.
+      if ((e as { name?: string })?.name !== 'AbortError') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: t('aiAsk.requestFailed') }]);
+      }
     } finally {
+      if (inFlightRef.current === ctrl) inFlightRef.current = null;
       setLoading(false);
     }
   }, [input, loading, messages, t]);

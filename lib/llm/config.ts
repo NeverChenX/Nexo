@@ -81,20 +81,39 @@ export async function getLlmConfig(): Promise<LlmConfig> {
 }
 
 /**
- * 返回给前端的配置。按用户要求：apiKey 明文展示（本地单用户部署）。
- * 仍标注来源，以便 UI 显示「来自 .env.local」等提示。
+ * 返回给前端的配置。
+ *
+ * C2 hardening: previously echoed the full apiKey in plaintext, so any
+ * caller that could reach `GET /api/settings/llm` (and middleware didn't
+ * gate API routes — see C1/C3) could exfiltrate the ARK_API_KEY. Now we
+ * never send the secret over the wire; only a masked tail (last 4 chars)
+ * is returned so the UI can show "key set, ends in ...abcd".
  */
-export interface LlmConfigPublic extends LlmConfig {
+export interface LlmConfigPublic extends Omit<LlmConfig, 'apiKey'> {
+  /** 明文从不返回。空字符串占位以兼容旧 UI（避免 undefined 渲染异常）。 */
+  apiKey: '';
+  /** 形如 "sk-***abcd" 的脱敏尾段；未配置时为空 */
+  apiKeyMasked: string;
   apiKeySource: 'env' | 'file' | 'none';
   apiKeyConfigured: boolean;
+}
+
+function maskApiKey(raw: string): string {
+  if (!raw) return '';
+  if (raw.length <= 4) return '***';
+  return `***${raw.slice(-4)}`;
 }
 
 export async function getLlmConfigPublic(): Promise<LlmConfigPublic> {
   const cfg = await getLlmConfig();
   const envKey = process.env.ARK_API_KEY?.trim();
   const source: 'env' | 'file' | 'none' = envKey ? 'env' : cfg.apiKey ? 'file' : 'none';
+  // Strip apiKey from spread; UI must only ever see the mask.
+  const { apiKey: _apiKey, ...rest } = cfg;
   return {
-    ...cfg,
+    ...rest,
+    apiKey: '',
+    apiKeyMasked: maskApiKey(cfg.apiKey),
     apiKeySource: source,
     apiKeyConfigured: Boolean(cfg.apiKey),
   };
