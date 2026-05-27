@@ -25,6 +25,12 @@ scripts/*.pid
 # 安全审计报告（含未修漏洞细节，public repo 禁止公开）
 docs/audits/
 
+# 个人投资研究数据（每日自动抓取 / 个人持仓分析，private）
+docs/investment/
+
+# 含真实 API key 的内部接入文档，绝不入公共仓
+public/API_SERVER.md
+
 # Claude 工具本机配置（含绝对路径，不应公开）
 .claude/
 
@@ -32,6 +38,7 @@ docs/audits/
 never博客文章/
 萨特-完整哲学体系.md
 萨特-著作观点-补充.md
+克里希那穆提-完整资料整理.md
 README.md.bak
 
 # Python backend
