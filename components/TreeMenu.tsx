@@ -394,13 +394,24 @@ export function TreeMenu({
     let newFolder: string | null = null;
     let newPos: DropPosition | null = null;
 
-    if (ratio > 0.25 && ratio < 0.75) {
-      // 拖到任意页面"中间"= 变成它的子页（leaf 会在后端自动 promote 为父页）
-      newFolder = item.path;
-    } else if (ratio <= 0.5) {
-      newPos = { parentPath, index };
+    // 命中区规则（修复拖拽误触嵌套的 bug）：
+    //   - 目标是文件夹：上 1/3 排前 / 中 1/3 嵌入文件夹 / 下 1/3 排后
+    //   - 目标是文章（leaf）：上 1/2 排前 / 下 1/2 排后，绝不允许嵌入
+    //     （叶子文章被「自动 promote 为父页」是误操作主要来源，禁掉）
+    if (item.isFolder) {
+      if (ratio < 1 / 3) {
+        newPos = { parentPath, index };
+      } else if (ratio > 2 / 3) {
+        newPos = { parentPath, index: index + 1 };
+      } else {
+        newFolder = item.path;
+      }
     } else {
-      newPos = { parentPath, index: index + 1 };
+      if (ratio < 0.5) {
+        newPos = { parentPath, index };
+      } else {
+        newPos = { parentPath, index: index + 1 };
+      }
     }
 
     // Skip if nothing changed

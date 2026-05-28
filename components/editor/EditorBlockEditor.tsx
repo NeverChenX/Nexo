@@ -142,6 +142,106 @@ function transformUserNotesAfterLoad(blocks: any[]): any[] {
   });
 }
 
+// ─────────────── pageLink 持久化（保存在 _index.md 里，保留与其他块的混编顺序） ───────────────
+//
+// 序列化时，每个 pageLink 块写成单独一行 `{{pagelink:相对路径}}`；
+// 反序列化时，先把这种行替换成 placeholder 段落，交给 BlockNote 解析，再把
+// placeholder 段落替换回 pageLink 块。这样标题、段落与子页链接能以任意顺序
+// 混编保存，刷新后位置稳定。
+const PAGELINK_PLACEHOLDER_PREFIX = '@@NX_PL_PLACEHOLDER_';
+const PAGELINK_LINE_RE = /^\{\{pagelink:(.+?)\}\}$/gm;
+const PAGELINK_PLACEHOLDER_RE = new RegExp(`^${PAGELINK_PLACEHOLDER_PREFIX}(\\d+)@@$`);
+
+async function serializeBlocksWithPageLinks(
+  editor: any,
+  blocks: any[],
+): Promise<string> {
+  const parts: string[] = [];
+  let buffer: any[] = [];
+  const flush = async () => {
+    if (buffer.length === 0) return;
+    const md = await editor.blocksToMarkdownLossy(transformUserNotesForSave(buffer));
+    parts.push(md);
+    buffer = [];
+  };
+  for (const b of blocks) {
+    if (b.type === 'pageLink') {
+      await flush();
+      const p = b.props?.pagePath as string;
+      if (p) parts.push(`{{pagelink:${p}}}`);
+    } else {
+      buffer.push(b);
+    }
+  }
+  await flush();
+  return parts.join('\n\n');
+}
+
+async function parseMarkdownWithPageLinks(
+  editor: any,
+  md: string,
+  subPages: { name: string; path: string }[],
+): Promise<any[]> {
+  const links: string[] = [];
+  // 用 \n\n 强制每个 placeholder 独立成段，避免相邻 pageLink 被 markdown 合并到同一 paragraph
+  const processedMd = md.replace(PAGELINK_LINE_RE, (_, p: string) => {
+    const idx = links.push(p) - 1;
+    return `\n\n${PAGELINK_PLACEHOLDER_PREFIX}${idx}@@\n\n`;
+  });
+  const parsed = await editor.tryParseMarkdownToBlocks(processedMd);
+  const transformed = transformUserNotesAfterLoad(parsed);
+
+  // 旧数据迁移：_index.md 不含 pageLink 标记，按 subPages 顺序拼到末尾（保留旧行为）
+  if (links.length === 0) {
+    const pageLinkBlocks = subPages.map((sub) => ({
+      type: 'pageLink' as const,
+      props: {
+        pageName: sub.name || sub.path.split('/').pop() || '',
+        pagePath: sub.path,
+      },
+    }));
+    return [...transformed, ...pageLinkBlocks];
+  }
+
+  // 把 placeholder 段落替换回 pageLink 块
+  const result: any[] = [];
+  const seen = new Set<string>();
+  for (const b of transformed) {
+    let placeholderIdx = -1;
+    if (b.type === 'paragraph' && Array.isArray(b.content) && b.content.length === 1) {
+      const first = b.content[0];
+      if (first?.type === 'text' && typeof first.text === 'string') {
+        const m = first.text.match(PAGELINK_PLACEHOLDER_RE);
+        if (m) placeholderIdx = parseInt(m[1], 10);
+      }
+    }
+    if (placeholderIdx >= 0) {
+      const path = links[placeholderIdx];
+      const name = path.split('/').pop() || '';
+      result.push({
+        type: 'pageLink' as const,
+        props: { pageName: name, pagePath: path },
+      });
+      seen.add(path);
+    } else {
+      result.push(b);
+    }
+  }
+  // subPages 里有但 _index.md 不含的（新增文章），追加到末尾，避免丢失展示
+  for (const sub of subPages) {
+    if (!seen.has(sub.path)) {
+      result.push({
+        type: 'pageLink' as const,
+        props: {
+          pageName: sub.name || sub.path.split('/').pop() || '',
+          pagePath: sub.path,
+        },
+      });
+    }
+  }
+  return result;
+}
+
 // ─────────────── Schema ───────────────
 
 const schema = BlockNoteSchema.create({
@@ -1248,8 +1348,8 @@ export function EditorBlockEditor({
       docPropertiesRef.current = newProps;
       if (!editor || !articlePathRef.current) return;
       onSaveStateChange?.('saving');
-      const contentBlocks = editor.document.filter((b: any) => b.type !== 'pageLink');
-      const md = await editor.blocksToMarkdownLossy(transformUserNotesForSave(contentBlocks));
+      // 必须保留 pageLink 的位置（混编 markdown），否则属性面板的任何变化都会把子页全部抹掉
+      const md = await serializeBlocksWithPageLinks(editor, editor.document);
       const fullContent = serializeFrontmatter(newProps, md);
       try {
         const res = await fetch('/api/articles', {
@@ -1270,21 +1370,14 @@ export function EditorBlockEditor({
     if (!editor) return;
     isLoadingRef.current = true;
     try {
-      const parsed = await editor.tryParseMarkdownToBlocks(md);
-      const blocks = transformUserNotesAfterLoad(parsed);
-      const pageLinkBlocks = pages.map((sub) => ({
-        type: 'pageLink' as const,
-        props: {
-          pageName: sub.name || sub.path.split('/').pop() || '',
-          pagePath: sub.path,
-        },
-      }));
-      const allBlocks = [...blocks, ...pageLinkBlocks];
+      const allBlocks = await parseMarkdownWithPageLinks(editor, md, pages);
       editor.replaceBlocks(editor.document, allBlocks);
-      prevPageLinkOrderRef.current = pageLinkBlocks.map((b) => {
-        const p = b.props.pagePath;
-        return p.split('/').pop() || p;
-      });
+      prevPageLinkOrderRef.current = allBlocks
+        .filter((b: any) => b.type === 'pageLink')
+        .map((b: any) => {
+          const p = b.props.pagePath as string;
+          return p.split('/').pop() || p;
+        });
       // replaceBlocks 会让 ProseMirror 产生一个横跨新内容的选区，
       // 进而让 FormattingToolbar 在页面加载完就直接挂着。
       // 分两种情况：
@@ -1356,35 +1449,46 @@ export function EditorBlockEditor({
   const handleChange = useCallback(async () => {
     if (isLoadingRef.current || !editor) return;
     onSaveStateChange?.('unsaved');
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      const contentBlocks = editor.document.filter((b: any) => b.type !== 'pageLink');
-      const md = await editor.blocksToMarkdownLossy(transformUserNotesForSave(contentBlocks));
-      void save(md);
 
-      const pageLinkBlocks = editor.document.filter((b: any) => b.type === 'pageLink');
-      if (pageLinkBlocks.length > 0) {
-        const order = pageLinkBlocks.map((b: any) => {
-          const p = b.props.pagePath as string;
-          return p.split('/').pop() || p;
-        });
-        const prev = prevPageLinkOrderRef.current;
-        const orderChanged =
-          order.length !== prev.length || order.some((n, i) => n !== prev[i]);
-        if (orderChanged) {
-          const parentPath = articlePathRef.current;
-          try {
-            await fetch('/api/sort-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ parentPath, order }),
-            });
-            prevPageLinkOrderRef.current = order;
-          } catch {
-            // ignore
-          }
+    // 结构性变化（pageLink 顺序/数量改变）→ 立即保存，不走防抖。
+    // 用户的常见动作是「拖完就刷新」，1.2s 防抖会让保存来不及发出。
+    const pageLinkBlocks = editor.document.filter((b: any) => b.type === 'pageLink');
+    const order = pageLinkBlocks.map((b: any) => {
+      const p = b.props.pagePath as string;
+      return p.split('/').pop() || p;
+    });
+    const prev = prevPageLinkOrderRef.current;
+    const orderChanged =
+      order.length !== prev.length || order.some((n, i) => n !== prev[i]);
+
+    if (orderChanged) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      const md = await serializeBlocksWithPageLinks(editor, editor.document);
+      void save(md);
+      prevPageLinkOrderRef.current = order;
+      if (order.length > 0) {
+        const parentPath = articlePathRef.current;
+        try {
+          await fetch('/api/sort-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ parentPath, order }),
+          });
+        } catch {
+          // ignore
         }
       }
+      return;
+    }
+
+    // 纯内容编辑（打字等）→ 走防抖，避免频繁写盘
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      const md = await serializeBlocksWithPageLinks(editor, editor.document);
+      void save(md);
     }, 1200);
   }, [editor, save, onSaveStateChange]);
 
@@ -1439,8 +1543,8 @@ export function EditorBlockEditor({
         e.preventDefault();
         if (editor && articlePathRef.current) {
           if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-          const contentBlocks = editor.document.filter((b: any) => b.type !== 'pageLink');
-          const md = await editor.blocksToMarkdownLossy(contentBlocks);
+          // 必须保留 pageLink 位置；过去的旧实现会把子页全擦
+          const md = await serializeBlocksWithPageLinks(editor, editor.document);
           void save(md);
         }
       }

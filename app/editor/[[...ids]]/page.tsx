@@ -177,18 +177,21 @@ function EditorPageInner() {
   const [permError, setPermError] = useState<string | null>(null);
   const handlePermissionChange = async (perm: 'editable' | 'readonly' | 'private') => {
     const prevPerm = docPermission;
-    const prevContent = content;
     setDocPermission(perm);
     if (!currentPath) return;
-    const { frontmatter, body } = parseFrontmatter(content);
-    if (perm === 'editable') {
-      delete frontmatter.permission;
-    } else {
-      frontmatter.permission = perm;
-    }
-    const newContent = serializeFrontmatter(frontmatter, body);
-    setContent(newContent);
     try {
+      // 先 GET 拿磁盘最新（避免 stale state.content 覆盖编辑器内的最新改动，例如刚拖动的 pageLink 顺序）
+      const getRes = await fetch(`/api/articles?path=${encodeURIComponent(currentPath)}`);
+      const getJson = await getRes.json();
+      if (!getJson.ok) throw new Error(getJson.error || 'load latest failed');
+      const latest = (getJson.data.content as string) || '';
+      const { frontmatter, body } = parseFrontmatter(latest);
+      if (perm === 'editable') {
+        delete frontmatter.permission;
+      } else {
+        frontmatter.permission = perm;
+      }
+      const newContent = serializeFrontmatter(frontmatter, body);
       const res = await fetch('/api/articles', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -196,10 +199,10 @@ function EditorPageInner() {
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || 'save failed');
+      setContent(newContent);
     } catch (err) {
       // 回滚本地状态并提示
       setDocPermission(prevPerm);
-      setContent(prevContent);
       const msg = err instanceof Error ? err.message : '';
       setPermError(t('perm.changeFailed') + (msg ? `: ${msg}` : ''));
       setTimeout(() => setPermError(null), 3000);
@@ -947,18 +950,24 @@ function EditorPageInner() {
         <SmartLinkSuggestions
           articlePath={currentPath}
           content={content}
-          onInsertLink={(path, title, idChain) => {
+          onInsertLink={async (path, title, idChain) => {
             // 用绝对路径，避免渲染成相对路径后被 /editor/ 前缀解析为 /editor/中文
             // 优先 idChain（稳定，不随重命名失效）；缺失时退回 /<path> 由 catch-all 路由解析
             const href = idChain ? `/${idChain}` : `/${path.split('/').map(encodeURIComponent).join('/')}`;
             const line = `\n\n[${title}](${href})`;
-            const newContent = content + line;
-            setContent(newContent);
-            fetch('/api/articles', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path: currentPath, content: newContent }),
-            }).catch(() => {});
+            try {
+              // 读磁盘最新再追加，避免 stale state.content 覆盖编辑器最新改动
+              const getRes = await fetch(`/api/articles?path=${encodeURIComponent(currentPath)}`);
+              const getJson = await getRes.json();
+              if (!getJson.ok) return;
+              const newContent = ((getJson.data.content as string) || '') + line;
+              await fetch('/api/articles', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: currentPath, content: newContent }),
+              });
+              setContent(newContent);
+            } catch { /* ignore */ }
           }}
         />
       )}
@@ -980,18 +989,25 @@ function EditorPageInner() {
               setRefreshKey((k) => k + 1);
             } catch (err) { console.error('AI 分类移动失败:', err); }
           }}
-          onApplyTags={(tags) => {
-            const { frontmatter, body } = parseFrontmatter(content);
-            const existing = Array.isArray(frontmatter.tags) ? frontmatter.tags as string[] : [];
-            const merged = Array.from(new Set([...existing, ...tags]));
-            frontmatter.tags = merged;
-            const newContent = serializeFrontmatter(frontmatter, body);
-            setContent(newContent);
-            fetch('/api/articles', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path: currentPath, content: newContent }),
-            }).catch(() => {});
+          onApplyTags={async (tags) => {
+            try {
+              // 读磁盘最新再 merge tags，避免 stale state.content 覆盖编辑器最新改动
+              const getRes = await fetch(`/api/articles?path=${encodeURIComponent(currentPath)}`);
+              const getJson = await getRes.json();
+              if (!getJson.ok) return;
+              const latest = (getJson.data.content as string) || '';
+              const { frontmatter, body } = parseFrontmatter(latest);
+              const existing = Array.isArray(frontmatter.tags) ? frontmatter.tags as string[] : [];
+              const merged = Array.from(new Set([...existing, ...tags]));
+              frontmatter.tags = merged;
+              const newContent = serializeFrontmatter(frontmatter, body);
+              await fetch('/api/articles', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: currentPath, content: newContent }),
+              });
+              setContent(newContent);
+            } catch { /* ignore */ }
           }}
         />
       )}
