@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { TreeMenu } from '@/components/TreeMenu';
 import { CreateArticleModal } from '@/components/CreateArticleModal';
-import { Trash2, Share2, FileText, X, AlertCircle, Upload, ArchiveRestore, Star, Clock, Inbox, BookOpen } from 'lucide-react';
+import { Trash2, Share2, FileText, X, AlertCircle, Upload, ArchiveRestore, Star, Clock, Inbox } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { BreadcrumbDropdown } from '@/components/BreadcrumbDropdown';
@@ -117,6 +117,10 @@ interface SubPage {
 
 function EditorPageInner() {
   const params = useParams();
+  // 打印模式：URL 带 ?print=1 时进入"所见即所得 PDF 模式"——隐藏所有 chrome，
+  // 等内容加载完后自动触发 window.print()。详见 globals.css 中的 [data-print-mode] 规则。
+  const [printMode, setPrintMode] = useState<boolean>(false);
+  const printTriggeredRef = useRef(false);
   const [currentPath, setCurrentPath] = useState<string>('');
   const [currentIdChain, setCurrentIdChain] = useState<string>('');
   const [articleData, setArticleData] = useState<ArticleData | null>(null);
@@ -314,6 +318,25 @@ function EditorPageInner() {
     },
     []
   );
+
+  // 首次挂载时检测 ?print=1（导出排版 PDF 入口打开）。一旦进入打印模式，
+  // 该次会话保持打印模式直到关闭标签页；打印对话框由后续 useEffect 触发。
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('print') === '1') setPrintMode(true);
+  }, []);
+
+  // 打印模式：等内容加载完 + BlockNote 渲染稳定后触发 window.print()。
+  // 浏览器自带的打印对话框处理"另存为 PDF"，所见即所得。
+  useEffect(() => {
+    if (!printMode || printTriggeredRef.current) return;
+    if (loading || !content) return;
+    printTriggeredRef.current = true;
+    // 1500ms 给 BlockNote/图片/字体留足渲染时间；之前测过 800ms 不稳。
+    const timer = setTimeout(() => { window.print(); }, 1500);
+    return () => clearTimeout(timer);
+  }, [printMode, loading, content]);
 
   // 从 URL 路径中的 ID 链加载文章（仅用于首次加载 /editor/id1/id2/id3）
   // Next.js 14.2 的 useParams 不跟踪 pushState，params.ids 每次重渲染又是新引用，
@@ -559,14 +582,17 @@ function EditorPageInner() {
   const breadcrumbParts = currentPath ? currentPath.split('/') : [];
 
   return (
-    <div className="flex h-screen w-full" style={{ background: 'var(--c-bacPri)' }}>
+    <div
+      className="flex h-screen w-full"
+      style={{ background: 'var(--c-bacPri)' }}
+      data-print-mode={printMode ? '1' : undefined}
+    >
       {/* 侧边栏 + 拖拽手柄 */}
       <div
         style={{ width: `${sidebarWidth}px`, background: 'var(--c-bacSec)' }}
-        className="h-full flex-shrink-0 min-w-0 flex"
+        className="nx-print-sidebar h-full flex-shrink-0 min-w-0 flex"
       >
         <TreeMenu
-          mode="editor"
           key={refreshKey}
           onSelectItem={handleSelectItem}
           onCreateArticle={handleCreateArticle}
@@ -605,7 +631,7 @@ function EditorPageInner() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* 顶栏 */}
         <div
-          className="flex items-center px-3 gap-2 flex-shrink-0"
+          className="nx-print-topbar flex items-center px-3 gap-2 flex-shrink-0"
           style={{ height: '45px', background: 'var(--c-bacPri)' }}
         >
           <div className="flex-1 min-w-0">
@@ -684,19 +710,6 @@ function EditorPageInner() {
                 permission={docPermission}
                 onChange={handlePermissionChange}
               />
-            )}
-            {currentPath && currentIdChain && (
-              <button
-                onClick={() => {
-                  window.location.href = `/read/${currentIdChain}`;
-                }}
-                title="切换到阅读模式"
-                aria-label="切换到阅读模式"
-                className="nx-hoverable flex items-center gap-1 text-sm px-2 py-1 rounded"
-                style={{ color: 'var(--c-texSec)' }}
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-              </button>
             )}
             {currentPath && <ExportMenu articlePath={currentPath} />}
             {currentPath && (

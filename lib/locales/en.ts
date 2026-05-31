@@ -44,17 +44,6 @@ const en: Record<string, string> = {
   'editor.deleteFailed': 'Failed to delete',
   'editor.createFailed': 'Failed to create article',
 
-  // Read page
-  'read.selectArticle': 'Select an article to start reading',
-  'read.selectFromSidebar': 'Choose from the sidebar',
-  'read.copyMarkdown': 'Copy Markdown',
-  'read.collapseSidebar': 'Collapse sidebar',
-  'read.expandSidebar': 'Expand sidebar',
-  'read.catalog': 'Catalog',
-  'read.networkError': 'Network error, please retry',
-  'read.loadFailed': 'Failed to load',
-  'read.imagePreview': 'Image preview',
-
   // TOC
   'toc.title': 'Contents',
 
@@ -191,7 +180,6 @@ const en: Record<string, string> = {
   'cmd.recentDocs': 'Recent Documents',
   'cmd.actions': 'Actions',
   'cmd.newDoc': 'New Document',
-  'cmd.goToRead': 'Go to Read Mode',
 
   // Recent docs (Phase 4)
   'recent.title': 'Recently Visited',
@@ -328,7 +316,6 @@ const en: Record<string, string> = {
 
   // Graph View
   'graph.title': 'Knowledge Graph',
-  'graph.toReadMode': 'Read mode',
   'graph.doc': 'Document',
   'graph.folder': 'Folder',
   'graph.nodeCount': '{count} nodes',

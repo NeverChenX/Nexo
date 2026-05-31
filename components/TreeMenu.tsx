@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useModalFocus } from '@/lib/useModalFocus';
-import { ChevronRight, ChevronDown, FileText, Pencil, Trash2, X, AlertCircle, Plus, Search, ArchiveRestore, Home, GitFork, Star, BookOpen, Settings } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, Pencil, Trash2, X, AlertCircle, Plus, Search, ArchiveRestore, Home, GitFork, Star, Settings } from 'lucide-react';
 import { getFavorites, FavoriteItem } from '@/lib/favorites';
 import { useI18n } from '@/lib/i18n';
 
@@ -18,7 +18,6 @@ interface TreeItem {
 }
 
 interface TreeMenuProps {
-  mode?: 'editor' | 'read';
   onSelectItem: (path: string, isFolder: boolean, idChain?: string) => void;
   onCreateArticle: (parentPath: string) => void;
   onQuickCreateArticle?: (parentPath: string) => void;
@@ -176,7 +175,6 @@ interface DropPosition {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function TreeMenu({
-  mode = 'editor',
   onSelectItem,
   onCreateArticle,
   onQuickCreateArticle,
@@ -192,7 +190,6 @@ export function TreeMenu({
   onSettingsClick,
   favRefreshKey,
 }: TreeMenuProps) {
-  const isReadMode = mode === 'read';
   const { t } = useI18n();
   const modalLabels = { tip: t('common.tip'), confirm: t('common.confirm'), input: t('common.input'), cancel: t('common.cancel'), delete: t('common.delete'), ok: t('common.confirm') };
   const [tree, setTree] = useState<TreeItem[]>([]);
@@ -681,12 +678,12 @@ export function TreeMenu({
                   marginLeft: '4px',
                   marginRight: '4px',
                 }}
-                draggable={!isReadMode}
-                onDragStart={isReadMode ? undefined : (e) => handleDragStart(e, item)}
-                onDragEnd={isReadMode ? undefined : handleDragEnd}
-                onDragOver={isReadMode ? undefined : (e) => handleItemDragOver(e, item, parentPath, index)}
-                onDrop={isReadMode ? undefined : (e) => handleItemDrop(e, item, parentPath, index)}
-                onContextMenu={isReadMode ? undefined : (e) => {
+                draggable
+                onDragStart={(e) => handleDragStart(e, item)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleItemDragOver(e, item, parentPath, index)}
+                onDrop={(e) => handleItemDrop(e, item, parentPath, index)}
+                onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   setContextMenu({ path: item.path, isFolder: item.isFolder, x: e.clientX, y: e.clientY });
@@ -704,7 +701,7 @@ export function TreeMenu({
                   <span className="w-4 flex-shrink-0" />
                 )}
                 <button
-                  className={`flex-1 flex items-center gap-2 rounded px-2 text-left min-w-0 transition-colors ${isReadMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}`}
+                  className="flex-1 flex items-center gap-2 rounded px-2 text-left min-w-0 transition-colors cursor-grab active:cursor-grabbing"
                   style={{
                     fontSize: '14px',
                     fontWeight: 400,
@@ -752,21 +749,7 @@ export function TreeMenu({
       {/* 标题 */}
       <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
         <h2 className="px-1" style={{ fontSize: '13px', fontWeight: 600, color: 'var(--c-texPri)', letterSpacing: '-0.01em' }}>Nexo</h2>
-        {!isReadMode && (
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => {
-                if (typeof window === 'undefined') return;
-                const m = window.location.pathname.match(/^\/editor(\/.*)?$/);
-                const target = m && m[1] ? `/read${m[1]}` : '/read';
-                window.location.href = target;
-              }}
-              title={t('graph.toReadMode')}
-              className="nx-hoverable flex items-center justify-center rounded p-1"
-              style={{ color: 'var(--c-icoSec)' }}
-            >
-              <BookOpen className="h-4 w-4" />
-            </button>
+        <div className="flex items-center gap-0.5">
             <button
               onClick={onSearchClick || (() => {})}
               title={t('common.search') + ' (⌘K)'}
@@ -788,11 +771,10 @@ export function TreeMenu({
               <Plus className="h-4 w-4" />
             </button>
           </div>
-        )}
       </div>
 
       {/* 首页入口 */}
-      {!isReadMode && onHomeClick && (
+      {onHomeClick && (
         <div className="px-2 pt-1 space-y-0.5">
           <button
             onClick={onHomeClick}
@@ -812,7 +794,7 @@ export function TreeMenu({
       )}
 
       {/* 收藏文档 */}
-      {!isReadMode && favorites.length > 0 && (
+      {favorites.length > 0 && (
         <div className="px-2 pb-1" style={{ borderBottom: '1px solid var(--c-borSec)' }}>
           <div className="flex items-center gap-1 px-1 py-1">
             <Star style={{ width: '12px', height: '12px', color: 'var(--nx-yellow)', fill: 'var(--nx-yellow)' }} />
@@ -851,7 +833,7 @@ export function TreeMenu({
         ) : (
           renderTree(tree)
         )}
-        {!isReadMode && draggingItem && draggingItem.path.includes('/') && (
+        {draggingItem && draggingItem.path.includes('/') && (
           <div
             className="mt-4 p-3 rounded-md text-center text-sm"
             style={{ border: '2px dashed var(--c-borPri)', color: 'var(--c-texTer)' }}
@@ -862,7 +844,7 @@ export function TreeMenu({
       </div>
 
       {/* 右键菜单 */}
-      {!isReadMode && contextMenu && (() => {
+      {contextMenu && (() => {
         const MENU_W = 180;
         const MENU_H = 120;
         const vw = typeof window !== 'undefined' ? window.innerWidth : 1920;
@@ -912,8 +894,7 @@ export function TreeMenu({
       })()}
 
       {/* 底部工具栏 */}
-      {!isReadMode && (
-        <div className="flex items-center gap-1 px-3 py-2" style={{ borderTop: '1px solid var(--c-borSec)' }}>
+      <div className="flex items-center gap-1 px-3 py-2" style={{ borderTop: '1px solid var(--c-borSec)' }}>
           {onGraphClick && (
             <button
               onClick={onGraphClick}
@@ -948,7 +929,6 @@ export function TreeMenu({
             </button>
           )}
         </div>
-      )}
 
       {/* 自定义弹窗 */}
       {modal && <Modal config={modal} modalLabels={modalLabels} />}

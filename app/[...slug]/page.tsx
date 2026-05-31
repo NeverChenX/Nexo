@@ -3,13 +3,18 @@
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
+// 已删除的功能路径前缀；命中后渲染本地 404 UI，不再静默跳转到 /editor。
+const DEAD_PREFIXES = new Set(['read', 'reader', 'clip']);
+
 export default function CatchAllPage() {
   const router = useRouter();
   const params = useParams();
+  const slugParts = (params.slug as string[]) || [];
+  const isDeadRoute = slugParts.length > 0 && DEAD_PREFIXES.has(slugParts[0]);
 
   useEffect(() => {
-    const slugParts = params.slug as string[];
-    if (!slugParts || slugParts.length === 0) {
+    if (isDeadRoute) return;
+    if (slugParts.length === 0) {
       router.replace('/editor');
       return;
     }
@@ -28,7 +33,6 @@ export default function CatchAllPage() {
       docPath = docPath.slice(0, -3);
     }
 
-    // 通过 API 查询获取 ID 后跳转
     fetch(`/api/articles?path=${encodeURIComponent(docPath)}`)
       .then((r) => r.json())
       .then((json) => {
@@ -41,7 +45,27 @@ export default function CatchAllPage() {
       .catch(() => {
         router.replace('/editor');
       });
-  }, [params, router]);
+  }, [isDeadRoute, slugParts, router]);
+
+  if (isDeadRoute) {
+    return (
+      <div
+        className="h-screen flex flex-col items-center justify-center"
+        style={{ background: 'var(--c-bacPri)' }}
+      >
+        <div style={{ fontSize: '72px', fontWeight: 700, color: 'var(--c-texTer)', letterSpacing: '-0.04em', lineHeight: 1 }}>404</div>
+        <div style={{ fontSize: '14px', color: 'var(--c-texTer)', marginTop: '12px', marginBottom: '20px' }}>
+          该功能已下线
+        </div>
+        <a
+          href="/editor"
+          style={{ fontSize: '13px', color: 'var(--c-texSec)', textDecoration: 'underline', textDecorationColor: 'rgba(0,0,0,0.2)', textUnderlineOffset: '3px' }}
+        >
+          返回编辑器
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div

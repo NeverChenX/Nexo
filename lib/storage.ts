@@ -2,8 +2,6 @@ import fs from 'fs/promises';
 import path from 'path';
 import { invalidateWikiCache } from '@/lib/wiki-cache';
 import { getOrCreateId } from '@/lib/article-id';
-import type { ArticleNode } from '@/lib/reader/chapter-nav';
-
 const WIKI_DATA_DIR = path.join(process.cwd(), 'wiki-data');
 
 /**
@@ -460,50 +458,3 @@ export async function getFolderContentsDetailed(
   });
 }
 
-/**
- * 扁平化所有文章列表（仅文件页面，不含纯文件夹），供 reader chapter-nav 使用。
- * 复用 getRecursiveTree 拿到完整树，再递归展开为 ArticleNode[]。
- *
- * 字段说明：
- * - id        持久化随机 8 位 ID（getOrCreateId 自动分配）
- * - idChain   从根到当前文章每一层 ID 用 '/' 拼接
- * - title     文件 basename（无扩展名），等价于 TreeItem.name
- * - path      完整相对路径（无 .md 扩展），等价于 TreeItem.path
- * - parentPath 父目录相对路径，根目录为 ''
- * - order     当前文章在 (同 parentPath 内的排序顺序) 中的索引（按 TreeItem 默认排序）
- */
-export async function listAllArticles(): Promise<ArticleNode[]> {
-  const tree = await getRecursiveTree();
-  const out: ArticleNode[] = [];
-
-  function walk(nodes: TreeItem[], parentPath: string, parentChain: string): void {
-    // 仅在同一 parentPath 内对叶子文章做 order 编号
-    let leafOrder = 0;
-    for (const n of nodes) {
-      if (n.isFolder) {
-        // 文件夹本身不进入 ArticleNode 列表
-        const childParentPath = n.path; // TreeItem.path 已含完整相对路径
-        const folderId = getOrCreateId(n.path);
-        const childParentChain = parentChain ? `${parentChain}/${folderId}` : folderId;
-        if (n.children && n.children.length > 0) {
-          walk(n.children, childParentPath, childParentChain);
-        }
-      } else {
-        const id = getOrCreateId(n.path);
-        const idChain = parentChain ? `${parentChain}/${id}` : id;
-        out.push({
-          id,
-          idChain,
-          title: n.name,
-          path: n.path,
-          parentPath,
-          order: leafOrder,
-        });
-        leafOrder += 1;
-      }
-    }
-  }
-
-  walk(tree, '', '');
-  return out;
-}

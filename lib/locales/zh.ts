@@ -44,17 +44,6 @@ const zh: Record<string, string> = {
   'editor.deleteFailed': '删除失败',
   'editor.createFailed': '创建文章失败',
 
-  // 阅读页面
-  'read.selectArticle': '选择一篇文章开始阅读',
-  'read.selectFromSidebar': '从左侧目录中选择',
-  'read.copyMarkdown': '复制 Markdown',
-  'read.collapseSidebar': '折叠侧栏',
-  'read.expandSidebar': '展开侧栏',
-  'read.catalog': '目录',
-  'read.networkError': '网络错误，请重试',
-  'read.loadFailed': '加载失败',
-  'read.imagePreview': '图片预览',
-
   // 目录
   'toc.title': '目录',
 
@@ -191,7 +180,6 @@ const zh: Record<string, string> = {
   'cmd.recentDocs': '最近文档',
   'cmd.actions': '操作',
   'cmd.newDoc': '新建文档',
-  'cmd.goToRead': '进入阅读模式',
 
   // 最近文档（Phase 4）
   'recent.title': '最近访问',
@@ -328,7 +316,6 @@ const zh: Record<string, string> = {
 
   // 知识图谱
   'graph.title': '知识图谱',
-  'graph.toReadMode': '阅读模式',
   'graph.doc': '文档',
   'graph.folder': '文件夹',
   'graph.nodeCount': '{count} 个节点',

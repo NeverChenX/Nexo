@@ -1437,3 +1437,91 @@ a:focus:not(:focus-visible) {
   color: rgba(140, 80, 0, 0.45);
   pointer-events: none;
 }
+
+/* ─────────────── 打印模式 / 导出 PDF ─────────────── */
+/* 触发方式 1：URL 带 ?print=1 → root div 加 data-print-mode="1"，屏幕上预览即所见 */
+/* 触发方式 2：浏览器原生打印（Ctrl+P / window.print()）→ @media print 兜底 */
+/* 两种规则用同样的选择器，保持视觉一致。 */
+
+[data-print-mode="1"] .nx-print-sidebar,
+[data-print-mode="1"] .nx-print-topbar,
+[data-print-mode="1"] .nx-print-actionbar,
+[data-print-mode="1"] .nx-smart-link-suggestions,
+[data-print-mode="1"] .nx-resize-handle,
+[data-print-mode="1"] .nx-toc-fab,
+[data-print-mode="1"] .nx-toc-drawer-overlay,
+[data-print-mode="1"] .nx-toc-drawer,
+[data-print-mode="1"] .nx-layout-toc,
+[data-print-mode="1"] .bn-side-menu,
+[data-print-mode="1"] .bn-formatting-toolbar,
+[data-print-mode="1"] .bn-link-toolbar,
+[data-print-mode="1"] .bn-slash-menu,
+[data-print-mode="1"] .bn-color-picker {
+  display: none !important;
+}
+/* 打印模式下用单列布局：内容铺满，去掉左右两侧的 grid 列 */
+[data-print-mode="1"] .nx-layout {
+  display: block !important;
+  padding-top: 0 !important;
+  padding-bottom: 24px !important;
+}
+[data-print-mode="1"] .nx-layout-content {
+  max-width: 100% !important;
+  padding: 0 32px !important;
+}
+[data-print-mode="1"] body {
+  background: #fff !important;
+}
+/* contenteditable 在打印态隐藏 caret，避免出现闪烁竖线 */
+[data-print-mode="1"] [contenteditable="true"] {
+  caret-color: transparent;
+}
+
+@media print {
+  .nx-print-sidebar,
+  .nx-print-topbar,
+  .nx-print-actionbar,
+  .nx-smart-link-suggestions,
+  .nx-resize-handle,
+  .nx-toc-fab,
+  .nx-toc-drawer-overlay,
+  .nx-toc-drawer,
+  .nx-layout-toc,
+  .bn-side-menu,
+  .bn-formatting-toolbar,
+  .bn-link-toolbar,
+  .bn-slash-menu,
+  .bn-color-picker {
+    display: none !important;
+  }
+  html, body {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* root flex 容器在打印态变成普通块流，避免内容被裁掉 */
+  body > div[class*="flex"][class*="h-screen"] {
+    display: block !important;
+    height: auto !important;
+  }
+  .nx-layout {
+    display: block !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .nx-layout-content {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  /* 表格、代码块在分页时尽量保留为整体 */
+  table, pre, blockquote {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  h1, h2, h3 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}

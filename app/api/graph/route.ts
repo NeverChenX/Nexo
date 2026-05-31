@@ -31,8 +31,8 @@ function resolveLinkToPath(href: string, pathSet: Set<string>): string | null {
 
   // 去 query / hash
   let h = raw.split('#')[0].split('?')[0];
-  // /read/<id>/<id>... 或 /editor/<id>/<id>...
-  h = h.replace(/^\/(read|editor|view|write)\//, '');
+  // /editor/<id>/<id>... 等内部路由前缀
+  h = h.replace(/^\/(editor|view|write)\//, '');
   // 前导斜杠 + 尾部 .md
   h = h.replace(/^\//, '').replace(/\.md$/i, '');
   if (!h) return null;

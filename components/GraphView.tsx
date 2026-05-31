@@ -894,7 +894,7 @@ export function GraphView({ isOpen, onClose, onSelectDoc, highlightPath }: Graph
             当前图谱只有文件树父子关系。在文档中：
             <ul style={{ textAlign: 'left', marginTop: '8px', paddingLeft: '20px', fontSize: '12px', color: 'var(--c-texTer)' }}>
               <li>用 <code>[[标题]]</code> 链接其他文档</li>
-              <li>用 <code>[文字](/read/页面ID)</code> 引用</li>
+              <li>用 <code>[文字](/editor/页面ID)</code> 引用</li>
               <li>在正文中用 <code>#标签</code> 给文档归类</li>
             </ul>
           </div>

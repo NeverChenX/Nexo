@@ -70,6 +70,7 @@ export function SmartLinkSuggestions({ articlePath, content, onInsertLink }: Sma
 
   return (
     <div
+      className="nx-smart-link-suggestions"
       style={{
         position: 'fixed',
         bottom: '16px',

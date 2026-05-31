@@ -40,7 +40,9 @@ export function ExportMenu({ articlePath }: ExportMenuProps) {
 
   const handleExportPdf = () => {
     setOpen(false);
-    const url = `/api/export-pdf?path=${encodeURIComponent(articlePath)}`;
+    // 新标签页打开当前编辑器视图 + ?print=1：复用 BlockNote 真实渲染管线（所见即所得），
+    // 隐藏所有 chrome（侧栏 / 顶栏 / TOC / 拖拽手柄 / 工具栏），加载完毕后自动触发浏览器打印对话框。
+    const url = window.location.pathname + '?print=1';
     window.open(url, '_blank');
   };
 

@@ -144,13 +144,75 @@ function transformUserNotesAfterLoad(blocks: any[]): any[] {
 
 // ─────────────── pageLink 持久化（保存在 _index.md 里，保留与其他块的混编顺序） ───────────────
 //
-// 序列化时，每个 pageLink 块写成单独一行 `{{pagelink:相对路径}}`；
-// 反序列化时，先把这种行替换成 placeholder 段落，交给 BlockNote 解析，再把
-// placeholder 段落替换回 pageLink 块。这样标题、段落与子页链接能以任意顺序
-// 混编保存，刷新后位置稳定。
+// 序列化：每个 pageLink 块单独一行 `{{pagelink:相对路径}}`，pagePath 用 wiki 根目录
+// 起算的相对路径（无 .md 后缀，无 ./ 前缀），与 subPages.path 同格式。
+//
+// 反序列化按以下顺序识别 pageLink：
+//   1. `{{pagelink:...}}` placeholder → pageLink 块
+//   2. 段落 / list item 中含有指向 subPages 里某条目的相对 markdown 链接
+//      （`[text](./x.md)` 或 `[text](x.md)` 或 URL 编码版本）→ 整块替换为 pageLink。
+//      该行的 emoji 前缀和"— 描述"会被丢弃，符合 Notion 风格"卡片即引用"的视觉一致性。
+//   3. subPages 里有但前两步都没匹配的 → 追加到末尾（保证新增子页不丢）。
 const PAGELINK_PLACEHOLDER_PREFIX = '@@NX_PL_PLACEHOLDER_';
 const PAGELINK_LINE_RE = /^\{\{pagelink:(.+?)\}\}$/gm;
 const PAGELINK_PLACEHOLDER_RE = new RegExp(`^${PAGELINK_PLACEHOLDER_PREFIX}(\\d+)@@$`);
+
+// 候选块类型：只在这些块里识别"整块 = pageLink"。heading/code/quote 等保留原样。
+const PAGELINK_CANDIDATE_BLOCK_TYPES = new Set([
+  'paragraph',
+  'bulletListItem',
+  'numberedListItem',
+  'checkListItem',
+]);
+
+// 把 markdown 链接的 href 标准化成可以和 subPages 里的 name 或 path 比较的形式。
+// 输入：`./病情综合分析.md` / `./%E7%97%85...%E6%9E%90.md` / `xxx.md` / `xxx/`
+// 输出：`病情综合分析` / `xxx`
+function normalizeRelativeHref(href: string): string {
+  let s = href;
+  try { s = decodeURIComponent(s); } catch { /* 损坏的编码直接用原值，让匹配失败而非抛错 */ }
+  s = s.replace(/^</, '').replace(/>$/, '');
+  s = s.replace(/^\.\//, '');
+  s = s.replace(/[?#].*$/, '');
+  s = s.replace(/\/$/, '');
+  s = s.replace(/\.md$/i, '');
+  return s;
+}
+
+// 判断 href 是否是"指向同 wiki 内部条目的相对路径"。
+// 外链 / 锚点 / 根路径 / 父级引用都不算。
+function isInternalRelativeHref(href: string): boolean {
+  if (!href) return false;
+  if (href.startsWith('http://') || href.startsWith('https://')) return false;
+  if (href.startsWith('mailto:') || href.startsWith('tel:')) return false;
+  if (href.startsWith('#') || href.startsWith('/')) return false;
+  if (href.startsWith('../')) return false;
+  return true;
+}
+
+// 在一个块的 inline content 里找第一个能映射到 subPages 的相对链接。
+function findSubPageLinkInBlock(
+  block: any,
+  subPages: { name: string; path: string }[],
+): { name: string; path: string } | null {
+  if (!block || !Array.isArray(block.content)) return null;
+  for (const node of block.content) {
+    if (!node || node.type !== 'link' || typeof node.href !== 'string') continue;
+    if (!isInternalRelativeHref(node.href)) continue;
+    const normalized = normalizeRelativeHref(node.href);
+    if (!normalized) continue;
+    const match = subPages.find((sp) => sp.name === normalized || sp.path === normalized);
+    if (!match) continue;
+    const linkText = Array.isArray(node.content)
+      ? node.content.map((c: any) => (typeof c?.text === 'string' ? c.text : '')).join('')
+      : '';
+    return {
+      name: (linkText || match.name || '').trim(),
+      path: match.path,
+    };
+  }
+  return null;
+}
 
 async function serializeBlocksWithPageLinks(
   editor: any,
@@ -191,22 +253,11 @@ async function parseMarkdownWithPageLinks(
   const parsed = await editor.tryParseMarkdownToBlocks(processedMd);
   const transformed = transformUserNotesAfterLoad(parsed);
 
-  // 旧数据迁移：_index.md 不含 pageLink 标记，按 subPages 顺序拼到末尾（保留旧行为）
-  if (links.length === 0) {
-    const pageLinkBlocks = subPages.map((sub) => ({
-      type: 'pageLink' as const,
-      props: {
-        pageName: sub.name || sub.path.split('/').pop() || '',
-        pagePath: sub.path,
-      },
-    }));
-    return [...transformed, ...pageLinkBlocks];
-  }
-
-  // 把 placeholder 段落替换回 pageLink 块
   const result: any[] = [];
   const seen = new Set<string>();
+
   for (const b of transformed) {
+    // 1) {{pagelink:}} placeholder → pageLink
     let placeholderIdx = -1;
     if (b.type === 'paragraph' && Array.isArray(b.content) && b.content.length === 1) {
       const first = b.content[0];
@@ -218,16 +269,29 @@ async function parseMarkdownWithPageLinks(
     if (placeholderIdx >= 0) {
       const path = links[placeholderIdx];
       const name = path.split('/').pop() || '';
-      result.push({
-        type: 'pageLink' as const,
-        props: { pageName: name, pagePath: path },
-      });
+      result.push({ type: 'pageLink' as const, props: { pageName: name, pagePath: path } });
       seen.add(path);
-    } else {
-      result.push(b);
+      continue;
     }
+
+    // 2) 段落 / list item 含相对 markdown 链接且能在 subPages 里找到 → 整块替换为 pageLink
+    if (PAGELINK_CANDIDATE_BLOCK_TYPES.has(b.type)) {
+      const extracted = findSubPageLinkInBlock(b, subPages);
+      if (extracted) {
+        result.push({
+          type: 'pageLink' as const,
+          props: { pageName: extracted.name, pagePath: extracted.path },
+        });
+        seen.add(extracted.path);
+        continue;
+      }
+    }
+
+    // 3) 其他块（标题、不含 .md 链接的段落、代码块、引用等）原样保留
+    result.push(b);
   }
-  // subPages 里有但 _index.md 不含的（新增文章），追加到末尾，避免丢失展示
+
+  // 4) subPages 里有但前面没命中的，追加到末尾，避免新增子页丢失
   for (const sub of subPages) {
     if (!seen.has(sub.path)) {
       result.push({
@@ -239,6 +303,7 @@ async function parseMarkdownWithPageLinks(
       });
     }
   }
+
   return result;
 }
 
@@ -1672,7 +1737,7 @@ export function EditorBlockEditor({
             hideActions
           />
           {/* 统一 Action Bar：添加图标 | 添加封面 | 添加属性 */}
-          <div className="flex items-center flex-wrap gap-1" style={{ marginBottom: '8px' }}>
+          <div className="nx-print-actionbar flex items-center flex-wrap gap-1" style={{ marginBottom: '8px' }}>
             {!docProperties.icon && (
               <button
                 type="button"
