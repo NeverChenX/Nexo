@@ -43,7 +43,7 @@ export async function saveSnapshot(articlePath: string, content: string): Promis
   }
 }
 
-export interface SnapshotMeta {
+interface SnapshotMeta {
   timestamp: string;      // filename 的 ISO
   size: number;
 }

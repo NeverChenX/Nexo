@@ -39,7 +39,7 @@ export function translate(locale: Locale, key: string, params?: Record<string, s
 }
 
 // React Context
-export interface I18nContextValue {
+interface I18nContextValue {
   locale: Locale;
   setLocale: (l: Locale) => void;
   t: (key: string, params?: Record<string, string | number>) => string;

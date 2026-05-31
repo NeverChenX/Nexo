@@ -26,7 +26,7 @@ interface QueryAst {
  *   - 引号包裹的视作短语
  * 示例: `萨特 AND 自由 NOT 宗教`
  */
-export function parseQuery(raw: string): QueryAst {
+function parseQuery(raw: string): QueryAst {
   const ast: QueryAst = { must: [], should: [], mustNot: [] };
   const tokens: string[] = [];
   // 简单 tokenize：保留引号短语

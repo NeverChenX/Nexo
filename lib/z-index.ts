@@ -14,5 +14,3 @@ export const Z = {
   MODAL_TOP: 300,          // 搜索、快捷键帮助、嵌套 modal
   LIGHTBOX: 400,           // 图片全屏预览（最上）
 } as const;
-
-export type ZLevel = typeof Z[keyof typeof Z];

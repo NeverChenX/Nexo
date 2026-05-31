@@ -8,7 +8,7 @@ export interface Frontmatter {
   [key: string]: unknown;
 }
 
-export interface ParsedContent {
+interface ParsedContent {
   frontmatter: Frontmatter;
   body: string;
 }
@@ -73,11 +73,3 @@ export function serializeFrontmatter(frontmatter: Frontmatter, body: string): st
   return `---\n${entries.join('\n')}\n---\n${body}`;
 }
 
-/**
- * 更新 markdown 内容中的 tags
- */
-export function updateTags(content: string, tags: string[]): string {
-  const { frontmatter, body } = parseFrontmatter(content);
-  frontmatter.tags = tags;
-  return serializeFrontmatter(frontmatter, body);
-}

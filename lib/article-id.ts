@@ -67,12 +67,6 @@ export function getPathById(id: string): string | null {
   return reg.idToPath[id] ?? null;
 }
 
-/** 通过路径查找 ID（不自动创建） */
-export function getIdByPath(articlePath: string): string | null {
-  const reg = loadRegistry();
-  return reg.pathToId[articlePath] ?? null;
-}
-
 /** 文章/文件夹移动或重命名时更新映射，保持 ID 不变；支持纯目录（自身无 ID）的子路径批量更新 */
 export function updatePath(oldPath: string, newPath: string): void {
   const reg = loadRegistry();
@@ -138,12 +132,6 @@ export function ensureAllArticlesHaveIds(articlePaths: string[]): void {
   if (changed) saveRegistry();
 }
 
-/** 获取注册表全量映射（用于 tree API 批量附带 id） */
-export function getAllPathToId(): Record<string, string> {
-  const reg = loadRegistry();
-  return { ...reg.pathToId };
-}
-
 /**
  * 获取文章的 ID 链：按路径层级，从根到叶每个节点的 ID 用 / 拼接。
  * 例如 "技术/Python/基础" → "abc12345/def67890/ghi12345"
@@ -158,18 +146,3 @@ export function getIdChain(articlePath: string): string {
   return ids.join('/');
 }
 
-/**
- * 从 ID 链解析出最后一个 ID 并查找对应路径。
- * 输入 "abc/def/ghi" → 取 "ghi" → 查找路径
- */
-export function resolveIdChain(idChain: string): string | null {
-  const ids = idChain.split('/').filter(Boolean);
-  if (ids.length === 0) return null;
-  const lastId = ids[ids.length - 1];
-  return getPathById(lastId);
-}
-
-/** 重新加载注册表（当外部修改后调用） */
-export function reloadRegistry(): void {
-  _registry = null;
-}

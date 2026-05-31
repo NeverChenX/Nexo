@@ -7,7 +7,7 @@ const WIKI_DATA_DIR = path.join(process.cwd(), 'wiki-data');
 
 /* ── 类型 ── */
 
-export interface DocEntry {
+interface DocEntry {
   path: string;         // 去掉 .md 的相对路径
   title: string;
   content: string;

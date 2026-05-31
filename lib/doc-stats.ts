@@ -1,7 +1,7 @@
 /**
  * 文档统计：字数、字符数、阅读时间
  */
-export interface DocStats {
+interface DocStats {
   wordCount: number;
   charCount: number;
   charCountNoSpaces: number;

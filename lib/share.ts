@@ -12,7 +12,7 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
   return prev.then(fn).finally(() => release!());
 }
 
-export interface ShareLink {
+interface ShareLink {
   path: string;
   type: 'article' | 'folder';
   createdAt: string;
@@ -22,7 +22,7 @@ export interface ShareLink {
   expiresAt?: string;
 }
 
-export interface CreateShareOptions {
+interface CreateShareOptions {
   pin?: string;              // 明文 PIN
   expiresInDays?: number;    // 7 / 30 / null=永久
 }
@@ -101,11 +101,6 @@ export function verifyPin(link: ShareLink, pin?: string): boolean {
   if (!link.pinHash) return true; // 无密码
   if (!pin) return false;
   return hashPin(pin) === link.pinHash;
-}
-
-export async function shareTokenExists(token: string): Promise<boolean> {
-  const link = await getShareLink(token);
-  return !!link;
 }
 
 export async function getAllShares(): Promise<Array<{ token: string } & ShareLink>> {

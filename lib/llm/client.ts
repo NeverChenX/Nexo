@@ -7,12 +7,12 @@ import { getLlmConfig, type LlmConfig, type ThinkingMode } from './config';
  * 所有应用内 AI 功能（写作、问答、解释、分类）都应走此函数。
  */
 
-export interface ChatMessage {
+interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
 
-export interface ChatOptions {
+interface ChatOptions {
   prompt?: string;
   messages?: ChatMessage[];
   temperature?: number;
@@ -24,7 +24,7 @@ export interface ChatOptions {
   override?: Partial<LlmConfig>;
 }
 
-export interface ChatResult {
+interface ChatResult {
   text: string;
   usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
   raw: unknown;

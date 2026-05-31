@@ -149,7 +149,7 @@ export async function writeArticle(
  * 将叶子页面（page.md）转换为父页面（page/_index.md）。
  * 当第一个子页面被添加到叶子页面时自动调用。
  */
-export async function promoteToParent(articlePath: string): Promise<void> {
+async function promoteToParent(articlePath: string): Promise<void> {
   const filePath = safePath(`${articlePath}.md`);
   const dirPath = safePath(articlePath);
   const indexPath = path.join(dirPath, '_index.md');

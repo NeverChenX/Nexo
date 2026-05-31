@@ -10,7 +10,7 @@ import path from 'path';
  *   3. 代码内默认值
  */
 
-export const LLM_CONFIG_PATH = path.join(process.cwd(), 'wiki-data', '_config', 'llm.json');
+const LLM_CONFIG_PATH = path.join(process.cwd(), 'wiki-data', '_config', 'llm.json');
 
 export type ThinkingMode = 'disabled' | 'enabled' | 'auto' | '';
 
